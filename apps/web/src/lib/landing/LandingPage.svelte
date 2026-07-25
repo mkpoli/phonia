@@ -3,7 +3,7 @@
   // Markup/CSS/JS live as strings so the design iterates in the gallery and
   // ships here unchanged; Svelte owns mounting, cleanup, and app entry.
   import { onMount } from 'svelte';
-  import { LANDING_CSS, LANDING_HTML, LANDING_JS } from './landing-v20-assets';
+  import { LANDING_CSS, LANDING_HTML, LANDING_JS } from './landing-assets';
 
   interface Props {
     /** Swap straight to the app when this page is shown inline at the app
