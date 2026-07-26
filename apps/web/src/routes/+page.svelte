@@ -222,6 +222,9 @@
     client = new WasmCoreClient();
     store = new ProjectStore(client);
     playback = new WebAudioPlayback();
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'phonia:ready' }, '*');
+    }
     const saved = localStorage.getItem('phonix-theme');
     theme =
       saved === 'dark' || saved === 'light'
