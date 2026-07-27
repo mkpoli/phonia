@@ -1,4 +1,8 @@
 <script lang="ts">
+  import IconLibrary from '~icons/lucide/library';
+  import IconActivity from '~icons/lucide/activity';
+  import IconChartSpline from '~icons/lucide/chart-spline';
+
   interface Props {
     /** Which mode is current; drives aria-current and the active visual state. */
     active: 'library' | 'analyze';
@@ -17,8 +21,14 @@
     // Plots stays disabled until the figure view exists; its click is inert.
     { id: 'plots', label: 'Plots' }
     // Studio and Script are planned modes; add each as one more entry here
-    // plus one icon block below.
+    // plus one icon import above.
   ];
+
+  const ICONS = { library: IconLibrary, analyze: IconActivity, plots: IconChartSpline };
+
+  // Remounting the mark restarts its draw-in; hovering the brand replays it
+  // with the landing's shortened replay delays.
+  let replays = $state(0);
 
   function disabledFor(id: ModeId): boolean {
     if (id === 'analyze') return !analyzeEnabled;
@@ -39,23 +49,32 @@
 </script>
 
 <nav class="rail" aria-label="Modes">
-  <a class="brand" href="/landing" aria-label="Phonia — about this app">
-    <svg
-      class="mark"
-      aria-hidden="true"
-      viewBox="0 0 64 64"
-      fill="none"
-      stroke-width="6"
-      stroke-linecap="round"
-    >
-      <path class="m-ring" pathLength="100" stroke="currentColor" d="M46.5 12.9 A 22 22 0 1 0 52.2 20.4" />
-      <path class="m-wave" pathLength="100" stroke="currentColor" d="M14 36 C20 24 25 24 31 32 C37 40 41 40 50 24" />
-      <circle class="m-dot" cx="52" cy="20" r="5" />
-    </svg>
+  <a
+    class="brand"
+    href="/landing"
+    aria-label="Phonia — about this app"
+    onmouseenter={() => (replays += 1)}
+  >
+    {#key replays}
+      <svg
+        class="mark"
+        class:replay={replays > 0}
+        aria-hidden="true"
+        viewBox="0 0 64 64"
+        fill="none"
+        stroke-width="6"
+        stroke-linecap="round"
+      >
+        <path class="m-ring" pathLength="100" stroke="currentColor" d="M46.5 12.9 A 22 22 0 1 0 52.2 20.4" />
+        <path class="m-wave" pathLength="100" stroke="currentColor" d="M14 36 C20 24 25 24 31 32 C37 40 41 40 50 24" />
+        <circle class="m-dot" cx="52" cy="20" r="5" />
+      </svg>
+    {/key}
   </a>
 
   <div class="modes">
     {#each MODES as mode (mode.id)}
+      {@const Icon = ICONS[mode.id]}
       <button
         type="button"
         class="mode"
@@ -65,24 +84,7 @@
         title={titleFor(mode.id, mode.label)}
         onclick={() => navigate(mode.id)}
       >
-        <!-- Icons share the brand mark's language: 64 grid, stroke 6, round
-             caps, one signal motif per glyph, gold for the point of interest. -->
-        {#if mode.id === 'library'}
-          <svg aria-hidden="true" viewBox="0 0 64 64" fill="none" stroke-width="6" stroke-linecap="round">
-            <rect class="i-frame" pathLength="100" stroke="currentColor" x="10" y="14" width="44" height="36" rx="7" />
-            <path class="i-sig" pathLength="100" stroke="currentColor" d="M22 28 V36 M32 24 V40 M42 29 V35" />
-          </svg>
-        {:else if mode.id === 'analyze'}
-          <svg aria-hidden="true" viewBox="0 0 64 64" fill="none" stroke-width="6" stroke-linecap="round">
-            <path class="i-sig" pathLength="100" stroke="currentColor" d="M8 36 C16 20 22 20 30 32 C38 44 44 44 56 22" />
-          </svg>
-        {:else if mode.id === 'plots'}
-          <svg aria-hidden="true" viewBox="0 0 64 64" fill="none" stroke-width="6" stroke-linecap="round">
-            <path class="i-frame" pathLength="100" stroke="currentColor" d="M14 10 V50 H54" />
-            <path class="i-sig" pathLength="100" stroke="currentColor" d="M22 42 C28 40 32 32 38 27 C42 23 46 20 49 18" />
-            <circle class="i-dot" cx="50" cy="17" r="4.5" />
-          </svg>
-        {/if}
+        <Icon aria-hidden="true" />
         <span>{mode.label}</span>
       </button>
     {/each}
@@ -117,8 +119,7 @@
     color: var(--accent);
   }
 
-  .m-dot,
-  .i-dot {
+  .m-dot {
     fill: var(--warn);
   }
 
@@ -146,9 +147,9 @@
       border-color var(--t-fast);
   }
 
-  .mode svg {
-    width: 1.2rem;
-    height: 1.2rem;
+  .mode :global(svg) {
+    width: 1.15rem;
+    height: 1.15rem;
   }
 
   .mode span {
@@ -175,8 +176,9 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    /* The brand draws itself in once on load — ring, then wave, then the
-       gold dot pops and settles into a slow breathe. Hovering re-pops the dot. */
+    /* The brand draws itself in once on load — ring, then wave, then the gold
+       dot pops and settles into a slow breathe. Hovering remounts the mark and
+       replays the sequence with the landing's shorter replay delays. */
     .mark .m-ring {
       stroke-dasharray: 100;
       stroke-dashoffset: 100;
@@ -199,36 +201,27 @@
         dotbreathe 4.4s ease-in-out 3s infinite;
     }
 
-    .brand:hover .m-dot {
-      opacity: 1;
-      transform: scale(1);
-      animation: dotpop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    .mark.replay .m-ring {
+      animation-delay: 0s;
     }
 
-    /* Becoming active replays the same sequence in miniature: the glyph
-       nudges, its frame draws, the signal traces through it, gold pops last. */
-    .mode.active svg {
+    .mark.replay .m-wave {
+      animation-delay: 0.3s;
+    }
+
+    .mark.replay .m-dot {
+      animation-delay: 0.85s, 2.5s;
+    }
+
+    /* Becoming active retraces the icon's strokes and gives the glyph a nudge. */
+    .mode.active :global(svg) {
       animation: nudge 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    .mode.active .i-frame {
+    .mode.active :global(svg *) {
       stroke-dasharray: 100;
       stroke-dashoffset: 100;
-      animation: draw 0.5s cubic-bezier(0.55, 0.06, 0.25, 1) forwards;
-    }
-
-    .mode.active .i-sig {
-      stroke-dasharray: 100;
-      stroke-dashoffset: 100;
-      animation: draw 0.45s cubic-bezier(0.55, 0.06, 0.25, 1) 0.14s forwards;
-    }
-
-    .mode.active .i-dot {
-      opacity: 0;
-      transform-box: fill-box;
-      transform-origin: center;
-      transform: scale(0);
-      animation: dotpop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.42s forwards;
+      animation: draw 0.55s cubic-bezier(0.55, 0.06, 0.25, 1) forwards;
     }
   }
 
