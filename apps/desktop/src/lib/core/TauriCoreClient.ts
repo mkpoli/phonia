@@ -123,7 +123,9 @@ export class TauriCoreClient implements CoreClientLike {
     const buffer = await invoke<ArrayBuffer>('spectrogram_tile', { id: num(id), req });
     const clamped = new Uint8ClampedArray(buffer);
     const image = new ImageData(clamped, req.widthPx, req.heightPx);
-    return createImageBitmap(image);
+    // Tile row 0 is the lowest frequency; the canvas draws row 0 at the top,
+    // so the bitmap flips to put 0 Hz at the bottom of the pane.
+    return createImageBitmap(image, { imageOrientation: 'flipY' });
   }
 
   async pitchTrack(id: AudioId, floorHz: number, ceilingHz: number): Promise<PitchTrackData> {

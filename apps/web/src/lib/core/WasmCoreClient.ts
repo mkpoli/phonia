@@ -132,7 +132,9 @@ export class WasmCoreClient implements CoreClient {
     const clamped = new Uint8ClampedArray(result.rgba.byteLength);
     clamped.set(result.rgba);
     const image = new ImageData(clamped, result.width, result.height);
-    return createImageBitmap(image);
+    // Tile row 0 is the lowest frequency; the canvas draws row 0 at the top,
+    // so the bitmap flips to put 0 Hz at the bottom of the pane.
+    return createImageBitmap(image, { imageOrientation: 'flipY' });
   }
 
   /**
