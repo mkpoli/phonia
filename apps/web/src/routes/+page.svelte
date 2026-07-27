@@ -55,6 +55,12 @@
 
   let audio = $state<AudioInfo | null>(null);
   const mode = $derived<'library' | 'analyze'>(route === 'editor' ? 'analyze' : 'library');
+  // Home group holding the open project, shown as the breadcrumb's first crumb.
+  const projectGroupName = $derived.by(() => {
+    const p = project;
+    if (!p) return undefined;
+    return homeIndex.groups.find((g) => g.members.includes(p.id))?.name;
+  });
 
   function handleModeNavigate(next: 'library' | 'analyze') {
     if (next === 'library') {
@@ -1430,6 +1436,7 @@
       }}
       onExit={backToProject}
       projectName={project?.name}
+      projectGroupName={projectGroupName}
       recordings={recordingChoices}
       groups={project?.groups}
       currentRecordingId={recording?.mediaId ?? null}

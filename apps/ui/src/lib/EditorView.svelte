@@ -21,6 +21,7 @@
   import WaveformPane from './WaveformPane.svelte';
   import { registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
+  import { isGroup } from './library';
   import { BUILTIN_PALETTES, newRampTemplate, type CustomRamp, type PaletteSelection } from './palette';
   import {
     clampViewport,
@@ -74,6 +75,8 @@
     onAnnotationChange?: (id: bigint | null) => void;
     onExit?: () => void;
     projectName?: string;
+    /** Name of the home group the project belongs to; leads the breadcrumb. */
+    projectGroupName?: string;
     recordings?: RecordingChoice[];
     /** The library tree, so the recording switcher mirrors the corpus's grouping. */
     groups?: LibraryNode[];
@@ -120,6 +123,7 @@
     onAnnotationChange,
     onExit,
     projectName,
+    projectGroupName,
     recordings,
     groups,
     currentRecordingId,
@@ -141,6 +145,25 @@
     const file = files?.item(0);
     if (file) onFile(file);
   }
+
+  // Innermost library group holding the current recording, for the breadcrumb.
+  const recordingGroupName = $derived.by<string | null>(() => {
+    if (!groups || currentRecordingId == null) return null;
+    let found: string | null = null;
+    const walk = (nodes: LibraryNode[], trail: string[]): boolean => {
+      for (const node of nodes) {
+        if (isGroup(node)) {
+          if (walk(node.Group.children, [...trail, node.Group.name])) return true;
+        } else if (node.Media === currentRecordingId) {
+          found = trail.at(-1) ?? null;
+          return true;
+        }
+      }
+      return false;
+    };
+    walk(groups, []);
+    return found;
+  });
 
   function skipToStart() {
     onCursorChange?.(0);
@@ -783,12 +806,21 @@
   data-visible-freq={viewport.f1.toFixed(6)}
   data-cursor-time={cursorTime.toFixed(6)}
 >
-    <nav class="breadcrumb" data-testid="editor-breadcrumb">
+    <nav class="breadcrumb" aria-label="Location" data-testid="editor-breadcrumb">
+      {#if projectGroupName}
+        <span class="crumb-group" data-testid="crumb-project-group">{projectGroupName}</span>
+        <span class="crumb-sep" aria-hidden="true">›</span>
+      {/if}
       {#if onExit}
-        <button type="button" class="crumb-back" data-testid="back-corpus" onclick={() => onExit?.()}>
+        <button type="button" class="crumb-back" data-testid="back-corpus" title="Back to the project" onclick={() => onExit?.()}>
           <IconArrowLeft aria-hidden="true" />
           <span>{projectName ?? 'Project'}</span>
         </button>
+        <span class="crumb-sep" aria-hidden="true">›</span>
+      {/if}
+      {#if recordingGroupName}
+        <span class="crumb-group" data-testid="crumb-recording-group">{recordingGroupName}</span>
+        <span class="crumb-slash" aria-hidden="true">/</span>
       {/if}
       {#if recordings && recordings.length > 0 && onSwitchRecording}
         <RecordingSwitcher
@@ -1101,6 +1133,27 @@
 
   .crumb-current {
     color: var(--muted);
+  }
+
+  .crumb-group {
+    color: var(--muted);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .crumb-sep {
+    color: var(--muted);
+    opacity: 0.6;
+    user-select: none;
+  }
+
+  .crumb-slash {
+    color: var(--muted);
+    opacity: 0.6;
+    margin: 0 -0.25rem;
+    user-select: none;
   }
 
   .crumb-spacer {
