@@ -54,6 +54,10 @@
   // this length the auto-run is paused so a long file does not tie up the
   // worker. Viewport-following analysis for long files is a later step.
   const MAX_OVERLAY_SECONDS = 120;
+  // Head start for the pane tiles: whole-signal passes enter the serial
+  // worker queue after the first waveform/spectrogram requests, so the view
+  // paints before the long analyses run.
+  const WHOLE_SIGNAL_DELAY_MS = 300;
   let tooLong = $derived((audio?.duration ?? 0) > MAX_OVERLAY_SECONDS);
 
   function reportStats() {
@@ -93,20 +97,26 @@
       })
       .catch(() => {});
     // Phase 2: the whole-signal track, which replaces the preview and drives
-    // the clipping badge.
-    client
-      .pitchTrack(id, floorHz, ceilingHz)
-      .then((track) => {
-        if (cancelled) return;
-        fullArrived = true;
-        pitch = track;
-        pitchMaxHz = track.maxHz;
-        pitchDataToken += 1;
-        reportStats();
-      })
-      .catch(() => {});
+    // the clipping badge. It waits a beat so the first waveform and
+    // spectrogram requests enter the serial worker queue ahead of it — on a
+    // slow WASM tier this whole-signal pass takes seconds, and anything
+    // queued behind it stays blank for that long.
+    const fullTimer = setTimeout(() => {
+      client
+        .pitchTrack(id, floorHz, ceilingHz)
+        .then((track) => {
+          if (cancelled) return;
+          fullArrived = true;
+          pitch = track;
+          pitchMaxHz = track.maxHz;
+          pitchDataToken += 1;
+          reportStats();
+        })
+        .catch(() => {});
+    }, WHOLE_SIGNAL_DELAY_MS);
     return () => {
       cancelled = true;
+      clearTimeout(fullTimer);
     };
   });
 
@@ -122,16 +132,19 @@
       return;
     }
     let cancelled = false;
-    client
-      .formantTrack(id, ceilingHz, maxFormants, smoothed)
-      .then((track) => {
-        if (cancelled) return;
-        formant = track;
-        reportStats();
-      })
-      .catch(() => {});
+    const timer = setTimeout(() => {
+      client
+        .formantTrack(id, ceilingHz, maxFormants, smoothed)
+        .then((track) => {
+          if (cancelled) return;
+          formant = track;
+          reportStats();
+        })
+        .catch(() => {});
+    }, WHOLE_SIGNAL_DELAY_MS);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   });
 
@@ -144,15 +157,18 @@
       return;
     }
     let cancelled = false;
-    client
-      .intensityTrack(id, floorHz)
-      .then((track) => {
-        if (cancelled) return;
-        intensity = track;
-      })
-      .catch(() => {});
+    const timer = setTimeout(() => {
+      client
+        .intensityTrack(id, floorHz)
+        .then((track) => {
+          if (cancelled) return;
+          intensity = track;
+        })
+        .catch(() => {});
+    }, WHOLE_SIGNAL_DELAY_MS);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   });
 

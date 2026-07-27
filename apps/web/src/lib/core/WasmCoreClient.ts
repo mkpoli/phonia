@@ -100,6 +100,8 @@ export class WasmCoreClient implements CoreClient {
   }
 
   appendSamples(recordingId: bigint, samples: Float32Array): Promise<void> {
+    // A live take's audio grows under analysis; cached tracks go stale.
+    this.#invalidateTracks();
     const buffer = samples.buffer.slice(
       samples.byteOffset,
       samples.byteOffset + samples.byteLength
@@ -108,6 +110,7 @@ export class WasmCoreClient implements CoreClient {
   }
 
   finishRecording(recordingId: bigint, name: string): Promise<FinishedRecordingResult> {
+    this.#invalidateTracks();
     return this.#call({ method: 'finishRecording', recordingId, name });
   }
 
@@ -155,8 +158,37 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'spectrogramProbe', audioId: id, req });
   }
 
+  // Whole-signal analysis tracks are pure functions of the audio and their
+  // parameters, so they memoize on the client: a pane remount (switching to
+  // the library and back) re-asks for identical tracks, and without the memo
+  // every re-entry recomputes them — seconds of blank panes on a slow WASM
+  // tier, since the serial worker queue holds tiles behind the recompute.
+  // Promises are cached, so concurrent identical requests also coalesce.
+  #trackCache = new Map<string, Promise<unknown>>();
+  static readonly #TRACK_CACHE_MAX = 24;
+
+  #memoTrack<T>(key: string, compute: () => Promise<T>): Promise<T> {
+    const hit = this.#trackCache.get(key);
+    if (hit) return hit as Promise<T>;
+    const value = compute();
+    // A failed computation must not pin its rejection in the cache.
+    value.catch(() => this.#trackCache.delete(key));
+    this.#trackCache.set(key, value);
+    if (this.#trackCache.size > WasmCoreClient.#TRACK_CACHE_MAX) {
+      const oldest = this.#trackCache.keys().next().value;
+      if (oldest !== undefined) this.#trackCache.delete(oldest);
+    }
+    return value;
+  }
+
+  #invalidateTracks() {
+    this.#trackCache.clear();
+  }
+
   pitchTrack(id: AudioId, floorHz: number, ceilingHz: number): Promise<PitchTrackData> {
-    return this.#call({ method: 'pitchTrack', audioId: id, floorHz, ceilingHz });
+    return this.#memoTrack(`pitch:${id}:${floorHz}:${ceilingHz}`, () =>
+      this.#call({ method: 'pitchTrack', audioId: id, floorHz, ceilingHz })
+    );
   }
 
   pitchTrackSpan(
@@ -175,11 +207,15 @@ export class WasmCoreClient implements CoreClient {
     maxFormants: number,
     smoothed: boolean
   ): Promise<FormantTrackData> {
-    return this.#call({ method: 'formantTrack', audioId: id, ceilingHz, maxFormants, smoothed });
+    return this.#memoTrack(`formant:${id}:${ceilingHz}:${maxFormants}:${smoothed}`, () =>
+      this.#call({ method: 'formantTrack', audioId: id, ceilingHz, maxFormants, smoothed })
+    );
   }
 
   intensityTrack(id: AudioId, floorHz: number): Promise<IntensityTrackData> {
-    return this.#call({ method: 'intensityTrack', audioId: id, floorHz });
+    return this.#memoTrack(`intensity:${id}:${floorHz}`, () =>
+      this.#call({ method: 'intensityTrack', audioId: id, floorHz })
+    );
   }
 
   bandEnergy(id: AudioId, t0: number, t1: number, f0: number, f1: number): Promise<number> {
