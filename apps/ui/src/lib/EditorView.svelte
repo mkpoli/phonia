@@ -909,7 +909,6 @@
           {client}
           {audio}
           {viewport}
-          {cursorTime}
           {theme}
           {selection}
           onSelectionChange={handleSelectionChange}
@@ -923,7 +922,6 @@
         {client}
         {audio}
         {viewport}
-        {cursorTime}
         {theme}
         palette={activePalette}
         {overlayParams}
@@ -948,6 +946,14 @@
         {onAnnotationChange}
         onIntervalActivate={handleTierInterval}
       />
+
+      {#if audio && cursorTime >= viewport.t0 && cursorTime <= viewport.t1}
+        <div
+          class="playhead"
+          data-testid="playhead"
+          style:left="{((cursorTime - viewport.t0) / (viewport.t1 - viewport.t0)) * 100}%"
+        ></div>
+      {/if}
     </main>
 
     {#if audio}
@@ -1162,6 +1168,7 @@
   }
 
   .timeline {
+    position: relative;
     min-width: 0;
     min-height: 0;
     display: grid;
@@ -1170,4 +1177,16 @@
     touch-action: none;
   }
 
+  /* One playhead spans every time-aligned pane; the host advances cursorTime
+     each animation frame during playback, so this is the moving line. */
+  .playhead {
+    position: absolute;
+    top: 1.5rem;
+    bottom: 0;
+    width: 1px;
+    margin-left: -0.5px;
+    background: var(--warn);
+    pointer-events: none;
+    z-index: 6;
+  }
 </style>

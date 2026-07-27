@@ -17,7 +17,6 @@
     client: CoreClientLike | null;
     audio: AudioInfo | null;
     viewport: ViewportState;
-    cursorTime: number;
     theme: 'light' | 'dark';
     selection?: Selection | null;
     onSelectionChange?: (selection: Selection | null) => void;
@@ -34,7 +33,6 @@
     client,
     audio,
     viewport,
-    cursorTime,
     theme,
     selection = null,
     onSelectionChange,
@@ -290,22 +288,6 @@
       ctx.lineTo(x, mid - data[i * 2] * scale);
     }
     ctx.stroke();
-    drawCursor2d(ctx, width, height, vp);
-  }
-
-  function drawCursor2d(
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    vp: DrawnViewport
-  ) {
-    if (!audio || cursorTime < vp.t0 || cursorTime > vp.t1) return;
-    const x = ((cursorTime - vp.t0) / (vp.t1 - vp.t0)) * width;
-    ctx.strokeStyle = cssVar('--warn', '#b45309');
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
   }
 
   function drawWebgl(width: number, height: number, data: Float32Array, vp: DrawnViewport) {
@@ -420,7 +402,6 @@
         ctx.fill();
       }
     }
-    drawCursor2d(ctx, width, height, vp);
   }
 
   function drawWebglRaw(

@@ -28,7 +28,6 @@
     client: CoreClientLike | null;
     audio: AudioInfo | null;
     viewport: ViewportState;
-    cursorTime: number;
     theme: 'light' | 'dark';
     palette: PaletteSelection;
     overlayParams: OverlayParams;
@@ -50,7 +49,6 @@
     client,
     audio,
     viewport,
-    cursorTime,
     theme,
     palette,
     overlayParams,
@@ -261,18 +259,6 @@
     ctx.fillRect(0, 0, width, height);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(bitmap, 0, 0, width, height);
-    drawCursor2d(ctx, width, height, dpr);
-  }
-
-  function drawCursor2d(ctx: CanvasRenderingContext2D, width: number, height: number, dpr: number) {
-    if (!audio || cursorTime < viewport.t0 || cursorTime > viewport.t1) return;
-    const x = ((cursorTime - viewport.t0) / (viewport.t1 - viewport.t0)) * width;
-    ctx.strokeStyle = cssVar('--warn', '#b45309');
-    ctx.lineWidth = Math.max(1, dpr);
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
   }
 
   function drawWebgl(width: number, height: number, bitmap: ImageBitmap) {
