@@ -28,6 +28,7 @@
     clampViewport,
     defaultOverlayParams,
     defaultViewport,
+    formatSampleRate,
     type AudioInfo,
     type CoreClientLike,
     type OverlayParams,
@@ -101,6 +102,8 @@
      *  the loop control (the host has no loop-capable playback engine). */
     loopEnabled?: boolean;
     onLoopToggle?: () => void;
+    /** True while an edit awaits autosave; drives the header's saved state. */
+    dirty?: boolean;
   }
 
   let {
@@ -137,13 +140,18 @@
     recording = false,
     recordingElapsedSeconds = 0,
     loopEnabled = false,
-    onLoopToggle
+    onLoopToggle,
+    dirty
   }: Props = $props();
 
   // Overlay tracks bubbled up from the spectrogram pane, sampled at the
   // playhead for the layer cards' live values.
   let overlayTracks = $state<OverlayTracks>(emptyOverlayTracks());
   const cursorSample = $derived(sampleTracks(overlayTracks, cursorTime));
+
+  const channelsLabel = $derived(
+    audio ? (audio.channels === 1 ? 'mono' : audio.channels === 2 ? 'stereo' : `${audio.channels} ch`) : ''
+  );
 
   let fileInput = $state<HTMLInputElement | null>(null);
 
@@ -845,6 +853,17 @@
 
       <div class="crumb-spacer"></div>
 
+      {#if audio}
+        <span class="meta-chips" data-testid="audio-meta"
+          >{formatSampleRate(audio.sampleRate)} · {channelsLabel}</span
+        >
+      {/if}
+      {#if dirty !== undefined}
+        <span class="save-state" class:dirty data-testid="save-state">
+          {dirty ? 'Saving…' : 'Saved'}
+        </span>
+      {/if}
+
       <label class="crumb-import" title="Open a recording">
         <IconFolderOpen aria-hidden="true" />
         <span>Open</span>
@@ -1162,6 +1181,25 @@
     opacity: 0.6;
     margin: 0 -0.25rem;
     user-select: none;
+  }
+
+  .meta-chips {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .save-state {
+    color: var(--muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .save-state.dirty {
+    color: var(--warn);
   }
 
   .crumb-spacer {

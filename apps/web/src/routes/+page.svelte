@@ -1494,6 +1494,7 @@
       recordingElapsedSeconds={recordElapsed}
       {loopEnabled}
       onLoopToggle={handleLoopToggle}
+      {dirty}
     />
   {/if}
 </div>
