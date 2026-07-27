@@ -991,6 +991,8 @@
         onResetFrequency={resetFrequencyCeiling}
         onDoubleZoom={handleDoubleZoom}
         onTracks={(next) => (overlayTracks = next)}
+        {readout}
+        {formantMeans}
         ghostWaveform={!waveformVisible}
       />
       <TierPane

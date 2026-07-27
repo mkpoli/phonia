@@ -5,6 +5,7 @@
     OverlayParams,
     OverlayStats,
     Selection,
+    SelectionReadout,
     SpectrogramTileRequest,
     ViewportState
   } from './types';
@@ -44,6 +45,10 @@
     onDoubleZoom?: (intent: 'zoom' | 'fit') => void;
     /** Reports the fetched overlay tracks, so the host can sample them too. */
     onTracks?: (tracks: OverlayTracks) => void;
+    /** Selection aggregates; hovering inside the selection shows these. */
+    readout?: SelectionReadout | null;
+    /** Tracked-formant means over the selection (F1, F2, …). */
+    formantMeans?: number[] | null;
     /** Traces the waveform envelope over the spectrogram (waveform pane hidden). */
     ghostWaveform?: boolean;
   }
@@ -63,6 +68,8 @@
     onResetFrequency,
     onDoubleZoom,
     onTracks,
+    readout = null,
+    formantMeans = null,
     ghostWaveform = false
   }: Props = $props();
 
@@ -89,6 +96,16 @@
     hover ? viewport.f1 - (hover.y / Math.max(1, hover.h)) * (viewport.f1 - viewport.f0) : 0
   );
   const hoverSample = $derived(sampleTracks(tracks, hoverTime));
+
+  // Hovering inside the active selection's time span reads out the range's
+  // aggregates rather than the instant under the pointer.
+  const hoverInSelection = $derived(
+    !!selection &&
+      !!readout &&
+      hover !== null &&
+      hoverTime >= selection.t0 &&
+      hoverTime <= selection.t1
+  );
 
   function fmtHz(value: number): string {
     if (value >= 1000) {
@@ -392,20 +409,40 @@
     <div
       class="hover-readout"
       data-testid="hover-readout"
+      data-in-selection={hoverInSelection}
       style:left="{Math.min(hover.x + 14, hover.w - 170)}px"
       style:top="{hover.y > hover.h - 104 ? hover.y - 92 : hover.y + 16}px"
     >
-      <span class="hr-pos">{hoverTime.toFixed(3)} s · {Math.round(hoverHz)} Hz</span>
-      {#if hoverSample.f0Hz !== null}
-        <span class="hr-row pitch">F0 {hoverSample.f0Hz.toFixed(1)} Hz</span>
-      {/if}
-      {#if hoverSample.formantsHz.length > 0}
-        <span class="hr-row formant">
-          {hoverSample.formantsHz.map((f, i) => `F${i + 1} ${Math.round(f)}`).join(' · ')}
+      {#if hoverInSelection && selection && readout}
+        <span class="hr-pos">
+          Selection {selection.t0.toFixed(3)}–{selection.t1.toFixed(3)} s · {Math.round(
+            readout.duration * 1000
+          )} ms
         </span>
-      {/if}
-      {#if hoverSample.intensityDb !== null}
-        <span class="hr-row intensity">{hoverSample.intensityDb.toFixed(1)} dB</span>
+        {#if readout.f0MeanHz !== null}
+          <span class="hr-row pitch">F0 {readout.f0MeanHz.toFixed(1)} Hz</span>
+        {/if}
+        {#if formantMeans && formantMeans.length >= 2}
+          <span class="hr-row formant">
+            {formantMeans.slice(0, 3).map((f, i) => `F${i + 1} ${Math.round(f)}`).join(' · ')}
+          </span>
+        {/if}
+        {#if readout.intensityMeanDb !== null}
+          <span class="hr-row intensity">{readout.intensityMeanDb.toFixed(1)} dB</span>
+        {/if}
+      {:else}
+        <span class="hr-pos">{hoverTime.toFixed(3)} s · {Math.round(hoverHz)} Hz</span>
+        {#if hoverSample.f0Hz !== null}
+          <span class="hr-row pitch">F0 {hoverSample.f0Hz.toFixed(1)} Hz</span>
+        {/if}
+        {#if hoverSample.formantsHz.length > 0}
+          <span class="hr-row formant">
+            {hoverSample.formantsHz.map((f, i) => `F${i + 1} ${Math.round(f)}`).join(' · ')}
+          </span>
+        {/if}
+        {#if hoverSample.intensityDb !== null}
+          <span class="hr-row intensity">{hoverSample.intensityDb.toFixed(1)} dB</span>
+        {/if}
       {/if}
     </div>
   {/if}
