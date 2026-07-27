@@ -547,7 +547,10 @@
 <style>
   .pane {
     position: relative;
-    min-height: 11rem;
+    /* The timeline grid track owns the height; a floor here would push the
+       pane past its track and over the panes below on short windows. */
+    height: 100%;
+    min-height: 0;
     border-bottom: 1px solid var(--chrome-strong);
     background: var(--canvas);
     overflow: hidden;
@@ -557,7 +560,6 @@
     display: block;
     width: 100%;
     height: 100%;
-    min-height: 11rem;
     transform-origin: 0 0;
     will-change: transform;
   }
