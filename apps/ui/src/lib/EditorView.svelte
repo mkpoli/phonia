@@ -22,6 +22,7 @@
   import { registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
   import { isGroup } from './library';
+  import { emptyOverlayTracks, sampleTracks, type OverlayTracks } from './tracks';
   import { BUILTIN_PALETTES, newRampTemplate, type CustomRamp, type PaletteSelection } from './palette';
   import {
     clampViewport,
@@ -138,6 +139,11 @@
     loopEnabled = false,
     onLoopToggle
   }: Props = $props();
+
+  // Overlay tracks bubbled up from the spectrogram pane, sampled at the
+  // playhead for the layer cards' live values.
+  let overlayTracks = $state<OverlayTracks>(emptyOverlayTracks());
+  const cursorSample = $derived(sampleTracks(overlayTracks, cursorTime));
 
   let fileInput = $state<HTMLInputElement | null>(null);
 
@@ -965,6 +971,7 @@
         onScaleFrequency={scaleFrequencyCeiling}
         onResetFrequency={resetFrequencyCeiling}
         onDoubleZoom={handleDoubleZoom}
+        onTracks={(next) => (overlayTracks = next)}
         ghostWaveform={!waveformVisible}
       />
       <TierPane
@@ -999,6 +1006,7 @@
         stats={overlayStats}
         {readout}
         {formantMeans}
+        cursor={cursorSample}
         onClose={() => (inspectorOpen = false)}
       />
     {/if}

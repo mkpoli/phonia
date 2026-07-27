@@ -5,6 +5,7 @@
   import IconChevronRight from '~icons/lucide/chevron-right';
   import IconX from '~icons/lucide/x';
   import type { OverlayParams, OverlayStats, SelectionReadout } from './types';
+  import type { TrackSample } from './tracks';
 
   interface Props {
     params: OverlayParams;
@@ -13,10 +14,14 @@
     readout?: SelectionReadout | null;
     /** Provisional tracked-formant means over the selection (F1, F2, …). */
     formantMeans?: number[] | null;
+    /** Track values at the playhead; each layer's live value when no
+     *  selection readout supplies one. */
+    cursor?: TrackSample | null;
     onClose?: () => void;
   }
 
-  let { params, stats, readout = null, formantMeans = null, onClose }: Props = $props();
+  let { params, stats, readout = null, formantMeans = null, cursor = null, onClose }: Props =
+    $props();
 
   // A ceiling clips the data once a tracked value crowds it. Tracked maxima
   // sit a little under the ceiling even when the true value is cut off, so the
@@ -62,12 +67,17 @@
 
   // Raw Burg candidates carry no cross-frame identity (that is exactly why
   // speckles, not a line, are the default mark), so there is no single
-  // current F1/F2 to report unless the smoothed track supplies one.
-  let formantLive = $derived(
-    formantMeans && formantMeans.length >= 2
-      ? `${formantMeans[0].toFixed(0)} · ${formantMeans[1].toFixed(0)} Hz`
-      : '—'
-  );
+  // current F1/F2 to report unless the smoothed track supplies one. At the
+  // playhead the two lowest candidates of that frame stand in.
+  let formantLive = $derived.by(() => {
+    if (formantMeans && formantMeans.length >= 2) {
+      return `${formantMeans[0].toFixed(0)} · ${formantMeans[1].toFixed(0)} Hz`;
+    }
+    if (!readout && cursor && cursor.formantsHz.length >= 2) {
+      return `${cursor.formantsHz[0].toFixed(0)} · ${cursor.formantsHz[1].toFixed(0)} Hz`;
+    }
+    return '—';
+  });
 </script>
 
 <aside class="inspector" data-testid="inspector" aria-label="Analysis layers">
@@ -104,7 +114,7 @@
         <span class="chev" class:open={expanded.pitch}><IconChevronRight aria-hidden="true" /></span>
         Pitch
       </button>
-      <span class="live-value">{hz(readout?.f0MeanHz, 1)}</span>
+      <span class="live-value">{hz(readout ? readout.f0MeanHz : cursor?.f0Hz, 1)}</span>
     </div>
     {#if expanded.pitch}
       <div class="params">
@@ -262,7 +272,7 @@
         <span class="chev" class:open={expanded.intensity}><IconChevronRight aria-hidden="true" /></span>
         Intensity
       </button>
-      <span class="live-value">{db(readout?.intensityMeanDb)}</span>
+      <span class="live-value">{db(readout ? readout.intensityMeanDb : cursor?.intensityDb)}</span>
     </div>
     {#if expanded.intensity}
       <div class="params">
