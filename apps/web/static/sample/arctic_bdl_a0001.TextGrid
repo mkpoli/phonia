@@ -4,9 +4,55 @@ Object class = "TextGrid"
 xmin = 0
 xmax = 3.2350625
 tiers? <exists>
-size = 1
+size = 2
 item []:
     item [1]:
+        class = "IntervalTier"
+        name = "words"
+        xmin = 0
+        xmax = 3.2350625
+        intervals: size = 10
+        intervals [1]:
+            xmin = 0
+            xmax = 0.04
+            text = ""
+        intervals [2]:
+            xmin = 0.04
+            xmax = 0.41
+            text = "Author"
+        intervals [3]:
+            xmin = 0.41
+            xmax = 0.51
+            text = "of"
+        intervals [4]:
+            xmin = 0.51
+            xmax = 0.61
+            text = "the"
+        intervals [5]:
+            xmin = 0.61
+            xmax = 1.06
+            text = "danger"
+        intervals [6]:
+            xmin = 1.06
+            xmax = 1.55
+            text = "trail"
+        intervals [7]:
+            xmin = 1.55
+            xmax = 1.99
+            text = "Philip"
+        intervals [8]:
+            xmin = 1.99
+            xmax = 2.58
+            text = "Steels"
+        intervals [9]:
+            xmin = 2.58
+            xmax = 3.18
+            text = "etc."
+        intervals [10]:
+            xmin = 3.18
+            xmax = 3.2350625
+            text = ""
+    item [2]:
         class = "IntervalTier"
         name = "phones"
         xmin = 0
@@ -15,23 +61,23 @@ item []:
         intervals [1]:
             xmin = 0
             xmax = 0.04
-            text = "pau"
+            text = ""
         intervals [2]:
             xmin = 0.04
             xmax = 0.2
-            text = "ao"
+            text = "ɔ"
         intervals [3]:
             xmin = 0.2
             xmax = 0.3
-            text = "th"
+            text = "θ"
         intervals [4]:
             xmin = 0.3
             xmax = 0.41
-            text = "er"
+            text = "ɚ"
         intervals [5]:
             xmin = 0.41
             xmax = 0.45
-            text = "ah"
+            text = "ʌ"
         intervals [6]:
             xmin = 0.45
             xmax = 0.51
@@ -39,11 +85,11 @@ item []:
         intervals [7]:
             xmin = 0.51
             xmax = 0.57
-            text = "dh"
+            text = "ð"
         intervals [8]:
             xmin = 0.57
             xmax = 0.61
-            text = "ax"
+            text = "ə"
         intervals [9]:
             xmin = 0.61
             xmax = 0.72
@@ -51,7 +97,7 @@ item []:
         intervals [10]:
             xmin = 0.72
             xmax = 0.84
-            text = "ey"
+            text = "eɪ"
         intervals [11]:
             xmin = 0.84
             xmax = 0.91
@@ -59,11 +105,11 @@ item []:
         intervals [12]:
             xmin = 0.91
             xmax = 1
-            text = "jh"
+            text = "dʒ"
         intervals [13]:
             xmin = 1
             xmax = 1.06
-            text = "er"
+            text = "ɚ"
         intervals [14]:
             xmin = 1.06
             xmax = 1.19
@@ -71,11 +117,11 @@ item []:
         intervals [15]:
             xmin = 1.19
             xmax = 1.29
-            text = "r"
+            text = "ɹ"
         intervals [16]:
             xmin = 1.29
             xmax = 1.41
-            text = "ey"
+            text = "eɪ"
         intervals [17]:
             xmin = 1.41
             xmax = 1.55
@@ -87,7 +133,7 @@ item []:
         intervals [19]:
             xmin = 1.72
             xmax = 1.77
-            text = "ih"
+            text = "ɪ"
         intervals [20]:
             xmin = 1.77
             xmax = 1.85
@@ -95,7 +141,7 @@ item []:
         intervals [21]:
             xmin = 1.85
             xmax = 1.9
-            text = "ax"
+            text = "ə"
         intervals [22]:
             xmin = 1.9
             xmax = 1.99
@@ -111,7 +157,7 @@ item []:
         intervals [25]:
             xmin = 2.17
             xmax = 2.31
-            text = "iy"
+            text = "i"
         intervals [26]:
             xmin = 2.31
             xmax = 2.47
@@ -123,7 +169,7 @@ item []:
         intervals [28]:
             xmin = 2.58
             xmax = 2.63
-            text = "eh"
+            text = "ɛ"
         intervals [29]:
             xmin = 2.63
             xmax = 2.7
@@ -135,7 +181,7 @@ item []:
         intervals [31]:
             xmin = 2.8
             xmax = 2.89
-            text = "eh"
+            text = "ɛ"
         intervals [32]:
             xmin = 2.89
             xmax = 2.93
@@ -143,12 +189,12 @@ item []:
         intervals [33]:
             xmin = 2.93
             xmax = 3.06
-            text = "er"
+            text = "ɚ"
         intervals [34]:
             xmin = 3.06
             xmax = 3.18
-            text = "ax"
+            text = "ə"
         intervals [35]:
             xmin = 3.18
             xmax = 3.2350625
-            text = "pau"
+            text = ""

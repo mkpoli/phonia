@@ -53,15 +53,21 @@ function wavDurationSeconds(path: string): number {
 
 /**
  * Converts a CMU ARCTIC `.lab` forced-alignment file into a TextGrid with a
- * single `phones` interval tier, boundaries taken verbatim from the
+ * `words` tier (the alignment's phones grouped under the prompt's words) and
+ * a `phones` tier in IPA notation, boundaries taken verbatim from the
  * alignment. See `tests/fixtures/alignments/` in `MANIFEST.md` for
- * provenance and license.
+ * provenance, derivation, and license.
  */
 function labToTextGrid(labPath: string, wavPath: string, outPath: string): void {
   const duration = wavDurationSeconds(wavPath);
   const result = spawnSync(
     'cargo',
-    ['run', '-p', 'phx-textgrid', '--example', 'lab_to_textgrid', '--', labPath, String(duration), 'phones', outPath],
+    [
+      'run', '-p', 'phx-textgrid', '--example', 'lab_to_textgrid', '--',
+      labPath, String(duration), 'phones', outPath,
+      '--words', join(alignmentsDir, 'arctic_a0001.words'),
+      '--map', join(alignmentsDir, 'arpabet-ipa.map')
+    ],
     { cwd: root, stdio: 'inherit' }
   );
   if (result.status !== 0) {

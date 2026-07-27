@@ -21,9 +21,10 @@ material is present.
 
 ### `arctic_slt_a0001.wav`
 
-- Source: CMU_ARCTIC, `cmu_us_slt_arctic`, utterance `arctic_a0001` ("Not
-  at this particular case, Tom, apologized Whittemore."), female US
-  English speaker.
+- Source: CMU_ARCTIC, `cmu_us_slt_arctic`, utterance `arctic_a0001`
+  ("Author of the danger trail, Philip Steels, etc." — every ARCTIC voice
+  records the same prompt list, so `arctic_a0001` is this sentence for
+  `slt` as for `bdl`), female US English speaker.
 - URL: <http://festvox.org/cmu_arctic/cmu_arctic/cmu_us_slt_arctic/wav/arctic_a0001.wav>
 - License: CMU_ARCTIC license, identical text to the `bdl` COPYING file
   above. Full text at
@@ -121,12 +122,36 @@ Genuine forced-alignment label files published by CMU ARCTIC alongside its
 audio, kept separate from the hand-authored `textgrids/` fixtures below
 because these carry real phonetic content and must never be edited by hand.
 `tests/fixtures/scripts/build_sample_project.ts` converts each into a
-TextGrid via `phx-textgrid`'s own writer
+two-tier TextGrid via `phx-textgrid`'s own writer
 (`crates/phx-textgrid/examples/lab_to_textgrid.rs`) for the web app's bundled
 sample project; the conversion preserves every boundary time verbatim and
 only extends the final interval to the audio's true duration (a forced
 aligner's last labeled frame commonly falls short of the file's sample count
-by a few milliseconds of untranscribed trailing silence).
+by a few milliseconds of untranscribed trailing silence). The `words` tier
+groups the alignment's phone sequence under the prompt's words per
+`arctic_a0001.words`, so every word boundary is an attested phone boundary;
+the `phones` tier carries the same intervals relabeled from ARPABET to IPA
+per `arpabet-ipa.map`. The converter validates the word spec against the
+alignment's exact phone sequence and aborts on any mismatch.
+
+### `arctic_a0001.words`
+
+- The `arctic_a0001` prompt ("Author of the danger trail, Philip Steels,
+  etc.", from CMU_ARCTIC's `cmuarctic.data` prompt list,
+  <http://festvox.org/cmu_arctic/cmuarctic.data>), one word per line
+  followed by its phones as they appear in the published alignments. Both
+  speakers' `arctic_a0001` alignments attest the identical phone sequence,
+  so one spec serves both.
+- License: original work, project license (MIT OR Apache-2.0); the prompt
+  sentence itself is CMU_ARCTIC's.
+
+### `arpabet-ipa.map`
+
+- ARPABET-to-IPA notation table for General American English, one
+  `<arpabet> <ipa>` pair per line; `pau` maps to the empty label (Praat's
+  convention for silence). Stress is not encoded because the ARCTIC label
+  files carry none; `er` maps to `ɚ` uniformly for the same reason.
+- License: original work, project license (MIT OR Apache-2.0).
 
 ### `arctic_bdl_a0001.lab`
 
