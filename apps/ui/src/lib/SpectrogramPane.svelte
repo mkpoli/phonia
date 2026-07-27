@@ -409,7 +409,9 @@
       {/if}
     </div>
   {/if}
-  <div class="pane-label">Spectrogram</div>
+  <div class="pane-label">
+    Spectrogram · {fmtHz(viewport.f0)}–{fmtHz(viewport.f1)} · 5 ms · 70 dB
+  </div>
   {#if notice}
     <div class="notice">{notice}</div>
   {/if}
