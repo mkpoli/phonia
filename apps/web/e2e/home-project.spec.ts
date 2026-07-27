@@ -108,6 +108,9 @@ test('opening the sample repeatedly always reaches a rendered editor', async ({ 
   // picks the paragraph, clicks nothing, and fails silently. The control is
   // only ever addressed by its test id here, and the whole open-to-render
   // path runs several times so a one-in-N flake fails the suite too.
+  //
+  // The sample opens as a temporary project: an untouched one never lists on
+  // the home screen, so every lap starts from the empty state again.
   await page.goto('/?app=1');
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -126,8 +129,7 @@ test('opening the sample repeatedly always reaches a rendered editor', async ({ 
 
     await page.getByTestId('back-corpus').click();
     await page.getByTestId('back-home').click();
-    await expect(page.getByTestId('project-card')).toHaveCount(1);
-    await page.getByTestId('delete-project').click();
+    await expect(page.getByTestId('project-card')).toHaveCount(0);
   }
 });
 

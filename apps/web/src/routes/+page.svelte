@@ -92,6 +92,8 @@
   let busy = $state(false);
   let busyLabel = $state('');
   let dirty = $state(false);
+  // Id of the temporary sample project while it is still unpromoted.
+  let ephemeralId = $state<string | null>(null);
   let recovery = $state<{ id: string; name: string } | null>(null);
 
   // Deletion runs through the journaled detach; the row hides during the undo
@@ -571,6 +573,9 @@
     files: Array<{ path: string; name: string; mime: string }>;
   }
 
+  // The sample opens as a temporary project: hidden from the home screen and
+  // swept from disk on the next sample open. The first real change the user
+  // makes promotes it into a permanent project (see promoteEphemeral).
   async function openSampleProject() {
     if (!store) return;
     error = '';
@@ -588,7 +593,12 @@
           return new File([await res.arrayBuffer()], entry.name, { type: entry.mime });
         })
       );
-      const created = await store.create(manifest.name);
+      project = null;
+      resetAutosaveBaseline();
+      while (autosaveBusy) await new Promise((resolve) => setTimeout(resolve, 50));
+      await store.sweepEphemeral();
+      const created = await store.create(manifest.name, { ephemeral: true });
+      ephemeralId = created.id;
       project = created;
       route = 'project';
       await store.importFiles(created, files, () => {
@@ -601,6 +611,18 @@
       report(caught);
     } finally {
       busy = false;
+    }
+  }
+
+  // A temporary sample project becomes permanent on the first real change.
+  async function promoteEphemeral() {
+    if (!store || !project || project.id !== ephemeralId) return;
+    ephemeralId = null;
+    try {
+      await store.promote(project.id);
+      await refreshProjects();
+    } catch (caught) {
+      report(caught);
     }
   }
 
@@ -684,6 +706,7 @@
         project = { ...current };
       });
       project = { ...current };
+      await promoteEphemeral();
       resetAutosaveBaseline();
       await refreshProjects();
     } catch (caught) {
@@ -749,6 +772,7 @@
         project = { ...current };
       });
       project = { ...current };
+      await promoteEphemeral();
       resetAutosaveBaseline();
       await refreshProjects();
       const added = current.recordings[before] ?? current.recordings.at(-1);
@@ -800,6 +824,7 @@
       await store.writeProjectFile(project);
       dirty = false;
       pendingSince = null;
+      await promoteEphemeral();
       await refreshProjects();
     } catch (caught) {
       report(caught);
@@ -820,7 +845,10 @@
     if (!store) return;
     try {
       await store.rename(id, name);
-      if (project?.id === id) project = { ...project, name: name.trim() || project.name };
+      if (project?.id === id) {
+        project = { ...project, name: name.trim() || project.name };
+        await promoteEphemeral();
+      }
       await refreshProjects();
     } catch (caught) {
       report(caught);
@@ -832,6 +860,7 @@
     try {
       await store.renameRecording(project, mediaId, name);
       project = { ...project };
+      await promoteEphemeral();
       if (recording?.mediaId === mediaId) {
         recording = project.recordings.find((entry) => entry.mediaId === mediaId) ?? recording;
         if (audio && recording) audio = { ...audio, name: recording.name };
@@ -955,6 +984,7 @@
     try {
       await store.updateLibrary(project, next);
       project = { ...project };
+      await promoteEphemeral();
     } catch (caught) {
       report(caught);
     }
@@ -1005,6 +1035,7 @@
     try {
       await store.updateRecordingMetadata(project, mediaId, metadata);
       project = { ...project };
+      await promoteEphemeral();
     } catch (caught) {
       report(caught);
     }
@@ -1019,6 +1050,7 @@
     try {
       await store.updateProjectMetadata(project, metadata);
       project = { ...project };
+      await promoteEphemeral();
     } catch (caught) {
       report(caught);
     }
@@ -1101,6 +1133,7 @@
         lastChange = now;
         pendingSince ??= now;
         dirty = true;
+        await promoteEphemeral();
       }
       if (pendingSince !== null) {
         const quiet = now - lastChange >= AUTOSAVE_DEBOUNCE_MS;

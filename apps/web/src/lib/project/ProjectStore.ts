@@ -43,6 +43,14 @@ const HOME_FILE = 'home.json';
 const PROJECT_FILE = 'project.phxproj';
 /** Sidecar suffix, matching `phx_project::AUTOSAVE_SUFFIX`. */
 const AUTOSAVE_SUFFIX = '.autosave';
+
+/**
+ * Marker file for a temporary project (the sample opened from the landing
+ * embed or the home screen). A marked project never lists on the home screen,
+ * and the next temporary open sweeps it from disk; the first real user change
+ * removes the marker, making the project permanent.
+ */
+const EPHEMERAL_MARKER = 'ephemeral';
 /** Subdirectory holding the referenced recordings. */
 const AUDIO_DIR = 'audio';
 
@@ -151,6 +159,15 @@ async function writeFileBytes(
   await writable.close();
 }
 
+async function hasFile(dir: FileSystemDirectoryHandle, name: string): Promise<boolean> {
+  try {
+    await dir.getFileHandle(name);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Streams a File into OPFS without buffering it whole in memory.
  *
@@ -223,6 +240,7 @@ export class ProjectStore {
     for await (const [id, handle] of entries(dir)) {
       if (handle.kind !== 'directory') continue;
       const child = handle as FileSystemDirectoryHandle;
+      if (await hasFile(child, EPHEMERAL_MARKER)) continue;
       const projectBytes = await readFileBytes(child, PROJECT_FILE);
       const sidecarBytes = await readFileBytes(child, PROJECT_FILE + AUTOSAVE_SUFFIX);
       const project = projectBytes ? await this.#client.loadProjectContainer(projectBytes) : null;
@@ -272,7 +290,7 @@ export class ProjectStore {
   }
 
   /** Creates an empty project directory and writes its base container. */
-  async create(name: string): Promise<ProjectState> {
+  async create(name: string, opts?: { ephemeral?: boolean }): Promise<ProjectState> {
     const id = crypto.randomUUID();
     await projectDir(id, true);
     const project: ProjectState = {
@@ -288,7 +306,44 @@ export class ProjectStore {
       groups: []
     };
     await this.writeProjectFile(project);
+    if (opts?.ephemeral) {
+      const dir = await projectDir(id, false);
+      await writeFileBytes(dir, EPHEMERAL_MARKER, new Uint8Array());
+    }
     return project;
+  }
+
+  /** Makes a temporary project permanent: it lists and persists like any other. */
+  async promote(id: string): Promise<void> {
+    const dir = await projectDir(id, false);
+    try {
+      await dir.removeEntry(EPHEMERAL_MARKER);
+    } catch {
+      // Already permanent.
+    }
+  }
+
+  /** Deletes every project still carrying the temporary marker. */
+  async sweepEphemeral(): Promise<void> {
+    let dir: FileSystemDirectoryHandle;
+    try {
+      dir = await projectsDir(false);
+    } catch {
+      return;
+    }
+    const doomed: string[] = [];
+    for await (const [id, handle] of entries(dir)) {
+      if (handle.kind !== 'directory') continue;
+      if (await hasFile(handle as FileSystemDirectoryHandle, EPHEMERAL_MARKER)) doomed.push(id);
+    }
+    for (const id of doomed) {
+      try {
+        await dir.removeEntry(id, { recursive: true });
+      } catch {
+        // A dying handle (another tab mid-write) keeps its directory until the
+        // next sweep.
+      }
+    }
   }
 
   /**
