@@ -11,6 +11,7 @@
     ViewportState
   } from './types';
   import { resizeCanvas } from './rendering';
+  import type { OverlayTracks } from './tracks';
 
   interface Props {
     client: CoreClientLike | null;
@@ -19,9 +20,11 @@
     theme: 'light' | 'dark';
     params: OverlayParams;
     onStats?: (stats: OverlayStats) => void;
+    /** Reports the fetched tracks, so readouts can sample what is drawn. */
+    onTracks?: (tracks: OverlayTracks) => void;
   }
 
-  let { client, audio, viewport, theme, params, onStats }: Props = $props();
+  let { client, audio, viewport, theme, params, onStats, onTracks }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
   let renderToken = $state(0);
@@ -35,6 +38,10 @@
   // Increments whenever fresh pitch data (preview or full) is applied; a test
   // hook for the visible-span re-render latency.
   let pitchDataToken = $state(0);
+
+  $effect(() => {
+    onTracks?.({ pitch, formant, intensity });
+  });
 
   // Track colours carry their own dark halo, so they read over any colormap
   // in either theme without being tuned per background.

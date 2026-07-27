@@ -19,6 +19,7 @@
     slippyTransform,
     type DrawnViewport
   } from './rendering';
+  import { emptyOverlayTracks, sampleTracks, type OverlayTracks } from './tracks';
   import FrequencyRuler from './FrequencyRuler.svelte';
   import GhostWaveform from './GhostWaveform.svelte';
   import SelectionLayer from './SelectionLayer.svelte';
@@ -41,6 +42,8 @@
     onResetFrequency?: () => void;
     /** Double-click intent: zoom to the active box, or fit the whole file. */
     onDoubleZoom?: (intent: 'zoom' | 'fit') => void;
+    /** Reports the fetched overlay tracks, so the host can sample them too. */
+    onTracks?: (tracks: OverlayTracks) => void;
     /** Traces the waveform envelope over the spectrogram (waveform pane hidden). */
     ghostWaveform?: boolean;
   }
@@ -59,8 +62,41 @@
     onScaleFrequency,
     onResetFrequency,
     onDoubleZoom,
+    onTracks,
     ghostWaveform = false
   }: Props = $props();
+
+  // The pointer's pane position, for the hover readout. Cleared on leave and
+  // suppressed while a drag is in flight so it never rides a selection.
+  let hover = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+  let hoverHeld = $state(false);
+  let tracks = $state<OverlayTracks>(emptyOverlayTracks());
+
+  function hoverMove(event: PointerEvent) {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    hover = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      w: rect.width,
+      h: rect.height
+    };
+  }
+
+  const hoverTime = $derived(
+    hover ? viewport.t0 + (hover.x / Math.max(1, hover.w)) * (viewport.t1 - viewport.t0) : 0
+  );
+  const hoverHz = $derived(
+    hover ? viewport.f1 - (hover.y / Math.max(1, hover.h)) * (viewport.f1 - viewport.f0) : 0
+  );
+  const hoverSample = $derived(sampleTracks(tracks, hoverTime));
+
+  function fmtHz(value: number): string {
+    if (value >= 1000) {
+      const khz = value / 1000;
+      return `${Number.isInteger(khz) ? khz : khz.toFixed(1)} kHz`;
+    }
+    return `${Math.round(value)} Hz`;
+  }
 
   // A custom ramp resolves to its 768-byte LUT; a built-in resolves to its name.
   // The id keys the tile cache so a palette change — or a live edit of a custom
@@ -308,7 +344,14 @@
   }
 </script>
 
-<section class="pane">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<section
+  class="pane"
+  onpointermove={hoverMove}
+  onpointerleave={() => (hover = null)}
+  onpointerdown={() => (hoverHeld = true)}
+  onpointerup={() => (hoverHeld = false)}
+>
   {#key usingCanvas2d}
     <canvas
       bind:this={canvas}
@@ -322,7 +365,18 @@
   {#if ghostWaveform}
     <GhostWaveform {client} {audio} {viewport} {theme} />
   {/if}
-  <TrackOverlay {client} {audio} {viewport} {theme} params={overlayParams} onStats={onOverlayStats} />
+  <TrackOverlay
+    {client}
+    {audio}
+    {viewport}
+    {theme}
+    params={overlayParams}
+    onStats={onOverlayStats}
+    onTracks={(next) => {
+      tracks = next;
+      onTracks?.(next);
+    }}
+  />
   <FrequencyRuler {viewport} onScale={onScaleFrequency} onReset={onResetFrequency} />
   {#if audio && onSelectionChange}
     <SelectionLayer
@@ -333,6 +387,27 @@
       {onSeek}
       {onDoubleZoom}
     />
+  {/if}
+  {#if audio && hover && !hoverHeld}
+    <div
+      class="hover-readout"
+      data-testid="hover-readout"
+      style:left="{Math.min(hover.x + 14, hover.w - 170)}px"
+      style:top="{hover.y > hover.h - 104 ? hover.y - 92 : hover.y + 16}px"
+    >
+      <span class="hr-pos">{hoverTime.toFixed(3)} s · {Math.round(hoverHz)} Hz</span>
+      {#if hoverSample.f0Hz !== null}
+        <span class="hr-row pitch">F0 {hoverSample.f0Hz.toFixed(1)} Hz</span>
+      {/if}
+      {#if hoverSample.formantsHz.length > 0}
+        <span class="hr-row formant">
+          {hoverSample.formantsHz.map((f, i) => `F${i + 1} ${Math.round(f)}`).join(' · ')}
+        </span>
+      {/if}
+      {#if hoverSample.intensityDb !== null}
+        <span class="hr-row intensity">{hoverSample.intensityDb.toFixed(1)} dB</span>
+      {/if}
+    </div>
   {/if}
   <div class="pane-label">Spectrogram</div>
   {#if notice}
@@ -358,6 +433,40 @@
     height: 100%;
     transform-origin: 0 0;
     will-change: transform;
+  }
+
+  .hover-readout {
+    position: absolute;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    background: var(--chip-bg);
+    border: 1px solid var(--chrome-strong);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.35;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .hover-readout .hr-pos {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .hover-readout .hr-row.pitch {
+    color: #9cc4ff;
+  }
+
+  .hover-readout .hr-row.formant {
+    color: #ff5a52;
+  }
+
+  .hover-readout .hr-row.intensity {
+    color: #ffcc33;
   }
 
   .pane-label,
