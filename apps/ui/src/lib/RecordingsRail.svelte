@@ -1,8 +1,10 @@
 <script lang="ts">
   import IconCheck from '~icons/lucide/check';
+  import IconFolderOpen from '~icons/lucide/folder-open';
   import IconListMusic from '~icons/lucide/list-music';
   import IconPanelLeftClose from '~icons/lucide/panel-left-close';
   import IconPanelLeftOpen from '~icons/lucide/panel-left-open';
+  import IconSearch from '~icons/lucide/search';
   import WaveThumb from './WaveThumb.svelte';
   import { formatSampleRate, formatTime, type AudioId, type CoreClientLike } from './types';
 
@@ -22,9 +24,20 @@
     open: boolean;
     onToggle: () => void;
     onSwitch: (mediaId: number) => void;
+    /** Opens the host's audio file picker; absent hides the Import button. */
+    onImport?: () => void;
   }
 
-  let { client, theme, recordings, currentRecordingId, open, onToggle, onSwitch }: Props = $props();
+  let { client, theme, recordings, currentRecordingId, open, onToggle, onSwitch, onImport }: Props =
+    $props();
+
+  let query = $state('');
+
+  const visible = $derived.by(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return recordings;
+    return recordings.filter((r) => r.name.toLowerCase().includes(needle));
+  });
 
   // Comparison marking is local UI state: the engine has no cross-file
   // analysis path yet (selectionReadout and voiceReport both take a single
@@ -70,8 +83,22 @@
       </button>
     </header>
 
+    <label class="filter">
+      <IconSearch aria-hidden="true" />
+      <input
+        type="search"
+        data-testid="recordings-rail-filter"
+        placeholder="Filter recordings…"
+        aria-label="Filter recordings by name"
+        bind:value={query}
+      />
+    </label>
+
     <ul class="list">
-      {#each recordings as rec (rec.mediaId)}
+      {#if visible.length === 0}
+        <li class="no-match" data-testid="recordings-rail-no-match">No recording matches.</li>
+      {/if}
+      {#each visible as rec (rec.mediaId)}
         {@const active = rec.mediaId === currentRecordingId}
         {@const marked = compareSet.has(rec.mediaId)}
         <li>
@@ -113,6 +140,15 @@
         {compareSet.size} marked for comparison. Overlay comparison across recordings is not
         implemented yet.
       </p>
+    {/if}
+
+    {#if onImport}
+      <footer class="foot">
+        <button type="button" class="import" data-testid="recordings-rail-import" onclick={onImport}>
+          <IconFolderOpen aria-hidden="true" />
+          <span>Import audio</span>
+        </button>
+      </footer>
     {/if}
   {:else}
     <button
@@ -234,6 +270,36 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .filter {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--chrome-strong);
+    color: var(--muted);
+  }
+
+  .filter :global(svg) {
+    flex: none;
+    font-size: 0.8rem;
+  }
+
+  .filter input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 0.74rem;
+    padding: 0.15rem 0;
+    outline: none;
+  }
+
+  .filter input::placeholder {
+    color: var(--muted);
+  }
+
   .list {
     flex: 1 1 auto;
     min-height: 0;
@@ -241,6 +307,46 @@
     padding: 0.3rem;
     list-style: none;
     overflow-y: auto;
+  }
+
+  .no-match {
+    padding: 0.5rem 0.4rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+
+  .foot {
+    flex: none;
+    padding: 0.4rem 0.5rem;
+    border-top: 1px solid var(--chrome-strong);
+    background: var(--panel-soft);
+  }
+
+  .import {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    min-height: 1.8rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.74rem;
+    font-weight: 500;
+    transition:
+      background var(--t-fast),
+      border-color var(--t-fast);
+  }
+
+  .import:hover {
+    background: var(--panel-soft);
+    border-color: color-mix(in oklab, var(--accent) 32%, var(--chrome-strong));
+  }
+
+  .import :global(svg) {
+    font-size: 0.85rem;
   }
 
   .row {

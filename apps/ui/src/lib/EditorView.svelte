@@ -889,6 +889,7 @@
         open={railOpen}
         onToggle={() => (railOpen = !railOpen)}
         onSwitch={(mediaId) => onSwitchRecording?.(mediaId)}
+        onImport={() => fileInput?.click()}
       />
     {/if}
 
