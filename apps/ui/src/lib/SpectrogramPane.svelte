@@ -140,7 +140,6 @@
 
   const cache = new Map<string, ImageBitmap>();
   const monitor = new FrameTimeMonitor();
-  const tileSeconds = 2;
 
   // The viewport the current canvas pixels were rasterized for. Null until the
   // first tile lands, when the canvas carries no transform.
@@ -204,16 +203,20 @@
     if (!client || !audio) return null;
     const cssWidth = Math.max(32, Math.floor(width / Math.max(1, window.devicePixelRatio || 1)));
     const cssHeight = Math.max(32, Math.floor(height / Math.max(1, window.devicePixelRatio || 1)));
-    const tile0 = Math.floor(viewport.t0 / tileSeconds);
-    const tile1 = Math.floor(viewport.t1 / tileSeconds);
+    // Key by the exact rendered range: the tile covers [t0, t1) precisely, so
+    // two different viewports must never share a cache entry — a coarser key
+    // (e.g. a fixed time bucket) hands back a bitmap drawn for another range,
+    // which then rides a stale transform anchor and desyncs from the ruler.
     const paramsHash = [
+      viewport.t0.toFixed(4),
+      viewport.t1.toFixed(4),
       viewport.f0.toFixed(1),
       viewport.f1.toFixed(1),
       cssWidth,
       cssHeight,
       paletteId
     ].join(':');
-    const key = `${String(audio.id)}:spec:${tile0}:${tile1}:${paramsHash}`;
+    const key = `${String(audio.id)}:spec:${paramsHash}`;
     const cached = cache.get(key);
     if (cached) return cached;
     const req: SpectrogramTileRequest = {
