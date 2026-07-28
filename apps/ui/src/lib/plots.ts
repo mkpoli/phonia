@@ -46,6 +46,18 @@ export interface PlotObject {
   freqCeiling: number;
   /** Spectrogram colormap. */
   colormap: FigureColormapName;
+  /** Item (trace / speckle) colour as a hex string; `null` uses the default. */
+  itemColor: string | null;
+}
+
+/** Kinds whose ink colour is a single settable stroke/speckle. */
+export function kindHasItemColor(kind: PlotKind): boolean {
+  return kind === 'waveform' || kind === 'pitch' || kind === 'formant' || kind === 'intensity';
+}
+
+/** The default ink colour a kind draws with, as a hex string. */
+export function defaultItemColor(kind: PlotKind): string {
+  return kind === 'formant' ? '#c80000' : '#111111';
 }
 
 let objectCounter = 0;
@@ -66,8 +78,17 @@ export function makePlotObject(kind: PlotKind, x: number, y: number): PlotObject
     t0: null,
     t1: null,
     freqCeiling: 5000,
-    colormap: 'viridis'
+    colormap: 'viridis',
+    itemColor: null
   };
+}
+
+/** `[r, g, b]` parsed from a `#rrggbb` string, or null if unparseable. */
+export function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 /** The single-layer figure spec that renders one object. */
@@ -86,6 +107,7 @@ export function objectFigureSpec(
     intensity: obj.kind === 'intensity',
     tiers: obj.kind === 'tiers'
   };
+  const ink = obj.itemColor ? hexToRgb(obj.itemColor) : null;
   return {
     audio: Number(audio.id),
     annotation: annotationId !== null ? Number(annotationId) : null,
@@ -112,7 +134,11 @@ export function objectFigureSpec(
     formant_ceiling_hz: obj.freqCeiling,
     formant_max: defaults.formant.maxFormants,
     formant_smoothed: defaults.formant.smoothed,
-    intensity_floor_hz: defaults.intensity.floorHz
+    intensity_floor_hz: defaults.intensity.floorHz,
+    waveform_color: obj.kind === 'waveform' ? ink : null,
+    pitch_color: obj.kind === 'pitch' ? ink : null,
+    formant_color: obj.kind === 'formant' ? ink : null,
+    intensity_color: obj.kind === 'intensity' ? ink : null
   };
 }
 
@@ -133,6 +159,15 @@ export function svgInner(svg: string): string {
   const open = svg.indexOf('>', svg.indexOf('<svg'));
   const close = svg.lastIndexOf('</svg>');
   return open >= 0 && close > open ? svg.slice(open + 1, close) : svg;
+}
+
+/**
+ * Removes the figure's opaque full-bleed background rect — always the first
+ * `<rect>` the SVG backend draws — so the artboard's paper colour shows through
+ * the figure margins; the plot panels keep their own backgrounds.
+ */
+export function stripOuterBackground(svg: string): string {
+  return svg.replace(/<rect\b[^>]*\/>/, '');
 }
 
 /**

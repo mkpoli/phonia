@@ -11,8 +11,11 @@
     makePlotObject,
     objectFigureSpec,
     namespaceSvgIds,
+    stripOuterBackground,
     svgInner,
     svgViewBox,
+    kindHasItemColor,
+    defaultItemColor,
     PLOT_KINDS,
     plotKindLabel,
     type PlotKind,
@@ -48,7 +51,12 @@
   // The artboard: a fixed physical sheet the objects live on, in canvas pixels.
   let paperW = $state(760);
   let paperH = $state(520);
-  let paperTheme = $state<FigureThemeName>(untrack(() => theme));
+  // Figures default to light panels on white paper — the print default — no
+  // matter the app's screen theme; the panel theme is switchable for screen.
+  let paperTheme = $state<FigureThemeName>('light');
+  // The paper (canvas) colour behind the plot panels; the panels keep their
+  // own light/dark backgrounds set by the theme above.
+  let paperBg = $state('#ffffff');
 
   let objects = $state<PlotObject[]>([]);
   let selectedId = $state<string | null>(null);
@@ -69,9 +77,17 @@
   let addOpen = $state(false);
 
   function renderKey(o: PlotObject): string {
-    return [o.kind, o.t0, o.t1, o.freqCeiling, o.colormap, Math.round(o.w), Math.round(o.h), paperTheme].join(
-      ':'
-    );
+    return [
+      o.kind,
+      o.t0,
+      o.t1,
+      o.freqCeiling,
+      o.colormap,
+      o.itemColor ?? '',
+      Math.round(o.w),
+      Math.round(o.h),
+      paperTheme
+    ].join(':');
   }
 
   // Render (or re-render) any object whose visual inputs changed. Position and
@@ -90,7 +106,7 @@
           const json = await client.buildFigure(spec);
           const raw = await client.renderFigureSvg(json);
           if (renderTokens.get(o.id) !== token) return;
-          const svg = namespaceSvgIds(raw, o.id);
+          const svg = stripOuterBackground(namespaceSvgIds(raw, o.id));
           renders = { ...renders, [o.id]: { svg, key, vb: svgViewBox(raw) } };
         } catch {
           // Leave the last good render in place on a transient failure.
@@ -278,7 +294,7 @@
   // --- Export: composite every visible object into one artboard-sized SVG ---
 
   function composeSvg(): string {
-    const bg = paperTheme === 'dark' ? '#0c1211' : '#ffffff';
+    const bg = paperBg;
     const parts = objects
       .filter((o) => o.visible && renders[o.id])
       .map((o) => {
@@ -466,6 +482,7 @@
           data-testid="plots-artboard"
           style:width="{paperW}px"
           style:height="{paperH}px"
+          style:background={paperBg}
         >
           {#if objects.length === 0}
             <p class="art-hint">Add a plot from the toolbar, then drag to arrange it.</p>
@@ -560,7 +577,7 @@
         {/if}
         {#if selected.kind === 'spectrogram'}
           <label class="field">
-            <span>Colour</span>
+            <span>Colour ramp</span>
             <select
               value={selected.colormap}
               onchange={(e) => patchSelected({ colormap: e.currentTarget.value as FigureColormapName })}
@@ -569,6 +586,27 @@
                 <option value={c}>{c[0].toUpperCase() + c.slice(1)}</option>
               {/each}
             </select>
+          </label>
+        {/if}
+        {#if kindHasItemColor(selected.kind)}
+          <label class="field">
+            <span>Item colour</span>
+            <span class="colour-row">
+              <input
+                type="color"
+                data-testid="plots-item-color"
+                value={selected.itemColor ?? defaultItemColor(selected.kind)}
+                oninput={(e) => patchSelected({ itemColor: e.currentTarget.value })}
+              />
+              {#if selected.itemColor}
+                <button
+                  type="button"
+                  class="reset"
+                  title="Reset to default"
+                  onclick={() => patchSelected({ itemColor: null })}>Reset</button
+                >
+              {/if}
+            </span>
           </label>
         {/if}
       {:else}
@@ -583,13 +621,26 @@
             <input type="number" min="200" step="20" bind:value={paperH} />
           </label>
         </div>
-        <label class="field">
-          <span>Theme</span>
-          <select bind:value={paperTheme} data-testid="plots-theme">
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Background</span>
+            <span class="colour-row">
+              <input type="color" data-testid="plots-bg-color" bind:value={paperBg} />
+              {#if paperBg.toLowerCase() !== '#ffffff'}
+                <button type="button" class="reset" title="White" onclick={() => (paperBg = '#ffffff')}
+                  >White</button
+                >
+              {/if}
+            </span>
+          </label>
+          <label class="field">
+            <span>Panel theme</span>
+            <select bind:value={paperTheme} data-testid="plots-theme">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+        </div>
         <p class="props-hint">Select an object to edit its plot, or add one from the toolbar.</p>
       {/if}
     </aside>
@@ -1023,5 +1074,35 @@
     font-size: 0.8rem;
     padding: 0 0.4rem;
     min-width: 0;
+  }
+
+  .colour-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .colour-row input[type='color'] {
+    flex: none;
+    width: 2.2rem;
+    height: 1.8rem;
+    padding: 1px;
+    cursor: pointer;
+  }
+
+  .reset {
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+    cursor: pointer;
+  }
+
+  .reset:hover {
+    background: var(--panel);
+    color: var(--text);
   }
 </style>

@@ -560,6 +560,14 @@ export interface FigureSpec {
   formant_max: number;
   formant_smoothed: boolean;
   intensity_floor_hz: number;
+  /** Waveform stroke colour as `[r, g, b]`; the theme default when absent. */
+  waveform_color?: [number, number, number] | null;
+  /** Pitch contour colour as `[r, g, b]`; the theme default when absent. */
+  pitch_color?: [number, number, number] | null;
+  /** Formant speckle colour as `[r, g, b]`; the default when absent. */
+  formant_color?: [number, number, number] | null;
+  /** Intensity contour colour as `[r, g, b]`; the theme default when absent. */
+  intensity_color?: [number, number, number] | null;
 }
 
 /** A named file emitted alongside an export's main document. */

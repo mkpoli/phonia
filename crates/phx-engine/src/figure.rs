@@ -13,7 +13,8 @@ use std::collections::BTreeMap;
 
 use phx_figure::{
     Axis, CodeExport, CodeLang, Figure, FigureBuilder, LayerKind, LengthUnit, LineStyle, Panel,
-    PitchUnit, ProvenanceRecord, SizeSpec, SpeckleStyle, TextExport, TierStyle, formant_layer,
+    PitchUnit, ProvenanceRecord, RgbaColor, SizeSpec, SpeckleStyle, TextExport, TierStyle,
+    formant_layer,
     intensity_layer, pitch_layer, spectrogram_layer, tiers_layer, to_code, to_graphml, to_svg,
     to_tikz, to_typst, to_vega, waveform_layer, waveform_minmax,
 };
@@ -195,6 +196,18 @@ pub struct FigureRequest {
     pub formant_smoothed: bool,
     /// Intensity pitch floor in hertz, setting the analysis window length.
     pub intensity_floor_hz: f64,
+    /// Waveform stroke colour as `[r, g, b]`; the theme default when absent.
+    #[serde(default)]
+    pub waveform_color: Option<[u8; 3]>,
+    /// Pitch contour colour as `[r, g, b]`; the theme default when absent.
+    #[serde(default)]
+    pub pitch_color: Option<[u8; 3]>,
+    /// Formant speckle colour as `[r, g, b]`; the default when absent.
+    #[serde(default)]
+    pub formant_color: Option<[u8; 3]>,
+    /// Intensity contour colour as `[r, g, b]`; the theme default when absent.
+    #[serde(default)]
+    pub intensity_color: Option<[u8; 3]>,
 }
 
 /// A downloadable figure export: one main file plus any sidecar files.
@@ -292,7 +305,7 @@ impl Engine {
             let envelope = waveform_minmax(&mono, buckets);
             let span = TimeSpan::new(start as f64 / sample_rate, end as f64 / sample_rate);
             panels.push(Panel {
-                layers: vec![waveform_layer(envelope, span, LineStyle::default())],
+                layers: vec![waveform_layer(envelope, span, line_style(req.waveform_color))],
                 time_axis: time_axis(),
                 value_axis: Axis::linear(-1.0, 1.0, Some("Amplitude"), None),
                 height_share: 0.20,
@@ -351,7 +364,7 @@ impl Engine {
                 layers.push(formant_layer(
                     &track,
                     req.formant_smoothed,
-                    SpeckleStyle::default(),
+                    speckle_style(req.formant_color),
                 ));
                 sources.push(formant_provenance(&params, req.formant_smoothed));
             }
@@ -390,7 +403,7 @@ impl Engine {
                 FigurePitchUnit::Semitones => "st",
             };
             panels.push(Panel {
-                layers: vec![pitch_layer(&track, unit, LineStyle::default())],
+                layers: vec![pitch_layer(&track, unit, line_style(req.pitch_color))],
                 time_axis: time_axis(),
                 value_axis: Axis::linear(lo_v, hi_v, Some(label), Some(unit_label)),
                 height_share: 0.20,
@@ -420,7 +433,7 @@ impl Engine {
                 db_hi += pad;
             }
             panels.push(Panel {
-                layers: vec![intensity_layer(&track, LineStyle::default())],
+                layers: vec![intensity_layer(&track, line_style(req.intensity_color))],
                 time_axis: time_axis(),
                 value_axis: Axis::linear(db_lo, db_hi, Some("Intensity"), Some("dB")),
                 height_share: 0.16,
@@ -608,6 +621,24 @@ fn provenance(
     }
 }
 
+/// A line style in the requested `[r, g, b]` colour, or the default otherwise.
+fn line_style(color: Option<[u8; 3]>) -> LineStyle {
+    let mut style = LineStyle::default();
+    if let Some([r, g, b]) = color {
+        style.color = RgbaColor::rgb(r, g, b);
+    }
+    style
+}
+
+/// A speckle style in the requested `[r, g, b]` colour, or the default.
+fn speckle_style(color: Option<[u8; 3]>) -> SpeckleStyle {
+    let mut style = SpeckleStyle::default();
+    if let Some([r, g, b]) = color {
+        style.color = RgbaColor::rgb(r, g, b);
+    }
+    style
+}
+
 fn spectrogram_provenance(params: &SpectrogramParams) -> ProvenanceRecord {
     provenance(
         LayerKind::Spectrogram,
@@ -695,6 +726,10 @@ pub fn default_figure_request(
         formant_max: 5,
         formant_smoothed: false,
         intensity_floor_hz: 100.0,
+        waveform_color: None,
+        pitch_color: None,
+        formant_color: None,
+        intensity_color: None,
     }
 }
 
