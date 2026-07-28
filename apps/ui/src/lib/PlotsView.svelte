@@ -48,6 +48,17 @@
     'grayscale'
   ];
 
+  // A representative CSS gradient per ramp, so the picker shows what each looks
+  // like rather than naming it in a dropdown.
+  const RAMP_CSS: Record<FigureColormapName, string> = {
+    viridis: 'linear-gradient(90deg, #440154, #31688e, #35b779, #fde725)',
+    magma: 'linear-gradient(90deg, #000004, #721f81, #f1605d, #fcfdbf)',
+    inferno: 'linear-gradient(90deg, #000004, #932667, #f98e09, #fcffa4)',
+    plasma: 'linear-gradient(90deg, #0d0887, #9c179e, #ed7953, #f0f921)',
+    cividis: 'linear-gradient(90deg, #00224e, #575d6d, #a59c74, #fee838)',
+    grayscale: 'linear-gradient(90deg, #000000, #808080, #ffffff)'
+  };
+
   // The artboard: a fixed physical sheet the objects live on, in canvas pixels.
   let paperW = $state(760);
   let paperH = $state(520);
@@ -212,6 +223,47 @@
   }
 
   const MIN_SIZE = 80;
+  const SNAP_PX = 6;
+
+  // Alignment guides shown while a snap is active, in artboard coordinates.
+  let guideX = $state<number | null>(null);
+  let guideY = $state<number | null>(null);
+
+  // Snap the moving object's edges and centre to the other objects' edges and
+  // to the artboard, so panels line up cleanly the way a design tool expects.
+  function snapMove(id: string, x: number, y: number, w: number, h: number): { x: number; y: number } {
+    const others = objects.filter((o) => o.id !== id && o.visible);
+    const xTargets = [0, paperW / 2, paperW];
+    const yTargets = [0, paperH / 2, paperH];
+    for (const o of others) {
+      xTargets.push(o.x, o.x + o.w / 2, o.x + o.w);
+      yTargets.push(o.y, o.y + o.h / 2, o.y + o.h);
+    }
+    const threshold = SNAP_PX / zoom;
+
+    const best = (edges: number[], targets: number[]) => {
+      let delta = 0;
+      let guide: number | null = null;
+      let dist = threshold;
+      for (const e of edges) {
+        for (const t of targets) {
+          const d = Math.abs(e - t);
+          if (d < dist) {
+            dist = d;
+            delta = t - e;
+            guide = t;
+          }
+        }
+      }
+      return { delta, guide };
+    };
+
+    const sx = best([x, x + w / 2, x + w], xTargets);
+    const sy = best([y, y + h / 2, y + h], yTargets);
+    guideX = sx.guide;
+    guideY = sy.guide;
+    return { x: x + sx.delta, y: y + sy.delta };
+  }
 
   function onPointerMove(event: PointerEvent) {
     if (pan) {
@@ -228,7 +280,11 @@
     const dy = p.y - drag.startY;
     if (drag.mode === 'move') {
       const d = drag;
-      objects = objects.map((o) => (o.id === d.id ? { ...o, x: d.ox + dx, y: d.oy + dy } : o));
+      const moving = objects.find((o) => o.id === d.id);
+      const snapped = moving
+        ? snapMove(d.id, d.ox + dx, d.oy + dy, moving.w, moving.h)
+        : { x: d.ox + dx, y: d.oy + dy };
+      objects = objects.map((o) => (o.id === d.id ? { ...o, x: snapped.x, y: snapped.y } : o));
     } else {
       const d = drag;
       let { ox, oy, ow, oh } = d;
@@ -258,6 +314,8 @@
     if (pan && !pan.moved) selectedId = null;
     pan = null;
     drag = null;
+    guideX = null;
+    guideY = null;
   }
 
   function onCanvasKey(event: KeyboardEvent) {
@@ -487,6 +545,12 @@
           {#if objects.length === 0}
             <p class="art-hint">Add a plot from the toolbar, then drag to arrange it.</p>
           {/if}
+          {#if guideX !== null}
+            <span class="guide vert" style:left="{guideX}px"></span>
+          {/if}
+          {#if guideY !== null}
+            <span class="guide horz" style:top="{guideY}px"></span>
+          {/if}
           {#each objects as o (o.id)}
             {#if o.visible}
               <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -622,17 +686,24 @@
           </label>
         {/if}
         {#if selected.kind === 'spectrogram'}
-          <label class="field">
+          <div class="field">
             <span>Colour ramp</span>
-            <select
-              value={selected.colormap}
-              onchange={(e) => patchSelected({ colormap: e.currentTarget.value as FigureColormapName })}
-            >
+            <div class="ramp-swatches" role="radiogroup" aria-label="Spectrogram colour ramp">
               {#each COLORMAPS as c (c)}
-                <option value={c}>{c[0].toUpperCase() + c.slice(1)}</option>
+                <button
+                  type="button"
+                  class="ramp"
+                  class:on={selected.colormap === c}
+                  role="radio"
+                  aria-checked={selected.colormap === c}
+                  title={c[0].toUpperCase() + c.slice(1)}
+                  data-testid="plots-ramp-{c}"
+                  style:background={RAMP_CSS[c]}
+                  onclick={() => patchSelected({ colormap: c })}
+                ></button>
               {/each}
-            </select>
-          </label>
+            </div>
+          </div>
         {/if}
         {#if kindHasItemColor(selected.kind)}
           <label class="field">
@@ -1020,6 +1091,28 @@
     color: color-mix(in oklab, #fff 55%, transparent);
   }
 
+  /* Alignment guides while snapping — thin gold rules across the artboard. */
+  .guide {
+    position: absolute;
+    background: var(--warn);
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .guide.vert {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    margin-left: -0.5px;
+  }
+
+  .guide.horz {
+    left: 0;
+    right: 0;
+    height: 1px;
+    margin-top: -0.5px;
+  }
+
   .obj {
     position: absolute;
     line-height: 0;
@@ -1167,6 +1260,30 @@
   .field.mini input {
     text-align: center;
     padding: 0 0.2rem;
+  }
+
+  .ramp-swatches {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.3rem;
+  }
+
+  .ramp {
+    height: 1.4rem;
+    border: 1.5px solid var(--chrome-strong);
+    border-radius: 4px;
+    padding: 0;
+    cursor: pointer;
+    transition: border-color var(--t-fast);
+  }
+
+  .ramp:hover {
+    border-color: color-mix(in oklab, var(--accent) 45%, var(--chrome-strong));
+  }
+
+  .ramp.on {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
   }
 
   .colour-row {
