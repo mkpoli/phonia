@@ -341,11 +341,18 @@
     project={p}
     pinned={pinnedSet.has(p.id)}
     selected={selected.has(p.id)}
+    selectable={manage}
     dragging={dragId === p.id}
     onActivate={activate}
     onRename={onRenameProject}
     onDelete={onDeleteProject}
     onDuplicate={onDuplicateProject}
+    onToggleSelect={manage
+      ? (id) => {
+          toggleSelect(id);
+          anchor = id;
+        }
+      : undefined}
     onTogglePin={manage ? onTogglePin : undefined}
     onDragStart={manage && onMoveToGroup ? beginCardDrag : undefined}
   />

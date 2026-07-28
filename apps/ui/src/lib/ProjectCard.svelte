@@ -3,6 +3,9 @@
   import IconTrash from '~icons/lucide/trash-2';
   import IconPin from '~icons/lucide/pin';
   import IconGripVertical from '~icons/lucide/grip-vertical';
+  import IconCheck from '~icons/lucide/check';
+  import { scale } from 'svelte/transition';
+  import { quintOut } from 'svelte/easing';
   import InlineRename from './InlineRename.svelte';
   import type { ProjectSummary } from './types';
 
@@ -12,11 +15,15 @@
     pinned?: boolean;
     /** Whether this card is part of the current multi-selection. */
     selected?: boolean;
+    /** Shows the selection checkbox (management mode). */
+    selectable?: boolean;
     /** Body activation: a plain click opens, a modified click selects. Handled upstream. */
     onActivate: (id: string, event: MouseEvent | KeyboardEvent) => void;
     onRename: (id: string, name: string) => void;
     onDelete: (id: string) => void;
     onDuplicate: (id: string) => void;
+    /** Toggles this card in the multi-selection; absent hides the checkbox. */
+    onToggleSelect?: (id: string) => void;
     /** Toggles the pin; absent hides the pin control (desktop shell). */
     onTogglePin?: (id: string) => void;
     /** Begins a pointer drag to move the card between groups; absent hides the handle. */
@@ -29,14 +36,39 @@
     project,
     pinned = false,
     selected = false,
+    selectable = false,
     onActivate,
     onRename,
     onDelete,
     onDuplicate,
+    onToggleSelect,
     onTogglePin,
     onDragStart,
     dragging = false
   }: Props = $props();
+
+  // Deleting a project is destructive and permanent, so the first click arms
+  // an inline confirm rather than deleting; a second confirms, Cancel disarms.
+  let confirming = $state(false);
+  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function armDelete() {
+    confirming = true;
+    if (confirmTimer) clearTimeout(confirmTimer);
+    confirmTimer = setTimeout(() => (confirming = false), 4000);
+  }
+
+  function cancelDelete() {
+    confirming = false;
+    if (confirmTimer) clearTimeout(confirmTimer);
+  }
+
+  function reduceMotion(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  }
 
   function savedLabel(ms: number): string {
     const date = new Date(ms);
@@ -73,7 +105,24 @@
   data-project-name={project.name}
   data-selected={selected}
   data-pinned={pinned}
+  out:scale={{ duration: reduceMotion() ? 0 : 260, start: 0.85, opacity: 0, easing: quintOut }}
 >
+  {#if selectable && onToggleSelect}
+    <button
+      type="button"
+      class="select"
+      class:on={selected}
+      data-testid="select-project"
+      role="checkbox"
+      aria-checked={selected}
+      aria-label={selected ? `Deselect ${project.name}` : `Select ${project.name}`}
+      title={selected ? 'Deselect' : 'Select'}
+      onclick={() => onToggleSelect?.(project.id)}
+    >
+      {#if selected}<IconCheck aria-hidden="true" />{/if}
+    </button>
+  {/if}
+
   <div class="corner">
     {#if onDragStart}
       <button
@@ -128,12 +177,25 @@
     <span class="saved">{savedLabel(project.savedAt)}</span>
   </div>
   <div class="actions">
-    <button type="button" data-testid="duplicate-project" onclick={() => onDuplicate(project.id)}>
-      <IconCopy aria-hidden="true" /><span>Duplicate</span>
-    </button>
-    <button type="button" class="danger" data-testid="delete-project" onclick={() => onDelete(project.id)}>
-      <IconTrash aria-hidden="true" /><span>Delete</span>
-    </button>
+    {#if confirming}
+      <span class="confirm-q" data-testid="delete-confirm-prompt">Delete permanently?</span>
+      <button
+        type="button"
+        class="danger confirm"
+        data-testid="delete-project-confirm"
+        onclick={() => onDelete(project.id)}
+      >
+        <IconTrash aria-hidden="true" /><span>Delete</span>
+      </button>
+      <button type="button" data-testid="delete-project-cancel" onclick={cancelDelete}>Cancel</button>
+    {:else}
+      <button type="button" data-testid="duplicate-project" onclick={() => onDuplicate(project.id)}>
+        <IconCopy aria-hidden="true" /><span>Duplicate</span>
+      </button>
+      <button type="button" class="danger" data-testid="delete-project" onclick={armDelete}>
+        <IconTrash aria-hidden="true" /><span>Delete</span>
+      </button>
+    {/if}
   </div>
 </div>
 
@@ -177,6 +239,52 @@
     align-items: center;
     gap: 0.15rem;
     z-index: 1;
+  }
+
+  /* Discoverable selection: a checkbox that shows on hover, and stays while
+     the card is selected, so bulk actions are reachable without a modifier. */
+  .select {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 1.5px solid var(--chrome-strong);
+    border-radius: 5px;
+    background: var(--panel);
+    color: transparent;
+    opacity: 0;
+    transition:
+      opacity var(--t-fast),
+      background var(--t-fast),
+      border-color var(--t-fast),
+      color var(--t-fast);
+  }
+
+  .card:hover .select,
+  .card:focus-within .select,
+  .select.on {
+    opacity: 1;
+  }
+
+  .select:hover {
+    border-color: var(--accent);
+  }
+
+  .select.on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ink, #03211b);
+  }
+
+  .select :global(svg) {
+    font-size: 0.85rem;
+    stroke-width: 3;
   }
 
   .grip,
@@ -335,5 +443,26 @@
   .actions .danger:hover {
     color: var(--warn);
     border-color: color-mix(in oklab, var(--warn) 45%, transparent);
+  }
+
+  .confirm-q {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.75rem;
+    color: var(--warn);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .actions .danger.confirm {
+    color: var(--warn);
+    border-color: color-mix(in oklab, var(--warn) 55%, transparent);
+    background: color-mix(in oklab, var(--warn) 12%, transparent);
+  }
+
+  .actions .danger.confirm:hover {
+    background: color-mix(in oklab, var(--warn) 22%, transparent);
   }
 </style>
