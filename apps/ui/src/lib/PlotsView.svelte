@@ -505,13 +505,18 @@
 
   const hasContent = $derived(objects.some((o) => o.visible && renders[o.id]));
 
+  let exportOpen = $state(false);
+  let copied = $state(false);
+
   function exportSvg() {
+    exportOpen = false;
     if (!hasContent) return;
     saveBlob(new Blob([composeSvg()], { type: 'image/svg+xml;charset=utf-8' }), 'figure.svg');
   }
 
-  async function exportPng() {
-    if (!hasContent) return;
+  // Rasterize the composed figure to a PNG blob at 2× for crisp output, shared
+  // by the download and the clipboard copy.
+  async function renderPngBlob(): Promise<Blob | null> {
     const scale = 2;
     const svg = composeSvg();
     const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
@@ -528,13 +533,49 @@
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('canvas 2D context unavailable');
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (png) saveBlob(png, 'figure.png');
+      return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
     } finally {
       URL.revokeObjectURL(url);
     }
   }
+
+  async function exportPng() {
+    exportOpen = false;
+    if (!hasContent) return;
+    const png = await renderPngBlob();
+    if (png) saveBlob(png, 'figure.png');
+  }
+
+  // Copy the figure as a PNG to the clipboard — paste it straight into a paper
+  // draft, a slide, or a chat.
+  async function copyImage() {
+    exportOpen = false;
+    if (!hasContent) return;
+    try {
+      const png = await renderPngBlob();
+      if (png && 'clipboard' in navigator && 'write' in navigator.clipboard) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+        copied = true;
+        setTimeout(() => (copied = false), 1600);
+      }
+    } catch {
+      // Clipboard image write is unsupported or blocked; the downloads remain.
+    }
+  }
 </script>
+
+<svelte:window
+  onpointerdown={(e) => {
+    if (
+      e.target instanceof Element &&
+      !e.target.closest('.add-wrap') &&
+      !e.target.closest('.export-wrap')
+    ) {
+      addOpen = false;
+      exportOpen = false;
+    }
+  }}
+/>
 
 <div class="plots" data-testid="plots-view">
   <header class="bar">
@@ -605,26 +646,33 @@
     >
       <IconMaximize aria-hidden="true" />
     </button>
-    <button
-      type="button"
-      class="export"
-      data-testid="plots-export-svg"
-      disabled={!hasContent}
-      onclick={exportSvg}
-    >
-      <IconDownload aria-hidden="true" />
-      <span>SVG</span>
-    </button>
-    <button
-      type="button"
-      class="export"
-      data-testid="plots-export-png"
-      disabled={!hasContent}
-      onclick={exportPng}
-    >
-      <IconDownload aria-hidden="true" />
-      <span>PNG</span>
-    </button>
+    <div class="export-wrap">
+      <button
+        type="button"
+        class="export"
+        data-testid="plots-export"
+        aria-haspopup="menu"
+        aria-expanded={exportOpen}
+        disabled={!hasContent}
+        onclick={() => (exportOpen = !exportOpen)}
+      >
+        <IconDownload aria-hidden="true" />
+        <span>{copied ? 'Copied' : 'Export'}</span>
+      </button>
+      {#if exportOpen}
+        <div class="export-menu" role="menu">
+          <button type="button" role="menuitem" data-testid="plots-export-svg" onclick={exportSvg}
+            >Download SVG</button
+          >
+          <button type="button" role="menuitem" data-testid="plots-export-png" onclick={exportPng}
+            >Download PNG</button
+          >
+          <button type="button" role="menuitem" data-testid="plots-copy-image" onclick={copyImage}
+            >Copy image</button
+          >
+        </div>
+      {/if}
+    </div>
   </header>
 
   <div class="body">
@@ -1131,6 +1179,41 @@
   .export:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .export-wrap {
+    position: relative;
+  }
+
+  .export-menu {
+    position: absolute;
+    top: calc(100% + 0.3rem);
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 9rem;
+    padding: 0.25rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-md, 8px);
+    background: var(--panel);
+    box-shadow: var(--shadow-lg, 0 8px 30px rgba(0, 0, 0, 0.4));
+  }
+
+  .export-menu button {
+    text-align: left;
+    padding: 0.4rem 0.5rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.82rem;
+  }
+
+  .export-menu button:hover {
+    background: var(--accent-tint);
+    color: var(--accent-strong);
   }
 
   .body {
