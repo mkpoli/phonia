@@ -46,6 +46,17 @@
   function navigate(id: ModeId) {
     onNavigate(id);
   }
+
+  // Normalize every stroke's length to 1 so the activation redraw traces each
+  // path uniformly, regardless of how long the lucide glyph's individual
+  // subpaths actually are — the draw looks even across all icons.
+  function normalizeStrokes(node: HTMLElement) {
+    for (const shape of node.querySelectorAll(
+      'path, line, polyline, polygon, rect, circle, ellipse'
+    )) {
+      shape.setAttribute('pathLength', '1');
+    }
+  }
 </script>
 
 <nav class="rail" aria-label="Modes">
@@ -83,6 +94,7 @@
         disabled={disabledFor(mode.id)}
         title={titleFor(mode.id, mode.label)}
         onclick={() => navigate(mode.id)}
+        {@attach normalizeStrokes}
       >
         <Icon aria-hidden="true" />
         <span>{mode.label}</span>
@@ -213,36 +225,30 @@
       animation-delay: 0.85s, 2.5s;
     }
 
-    /* Becoming active: the glyph coils, springs up to attention, and settles,
-       while a warm accent glow blooms off its strokes then fades — the same
-       overshoot easing the brand dot pops with, so the rail reads as one hand.
-       The label lifts a hair in sympathy so the whole tab moves together. */
+    /* Becoming active redraws the glyph: every stroke re-traces itself from
+       nothing (pathLength is normalized to 1, so the draw is even across the
+       whole icon), while a warm accent glow blooms off the ink and fades. The
+       shape never changes — only its ink is redrawn. */
     .mode.active :global(svg) {
-      animation:
-        pounce 0.52s cubic-bezier(0.34, 1.56, 0.64, 1),
-        bloom 0.66s ease-out;
+      animation: bloom 0.7s ease-out;
     }
 
-    .mode.active span {
-      animation: liftin 0.52s cubic-bezier(0.34, 1.56, 0.64, 1);
+    .mode.active :global(svg path),
+    .mode.active :global(svg line),
+    .mode.active :global(svg polyline),
+    .mode.active :global(svg polygon),
+    .mode.active :global(svg rect),
+    .mode.active :global(svg circle),
+    .mode.active :global(svg ellipse) {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: redraw 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
     }
   }
 
-  @keyframes pounce {
-    0% {
-      transform: translateY(0) scale(1);
-    }
-    20% {
-      transform: translateY(1.5px) scale(0.86);
-    }
-    52% {
-      transform: translateY(-3px) scale(1.16);
-    }
-    76% {
-      transform: translateY(0) scale(0.97);
-    }
-    100% {
-      transform: translateY(0) scale(1);
+  @keyframes redraw {
+    to {
+      stroke-dashoffset: 0;
     }
   }
 
@@ -250,21 +256,11 @@
     0% {
       filter: drop-shadow(0 0 0 transparent);
     }
-    45% {
-      filter: drop-shadow(0 0 5px var(--accent));
+    40% {
+      filter: drop-shadow(0 0 4px var(--accent));
     }
     100% {
       filter: drop-shadow(0 0 0 transparent);
-    }
-  }
-
-  @keyframes liftin {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    52% {
-      transform: translateY(-1.5px);
     }
   }
 
