@@ -1,38 +1,42 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
   import IconArrowLeft from '~icons/lucide/arrow-left';
   import IconDownload from '~icons/lucide/download';
+  import IconPlus from '~icons/lucide/plus';
   import IconEye from '~icons/lucide/eye';
   import IconEyeOff from '~icons/lucide/eye-off';
-  import { zipStore } from './zip';
+  import IconTrash from '~icons/lucide/trash-2';
+  import IconMaximize from '~icons/lucide/maximize';
+  import { untrack } from 'svelte';
   import {
-    defaultOverlayParams,
-    type AudioInfo,
-    type CoreClientLike,
-    type FigureColormapName,
-    type FigureExportFormat,
-    type FigureLayerToggles,
-    type FigureLengthUnit,
-    type FigureSpec,
-    type FigureThemeName
+    makePlotObject,
+    objectFigureSpec,
+    namespaceSvgIds,
+    svgInner,
+    svgViewBox,
+    PLOT_KINDS,
+    plotKindLabel,
+    type PlotKind,
+    type PlotObject
+  } from './plots';
+  import type {
+    AudioInfo,
+    CoreClientLike,
+    FigureColormapName,
+    FigureThemeName
   } from './types';
-  import type { PaletteSelection } from './palette';
 
   interface Props {
     client: CoreClientLike | null;
     audio: AudioInfo | null;
     annotationId: bigint | null;
     theme: 'light' | 'dark';
-    palette: PaletteSelection;
-    /** Name of the project the figure's recording belongs to. */
     projectName?: string;
-    /** Returns to the project view. */
     onExit?: () => void;
   }
 
-  let { client, audio, annotationId, theme, palette, projectName, onExit }: Props = $props();
+  let { client, audio, annotationId, theme, projectName, onExit }: Props = $props();
 
-  const FIGURE_COLORMAPS: FigureColormapName[] = [
+  const COLORMAPS: FigureColormapName[] = [
     'viridis',
     'magma',
     'inferno',
@@ -41,152 +45,225 @@
     'grayscale'
   ];
 
-  // A figure seeds from the on-screen palette when that palette is one a reader
-  // can trust under colour-vision deficiency; the brand and custom ramps fall
-  // back to viridis.
-  function seedFigurePalette(sel: PaletteSelection): FigureColormapName {
-    if (sel.kind === 'builtin') {
-      const lower = sel.name.toLowerCase() as FigureColormapName;
-      if (FIGURE_COLORMAPS.includes(lower)) return lower;
-    }
-    return 'viridis';
+  // The artboard: a fixed physical sheet the objects live on, in canvas pixels.
+  let paperW = $state(760);
+  let paperH = $state(520);
+  let paperTheme = $state<FigureThemeName>(untrack(() => theme));
+
+  let objects = $state<PlotObject[]>([]);
+  let selectedId = $state<string | null>(null);
+  const selected = $derived(objects.find((o) => o.id === selectedId) ?? null);
+
+  // Each object's rendered SVG (namespaced), keyed by id, plus the render key
+  // it was produced for so a render only re-runs when a visual input changes.
+  let renders = $state<Record<string, { svg: string; key: string; vb: { w: number; h: number } }>>(
+    {}
+  );
+
+  // Canvas viewport.
+  let zoom = $state(1);
+  let panX = $state(60);
+  let panY = $state(40);
+
+  let canvasEl = $state<HTMLDivElement | null>(null);
+  let addOpen = $state(false);
+
+  function renderKey(o: PlotObject): string {
+    return [o.kind, o.t0, o.t1, o.freqCeiling, o.colormap, Math.round(o.w), Math.round(o.h), paperTheme].join(
+      ':'
+    );
   }
 
-  const LAYER_LABELS: Array<{ key: keyof FigureLayerToggles; label: string }> = [
-    { key: 'waveform', label: 'Waveform' },
-    { key: 'spectrogram', label: 'Spectrogram' },
-    { key: 'pitch', label: 'Pitch' },
-    { key: 'formant', label: 'Formants' },
-    { key: 'intensity', label: 'Intensity' },
-    { key: 'tiers', label: 'Tiers' }
-  ];
-
-  const FORMATS: Array<{ value: FigureExportFormat; label: string; nativeOnly?: boolean }> = [
-    { value: 'svg', label: 'SVG' },
-    { value: 'png', label: 'PNG' },
-    { value: 'pdf', label: 'PDF', nativeOnly: true },
-    { value: 'vega', label: 'Vega-Lite JSON' },
-    { value: 'tikz', label: 'TikZ (PGFPlots)' },
-    { value: 'typst', label: 'Typst / CeTZ' },
-    { value: 'python', label: 'Python (matplotlib)' },
-    { value: 'r', label: 'R (ggplot2)' },
-    { value: 'julia', label: 'Julia (Makie)' }
-  ];
-
-  const defaults = defaultOverlayParams();
-
-  // The view opens seeded from the editor state, then owns these controls
-  // independently; untrack keeps the seed from re-binding to the props.
-  let layers = $state<FigureLayerToggles>({
-    waveform: true,
-    spectrogram: true,
-    pitch: true,
-    formant: false,
-    intensity: false,
-    tiers: untrack(() => annotationId) !== null
-  });
-  let width = $state(16);
-  let height = $state(12);
-  let unit = $state<FigureLengthUnit>('cm');
-  let figTheme = $state<FigureThemeName>(untrack(() => theme));
-  let colormap = $state<FigureColormapName>(seedFigurePalette(untrack(() => palette)));
-  let format = $state<FigureExportFormat>('svg');
-
-  let svg = $state('');
-  let figureJson = $state('');
-  let busy = $state(false);
-  let error = $state('');
-  let previewToken = 0;
-
-  const noLayers = $derived(!LAYER_LABELS.some(({ key }) => layers[key]));
-
-  // Physical aspect ratio of the paper, so the preview reads as a real sheet.
-  const aspect = $derived(height > 0 ? width / height : 1);
-
-  function buildSpec(): FigureSpec | null {
-    if (!audio) return null;
-    return {
-      audio: Number(audio.id),
-      annotation: annotationId !== null ? Number(annotationId) : null,
-      t0: 0,
-      t1: audio.duration,
-      f0: 0,
-      f1: 5000,
-      layers: { ...layers },
-      width,
-      height,
-      unit,
-      theme: figTheme,
-      colormap,
-      dynamic_range_db: 70,
-      max_db: null,
-      spectrogram_width_px: 1000,
-      spectrogram_height_px: 300,
-      window_length: 0.005,
-      pitch_floor_hz: defaults.pitch.floorHz,
-      pitch_ceiling_hz: defaults.pitch.ceilingHz,
-      pitch_unit: 'hertz',
-      formant_ceiling_hz: defaults.formant.ceilingHz,
-      formant_max: defaults.formant.maxFormants,
-      formant_smoothed: defaults.formant.smoothed,
-      intensity_floor_hz: defaults.intensity.floorHz
-    };
-  }
-
-  async function refresh() {
-    const spec = buildSpec();
-    if (!client || !spec || noLayers) {
-      svg = '';
-      figureJson = '';
-      if (noLayers) error = '';
-      return;
-    }
-    const token = ++previewToken;
-    busy = true;
-    error = '';
-    try {
-      const json = await client.buildFigure(spec);
-      if (token !== previewToken) return;
-      figureJson = json;
-      const rendered = await client.renderFigureSvg(json);
-      if (token !== previewToken) return;
-      svg = rendered;
-    } catch (caught) {
-      if (token !== previewToken) return;
-      error = caught instanceof Error ? caught.message : String(caught);
-      svg = '';
-      figureJson = '';
-    } finally {
-      if (token === previewToken) busy = false;
-    }
-  }
-
-  // The preview goes through the same SVG backend the export uses, so what the
-  // paper shows is exactly what saves.
+  // Render (or re-render) any object whose visual inputs changed. Position and
+  // z-order changes don't re-render — they only move existing pixels.
+  const renderTokens = new Map<string, number>();
   $effect(() => {
-    void [
-      client,
-      audio,
-      annotationId,
-      layers.waveform,
-      layers.spectrogram,
-      layers.pitch,
-      layers.formant,
-      layers.intensity,
-      layers.tiers,
-      width,
-      height,
-      unit,
-      figTheme,
-      colormap
-    ];
-    void refresh();
+    if (!client || !audio) return;
+    for (const o of objects) {
+      const key = renderKey(o);
+      if (renders[o.id]?.key === key) continue;
+      const token = (renderTokens.get(o.id) ?? 0) + 1;
+      renderTokens.set(o.id, token);
+      const spec = objectFigureSpec(o, audio, annotationId, paperTheme);
+      void (async () => {
+        try {
+          const json = await client.buildFigure(spec);
+          const raw = await client.renderFigureSvg(json);
+          if (renderTokens.get(o.id) !== token) return;
+          const svg = namespaceSvgIds(raw, o.id);
+          renders = { ...renders, [o.id]: { svg, key, vb: svgViewBox(raw) } };
+        } catch {
+          // Leave the last good render in place on a transient failure.
+        }
+      })();
+    }
   });
 
-  function inchesPerUnit(u: FigureLengthUnit): number {
-    if (u === 'cm') return 1 / 2.54;
-    if (u === 'pt') return 1 / 72;
-    return 1;
+  const STACK_MARGIN = 24;
+  const STACK_GAP = 12;
+
+  function addObject(kind: PlotKind) {
+    addOpen = false;
+    // Stack new objects below the existing ones and align their left edges, so
+    // adding waveform → spectrogram → tiers composes a clean figure straight
+    // away; they stay fully draggable afterwards.
+    const bottom = objects.reduce((b, o) => Math.max(b, o.y + o.h), STACK_MARGIN - STACK_GAP);
+    const obj = makePlotObject(kind, STACK_MARGIN, bottom + STACK_GAP);
+    objects = [...objects, obj];
+    selectedId = obj.id;
+    // Grow the artboard to hold the new object with a margin.
+    paperW = Math.max(paperW, obj.x + obj.w + STACK_MARGIN);
+    paperH = Math.max(paperH, obj.y + obj.h + STACK_MARGIN);
+  }
+
+  function deleteObject(id: string) {
+    objects = objects.filter((o) => o.id !== id);
+    delete renders[id];
+    renders = { ...renders };
+    if (selectedId === id) selectedId = null;
+  }
+
+  function toggleVisible(id: string) {
+    objects = objects.map((o) => (o.id === id ? { ...o, visible: !o.visible } : o));
+  }
+
+  function patchSelected(patch: Partial<PlotObject>) {
+    if (!selectedId) return;
+    objects = objects.map((o) => (o.id === selectedId ? { ...o, ...patch } : o));
+  }
+
+  // --- Direct manipulation: move and resize in artboard coordinates ---
+
+  type Drag =
+    | { mode: 'move'; id: string; startX: number; startY: number; ox: number; oy: number }
+    | {
+        mode: 'resize';
+        id: string;
+        handle: string;
+        startX: number;
+        startY: number;
+        ox: number;
+        oy: number;
+        ow: number;
+        oh: number;
+      };
+  let drag: Drag | null = null;
+
+  function clientToArtboard(clientX: number, clientY: number): { x: number; y: number } {
+    const rect = canvasEl?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: (clientX - rect.left - panX) / zoom, y: (clientY - rect.top - panY) / zoom };
+  }
+
+  function startMove(event: PointerEvent, o: PlotObject) {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    selectedId = o.id;
+    const p = clientToArtboard(event.clientX, event.clientY);
+    drag = { mode: 'move', id: o.id, startX: p.x, startY: p.y, ox: o.x, oy: o.y };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  function startResize(event: PointerEvent, o: PlotObject, handle: string) {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    selectedId = o.id;
+    const p = clientToArtboard(event.clientX, event.clientY);
+    drag = {
+      mode: 'resize',
+      id: o.id,
+      handle,
+      startX: p.x,
+      startY: p.y,
+      ox: o.x,
+      oy: o.y,
+      ow: o.w,
+      oh: o.h
+    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  const MIN_SIZE = 80;
+
+  function onPointerMove(event: PointerEvent) {
+    if (!drag) return;
+    const p = clientToArtboard(event.clientX, event.clientY);
+    const dx = p.x - drag.startX;
+    const dy = p.y - drag.startY;
+    if (drag.mode === 'move') {
+      const d = drag;
+      objects = objects.map((o) => (o.id === d.id ? { ...o, x: d.ox + dx, y: d.oy + dy } : o));
+    } else {
+      const d = drag;
+      let { ox, oy, ow, oh } = d;
+      if (d.handle.includes('e')) ow = Math.max(MIN_SIZE, d.ow + dx);
+      if (d.handle.includes('s')) oh = Math.max(MIN_SIZE, d.oh + dy);
+      if (d.handle.includes('w')) {
+        ow = Math.max(MIN_SIZE, d.ow - dx);
+        ox = d.ox + (d.ow - ow);
+      }
+      if (d.handle.includes('n')) {
+        oh = Math.max(MIN_SIZE, d.oh - dy);
+        oy = d.oy + (d.oh - oh);
+      }
+      objects = objects.map((o) => (o.id === d.id ? { ...o, x: ox, y: oy, w: ow, h: oh } : o));
+    }
+  }
+
+  function endDrag(event: PointerEvent) {
+    if (drag) {
+      try {
+        (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+      } catch {
+        // capture may already be gone
+      }
+    }
+    drag = null;
+  }
+
+  function onCanvasKey(event: KeyboardEvent) {
+    if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
+      event.preventDefault();
+      deleteObject(selectedId);
+    }
+  }
+
+  function onWheel(event: WheelEvent) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const rect = canvasEl?.getBoundingClientRect();
+    if (!rect) return;
+    const mx = event.clientX - rect.left;
+    const my = event.clientY - rect.top;
+    const factor = event.deltaY < 0 ? 1.1 : 0.9;
+    const next = Math.min(3, Math.max(0.25, zoom * factor));
+    // Keep the point under the cursor fixed while zooming.
+    panX = mx - ((mx - panX) * next) / zoom;
+    panY = my - ((my - panY) * next) / zoom;
+    zoom = next;
+  }
+
+  function fitView() {
+    const rect = canvasEl?.getBoundingClientRect();
+    if (!rect) return;
+    const z = Math.min((rect.width - 80) / paperW, (rect.height - 80) / paperH, 1.5);
+    zoom = Math.max(0.25, z);
+    panX = (rect.width - paperW * zoom) / 2;
+    panY = (rect.height - paperH * zoom) / 2;
+  }
+
+  // --- Export: composite every visible object into one artboard-sized SVG ---
+
+  function composeSvg(): string {
+    const bg = paperTheme === 'dark' ? '#0c1211' : '#ffffff';
+    const parts = objects
+      .filter((o) => o.visible && renders[o.id])
+      .map((o) => {
+        const r = renders[o.id];
+        return `<svg x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" viewBox="0 0 ${r.vb.w} ${r.vb.h}" preserveAspectRatio="none" overflow="visible">${svgInner(r.svg)}</svg>`;
+      })
+      .join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${paperW}" height="${paperH}" viewBox="0 0 ${paperW} ${paperH}"><rect width="${paperW}" height="${paperH}" fill="${bg}"/>${parts}</svg>`;
   }
 
   function saveBlob(blob: Blob, name: string) {
@@ -198,61 +275,35 @@
     URL.revokeObjectURL(url);
   }
 
-  function baseName(name: string): string {
-    const dot = name.indexOf('.');
-    return dot > 0 ? name.slice(0, dot) : name;
+  const hasContent = $derived(objects.some((o) => o.visible && renders[o.id]));
+
+  function exportSvg() {
+    if (!hasContent) return;
+    saveBlob(new Blob([composeSvg()], { type: 'image/svg+xml;charset=utf-8' }), 'figure.svg');
   }
 
-  async function downloadPng() {
-    if (!svg) return;
-    const dpi = 192;
-    const w = Math.max(1, Math.round(width * inchesPerUnit(unit) * dpi));
-    const h = Math.max(1, Math.round(height * inchesPerUnit(unit) * dpi));
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+  async function exportPng() {
+    if (!hasContent) return;
+    const scale = 2;
+    const svg = composeSvg();
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
     try {
       const image = new Image();
-      image.width = w;
-      image.height = h;
       await new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
         image.onerror = () => reject(new Error('SVG could not be rasterized'));
         image.src = url;
       });
       const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = paperW * scale;
+      canvas.height = paperH * scale;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('canvas 2D context unavailable');
-      ctx.drawImage(image, 0, 0, w, h);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
       if (png) saveBlob(png, 'figure.png');
     } finally {
       URL.revokeObjectURL(url);
-    }
-  }
-
-  async function download() {
-    if (!client || !figureJson) return;
-    error = '';
-    try {
-      if (format === 'png') {
-        await downloadPng();
-        return;
-      }
-      const bundle = await client.exportFigure(figureJson, format);
-      if (bundle.sidecars.length > 0) {
-        const entries = [{ name: bundle.mainName, bytes: bundle.mainBytes }, ...bundle.sidecars];
-        const zip = zipStore(entries);
-        saveBlob(
-          new Blob([zip as BlobPart], { type: 'application/zip' }),
-          `${baseName(bundle.mainName)}.zip`
-        );
-      } else {
-        saveBlob(new Blob([bundle.mainBytes as BlobPart], { type: bundle.mime }), bundle.mainName);
-      }
-    } catch (caught) {
-      error = caught instanceof Error ? caught.message : String(caught);
     }
   }
 </script>
@@ -270,114 +321,253 @@
       <span class="crumb-current">Figure — {audio?.name ?? ''}</span>
     </nav>
 
-    <div class="spacer"></div>
-
-    <select
-      class="format"
-      data-testid="plots-format"
-      aria-label="Export format"
-      bind:value={format}
-    >
-      {#each FORMATS as f (f.value)}
-        <option value={f.value}>{f.label}{f.nativeOnly ? ' (desktop)' : ''}</option>
-      {/each}
-    </select>
-    <button
-      type="button"
-      class="export"
-      data-testid="plots-export"
-      disabled={!figureJson || busy}
-      onclick={download}
-    >
-      <IconDownload aria-hidden="true" />
-      <span>Export</span>
-    </button>
-  </header>
-
-  <div class="stage">
-    <div class="desk">
-      {#if noLayers}
-        <p class="hint" data-testid="plots-empty">Turn on a layer to compose the figure.</p>
-      {:else if error}
-        <p class="hint err" data-testid="plots-error">{error}</p>
-      {:else}
-        <!-- The paper carries the exact SVG the export writes, sized to its
-             physical aspect ratio so it reads as a real sheet on the desk. -->
-        <div
-          class="paper"
-          data-testid="plots-paper"
-          style:aspect-ratio={aspect}
-          class:busy
-        >
-          {#if svg}
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            {@html svg}
-          {/if}
+    <div class="add-wrap">
+      <button
+        type="button"
+        class="add"
+        data-testid="plots-add"
+        aria-expanded={addOpen}
+        onclick={() => (addOpen = !addOpen)}
+      >
+        <IconPlus aria-hidden="true" />
+        <span>Add plot</span>
+      </button>
+      {#if addOpen}
+        <div class="add-menu" role="menu">
+          {#each PLOT_KINDS as { kind, label } (kind)}
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="plots-add-{kind}"
+              onclick={() => addObject(kind)}>{label}</button
+            >
+          {/each}
         </div>
       {/if}
     </div>
 
-    <aside class="inspector" aria-label="Figure options">
-      <section class="group">
-        <h2>Paper</h2>
-        <div class="size-row">
-          <label>
-            <span>Width</span>
-            <input type="number" min="1" step="0.5" data-testid="plots-width" bind:value={width} />
-          </label>
-          <label>
-            <span>Height</span>
-            <input type="number" min="1" step="0.5" data-testid="plots-height" bind:value={height} />
-          </label>
-        </div>
-        <div class="size-row">
-          <label>
-            <span>Unit</span>
-            <select bind:value={unit} data-testid="plots-unit">
-              <option value="cm">cm</option>
-              <option value="in">in</option>
-              <option value="pt">pt</option>
-            </select>
-          </label>
-          <label>
-            <span>Theme</span>
-            <select bind:value={figTheme} data-testid="plots-theme">
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-        </div>
-      </section>
+    <div class="spacer"></div>
 
-      <section class="group">
-        <h2>Layers</h2>
+    <button
+      type="button"
+      class="ghost"
+      data-testid="plots-fit"
+      title="Fit to view"
+      onclick={fitView}
+    >
+      <IconMaximize aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="export"
+      data-testid="plots-export-svg"
+      disabled={!hasContent}
+      onclick={exportSvg}
+    >
+      <IconDownload aria-hidden="true" />
+      <span>SVG</span>
+    </button>
+    <button
+      type="button"
+      class="export"
+      data-testid="plots-export-png"
+      disabled={!hasContent}
+      onclick={exportPng}
+    >
+      <IconDownload aria-hidden="true" />
+      <span>PNG</span>
+    </button>
+  </header>
+
+  <div class="body">
+    <!-- Layers panel: every placed object, front-most last (top of the list). -->
+    <aside class="layers-panel" aria-label="Objects">
+      <h2>Objects</h2>
+      {#if objects.length === 0}
+        <p class="layers-empty">Add a plot to begin.</p>
+      {:else}
         <ul class="layers">
-          {#each LAYER_LABELS as { key, label } (key)}
+          {#each [...objects].reverse() as o (o.id)}
             <li>
-              <button
-                type="button"
-                class="layer"
-                class:on={layers[key]}
-                data-testid="plots-layer-{key}"
-                aria-pressed={layers[key]}
-                onclick={() => (layers[key] = !layers[key])}
-              >
-                {#if layers[key]}<IconEye aria-hidden="true" />{:else}<IconEyeOff aria-hidden="true" />{/if}
-                <span>{label}</span>
-              </button>
+              <div class="layer" class:sel={o.id === selectedId}>
+                <button
+                  type="button"
+                  class="layer-eye"
+                  aria-label={o.visible ? 'Hide' : 'Show'}
+                  onclick={() => toggleVisible(o.id)}
+                >
+                  {#if o.visible}<IconEye aria-hidden="true" />{:else}<IconEyeOff aria-hidden="true" />{/if}
+                </button>
+                <button
+                  type="button"
+                  class="layer-name"
+                  data-testid="plots-layer-item"
+                  onclick={() => (selectedId = o.id)}>{o.name}</button
+                >
+                <button
+                  type="button"
+                  class="layer-del"
+                  aria-label="Delete"
+                  onclick={() => deleteObject(o.id)}
+                >
+                  <IconTrash aria-hidden="true" />
+                </button>
+              </div>
             </li>
           {/each}
         </ul>
-      </section>
+      {/if}
+    </aside>
 
-      <section class="group">
-        <h2>Spectrogram colour</h2>
-        <select bind:value={colormap} data-testid="plots-colormap" aria-label="Spectrogram colormap">
-          {#each FIGURE_COLORMAPS as c (c)}
-            <option value={c}>{c[0].toUpperCase() + c.slice(1)}</option>
+    <!-- The canvas: a pannable workspace holding the artboard. -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div
+      class="canvas"
+      bind:this={canvasEl}
+      role="application"
+      tabindex="0"
+      data-testid="plots-canvas"
+      onpointerdown={() => (selectedId = null)}
+      onpointermove={onPointerMove}
+      onpointerup={endDrag}
+      onkeydown={onCanvasKey}
+      onwheel={onWheel}
+    >
+      <div class="artboard-wrap" style:transform="translate({panX}px, {panY}px) scale({zoom})">
+        <div
+          class="artboard"
+          class:dark={paperTheme === 'dark'}
+          data-testid="plots-artboard"
+          style:width="{paperW}px"
+          style:height="{paperH}px"
+        >
+          {#if objects.length === 0}
+            <p class="art-hint">Add a plot from the toolbar, then drag to arrange it.</p>
+          {/if}
+          {#each objects as o (o.id)}
+            {#if o.visible}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="obj"
+                class:sel={o.id === selectedId}
+                data-testid="plots-obj"
+                data-kind={o.kind}
+                style:left="{o.x}px"
+                style:top="{o.y}px"
+                style:width="{o.w}px"
+                style:height="{o.h}px"
+                onpointerdown={(e) => startMove(e, o)}
+              >
+                {#if renders[o.id]}
+                  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                  <div class="obj-svg">{@html renders[o.id].svg}</div>
+                {:else}
+                  <div class="obj-loading">{plotKindLabel(o.kind)}…</div>
+                {/if}
+                {#if o.id === selectedId}
+                  {#each ['nw', 'ne', 'sw', 'se'] as h (h)}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <span
+                      class="handle {h}"
+                      data-testid="plots-handle-{h}"
+                      onpointerdown={(e) => startResize(e, o, h)}
+                    ></span>
+                  {/each}
+                {/if}
+              </div>
+            {/if}
           {/each}
-        </select>
-      </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- Properties: the selected object, or the artboard when nothing is picked. -->
+    <aside class="props" aria-label="Properties">
+      {#if selected}
+        <h2>{plotKindLabel(selected.kind)}</h2>
+        <label class="field">
+          <span>Name</span>
+          <input
+            type="text"
+            data-testid="plots-obj-name"
+            value={selected.name}
+            oninput={(e) => patchSelected({ name: e.currentTarget.value })}
+          />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Start (s)</span>
+            <input
+              type="number"
+              min="0"
+              step="0.05"
+              placeholder="0"
+              value={selected.t0 ?? ''}
+              oninput={(e) =>
+                patchSelected({ t0: e.currentTarget.value === '' ? null : Number(e.currentTarget.value) })}
+            />
+          </label>
+          <label class="field">
+            <span>End (s)</span>
+            <input
+              type="number"
+              min="0"
+              step="0.05"
+              placeholder={audio ? audio.duration.toFixed(2) : ''}
+              value={selected.t1 ?? ''}
+              oninput={(e) =>
+                patchSelected({ t1: e.currentTarget.value === '' ? null : Number(e.currentTarget.value) })}
+            />
+          </label>
+        </div>
+        {#if selected.kind === 'spectrogram' || selected.kind === 'formant'}
+          <label class="field">
+            <span>Frequency ceiling (Hz)</span>
+            <input
+              type="number"
+              min="500"
+              step="500"
+              value={selected.freqCeiling}
+              oninput={(e) => patchSelected({ freqCeiling: Number(e.currentTarget.value) })}
+            />
+          </label>
+        {/if}
+        {#if selected.kind === 'spectrogram'}
+          <label class="field">
+            <span>Colour</span>
+            <select
+              value={selected.colormap}
+              onchange={(e) => patchSelected({ colormap: e.currentTarget.value as FigureColormapName })}
+            >
+              {#each COLORMAPS as c (c)}
+                <option value={c}>{c[0].toUpperCase() + c.slice(1)}</option>
+              {/each}
+            </select>
+          </label>
+        {/if}
+      {:else}
+        <h2>Artboard</h2>
+        <div class="field-row">
+          <label class="field">
+            <span>Width (px)</span>
+            <input type="number" min="200" step="20" bind:value={paperW} />
+          </label>
+          <label class="field">
+            <span>Height (px)</span>
+            <input type="number" min="200" step="20" bind:value={paperH} />
+          </label>
+        </div>
+        <label class="field">
+          <span>Theme</span>
+          <select bind:value={paperTheme} data-testid="plots-theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <p class="props-hint">Select an object to edit its plot, or add one from the toolbar.</p>
+      {/if}
     </aside>
   </div>
 </div>
@@ -421,9 +611,6 @@
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
     color: var(--text);
-    transition:
-      background var(--t-fast),
-      border-color var(--t-fast);
   }
 
   .crumb-back:hover {
@@ -445,29 +632,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 14rem;
   }
 
-  .spacer {
-    flex: 1 1 auto;
+  .add-wrap {
+    position: relative;
+    margin-left: 0.4rem;
   }
 
-  .format {
-    min-height: 1.9rem;
-    border: 1px solid var(--chrome-strong);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    color: var(--text);
-    font: inherit;
-    font-size: 0.8rem;
-    padding: 0 0.4rem;
-  }
-
-  .export {
+  .add {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
     min-height: 1.9rem;
-    padding: 0 0.8rem;
+    padding: 0 0.7rem;
     border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--chrome-strong));
     border-radius: var(--radius-sm);
     background: var(--accent-tint);
@@ -475,11 +653,86 @@
     font: inherit;
     font-size: 0.8rem;
     font-weight: 600;
-    transition: background var(--t-fast);
+  }
+
+  .add:hover {
+    background: color-mix(in oklab, var(--accent) 22%, var(--panel));
+  }
+
+  .add-menu {
+    position: absolute;
+    top: calc(100% + 0.3rem);
+    left: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 9rem;
+    padding: 0.25rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-md, 8px);
+    background: var(--panel);
+    box-shadow: var(--shadow-lg, 0 8px 30px rgba(0, 0, 0, 0.4));
+  }
+
+  .add-menu button {
+    text-align: left;
+    padding: 0.4rem 0.5rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.82rem;
+  }
+
+  .add-menu button:hover {
+    background: var(--accent-tint);
+    color: var(--accent-strong);
+  }
+
+  .spacer {
+    flex: 1 1 auto;
+  }
+
+  .ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--muted);
+  }
+
+  .ghost:hover {
+    background: var(--panel);
+    color: var(--text);
+  }
+
+  .export {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-height: 1.9rem;
+    padding: 0 0.7rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
   }
 
   .export:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--accent) 22%, var(--panel));
+    background: var(--panel);
+    border-color: color-mix(in oklab, var(--accent) 32%, var(--chrome-strong));
+  }
+
+  .export :global(svg) {
+    font-size: 0.9rem;
   }
 
   .export:disabled {
@@ -487,77 +740,24 @@
     cursor: default;
   }
 
-  .stage {
+  .body {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
   }
 
-  .desk {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: grid;
-    place-items: center;
-    padding: 2rem;
-    overflow: auto;
-    /* A quiet neutral desk with a faint bathymetric wash, so the paper reads
-       as a lit document resting on it. */
-    background:
-      radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 60%),
-      var(--canvas);
-  }
-
-  .paper {
-    max-width: min(100%, 900px);
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    background: #fff;
-    border-radius: 2px;
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.3),
-      0 12px 40px rgba(0, 0, 0, 0.35);
-    transition: opacity var(--t-fast);
-    line-height: 0;
-  }
-
-  .paper.busy {
-    opacity: 0.6;
-  }
-
-  .paper :global(svg) {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .hint {
-    color: var(--muted);
-    font-size: 0.9rem;
-    max-width: 24rem;
-    text-align: center;
-  }
-
-  .hint.err {
-    color: var(--danger, #d66);
-  }
-
-  .inspector {
+  .layers-panel {
     flex: none;
-    width: 15rem;
-    min-width: 15rem;
-    border-left: 1px solid var(--chrome-strong);
+    width: 12rem;
+    min-width: 12rem;
+    border-right: 1px solid var(--chrome-strong);
     background: var(--panel);
     overflow-y: auto;
-    padding: 0.5rem 0;
+    padding: 0.6rem 0.5rem;
   }
 
-  .group {
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid var(--chrome-strong);
-  }
-
-  .group h2 {
+  .layers-panel h2,
+  .props h2 {
     margin: 0 0 0.5rem;
     font-size: 0.68rem;
     font-weight: 700;
@@ -566,35 +766,12 @@
     color: var(--muted);
   }
 
-  .size-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.4rem;
-  }
-
-  .size-row + .size-row {
-    margin-top: 0.5rem;
-  }
-
-  .size-row label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    font-size: 0.72rem;
+  .layers-empty,
+  .props-hint,
+  .art-hint {
     color: var(--muted);
-    min-width: 0;
-  }
-
-  .size-row input,
-  .size-row select {
-    min-height: 1.7rem;
-    border: 1px solid var(--chrome-strong);
-    border-radius: var(--radius-sm);
-    background: var(--panel-soft);
-    color: var(--text);
-    font: inherit;
     font-size: 0.78rem;
-    padding: 0 0.35rem;
+    line-height: 1.5;
   }
 
   .layers {
@@ -603,42 +780,208 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
   }
 
   .layer {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.35rem 0.4rem;
-    border: none;
+    gap: 0.2rem;
     border-radius: var(--radius-sm);
+    padding: 0.1rem 0.15rem;
+  }
+
+  .layer.sel {
+    background: var(--accent-tint);
+  }
+
+  .layer-eye,
+  .layer-del {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: none;
+    border: none;
     background: transparent;
     color: var(--muted);
-    font: inherit;
-    font-size: 0.8rem;
-    text-align: left;
-    transition:
-      background var(--t-fast),
-      color var(--t-fast);
+    border-radius: var(--radius-sm);
   }
 
-  .layer:hover {
+  .layer-eye:hover,
+  .layer-del:hover {
     background: var(--panel-soft);
-  }
-
-  .layer.on {
     color: var(--text);
   }
 
-  .layer :global(svg) {
-    flex: none;
-    font-size: 0.9rem;
+  .layer-del:hover {
+    color: var(--danger, #d66);
   }
 
-  .group select[data-testid='plots-colormap'] {
+  .layer-eye :global(svg),
+  .layer-del :global(svg) {
+    font-size: 0.85rem;
+  }
+
+  .layer-name {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.2rem;
+  }
+
+  .layer.sel .layer-name {
+    color: var(--accent-strong);
+    font-weight: 600;
+  }
+
+  .canvas {
+    flex: 1 1 auto;
+    min-width: 0;
+    position: relative;
+    overflow: hidden;
+    outline: none;
+    background:
+      radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--accent) 5%, transparent), transparent 60%),
+      var(--canvas);
+    background-image:
+      radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--muted) 18%, transparent) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  .artboard-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+  }
+
+  .artboard {
+    position: relative;
+    background: #fff;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 16px 50px rgba(0, 0, 0, 0.4);
+  }
+
+  .artboard.dark {
+    background: #0c1211;
+  }
+
+  .art-hint {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 2rem;
+    pointer-events: none;
+  }
+
+  .artboard.dark .art-hint {
+    color: color-mix(in oklab, #fff 55%, transparent);
+  }
+
+  .obj {
+    position: absolute;
+    line-height: 0;
+  }
+
+  .obj.sel {
+    outline: 1.5px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .obj-svg,
+  .obj-svg :global(svg) {
     width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .obj-loading {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: color-mix(in oklab, var(--muted) 8%, transparent);
+    line-height: 1.2;
+  }
+
+  .handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--panel);
+    border: 1.5px solid var(--accent);
+    border-radius: 2px;
+  }
+
+  .handle.nw {
+    top: -6px;
+    left: -6px;
+    cursor: nwse-resize;
+  }
+
+  .handle.ne {
+    top: -6px;
+    right: -6px;
+    cursor: nesw-resize;
+  }
+
+  .handle.sw {
+    bottom: -6px;
+    left: -6px;
+    cursor: nesw-resize;
+  }
+
+  .handle.se {
+    bottom: -6px;
+    right: -6px;
+    cursor: nwse-resize;
+  }
+
+  .props {
+    flex: none;
+    width: 15rem;
+    min-width: 15rem;
+    border-left: 1px solid var(--chrome-strong);
+    background: var(--panel);
+    overflow-y: auto;
+    padding: 0.7rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    min-width: 0;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .field input,
+  .field select {
     min-height: 1.8rem;
     border: 1px solid var(--chrome-strong);
     border-radius: var(--radius-sm);
@@ -646,6 +989,7 @@
     color: var(--text);
     font: inherit;
     font-size: 0.8rem;
-    padding: 0 0.35rem;
+    padding: 0 0.4rem;
+    min-width: 0;
   }
 </style>

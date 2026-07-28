@@ -1512,7 +1512,6 @@
       {audio}
       {annotationId}
       {theme}
-      {palette}
       projectName={project?.name}
       onExit={backToProject}
     />

@@ -1,0 +1,148 @@
+import {
+  defaultOverlayParams,
+  type AudioInfo,
+  type FigureColormapName,
+  type FigureLayerToggles,
+  type FigureSpec,
+  type FigureThemeName
+} from './types';
+
+/** A kind of plot object that can be placed on the figure canvas. */
+export type PlotKind = 'waveform' | 'spectrogram' | 'pitch' | 'formant' | 'intensity' | 'tiers';
+
+/** The order objects offer themselves in the Add menu and layers list. */
+export const PLOT_KINDS: { kind: PlotKind; label: string }[] = [
+  { kind: 'waveform', label: 'Waveform' },
+  { kind: 'spectrogram', label: 'Spectrogram' },
+  { kind: 'pitch', label: 'Pitch' },
+  { kind: 'formant', label: 'Formants' },
+  { kind: 'intensity', label: 'Intensity' },
+  { kind: 'tiers', label: 'Tiers' }
+];
+
+export function plotKindLabel(kind: PlotKind): string {
+  return PLOT_KINDS.find((k) => k.kind === kind)?.label ?? kind;
+}
+
+/**
+ * One placed plot on the canvas — a single-layer figure at a position and
+ * size in artboard pixels. Every object is independent and additive: adding,
+ * moving, restyling, or deleting one never disturbs the others.
+ */
+export interface PlotObject {
+  id: string;
+  kind: PlotKind;
+  name: string;
+  /** Position and size in artboard pixels. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  visible: boolean;
+  /** Time window in seconds; `null` means the whole recording. */
+  t0: number | null;
+  t1: number | null;
+  /** Frequency ceiling in hertz (spectrogram / formant). */
+  freqCeiling: number;
+  /** Spectrogram colormap. */
+  colormap: FigureColormapName;
+}
+
+let objectCounter = 0;
+
+/** A fresh object of `kind`, positioned by the caller. */
+export function makePlotObject(kind: PlotKind, x: number, y: number): PlotObject {
+  objectCounter += 1;
+  const tall = kind === 'spectrogram';
+  return {
+    id: `obj-${objectCounter}`,
+    kind,
+    name: plotKindLabel(kind),
+    x,
+    y,
+    w: 420,
+    h: tall ? 220 : kind === 'tiers' ? 120 : 160,
+    visible: true,
+    t0: null,
+    t1: null,
+    freqCeiling: 5000,
+    colormap: 'viridis'
+  };
+}
+
+/** The single-layer figure spec that renders one object. */
+export function objectFigureSpec(
+  obj: PlotObject,
+  audio: AudioInfo,
+  annotationId: bigint | null,
+  theme: FigureThemeName
+): FigureSpec {
+  const defaults = defaultOverlayParams();
+  const layers: FigureLayerToggles = {
+    waveform: obj.kind === 'waveform',
+    spectrogram: obj.kind === 'spectrogram',
+    pitch: obj.kind === 'pitch',
+    formant: obj.kind === 'formant',
+    intensity: obj.kind === 'intensity',
+    tiers: obj.kind === 'tiers'
+  };
+  return {
+    audio: Number(audio.id),
+    annotation: annotationId !== null ? Number(annotationId) : null,
+    t0: obj.t0 ?? 0,
+    t1: obj.t1 ?? audio.duration,
+    f0: 0,
+    f1: obj.freqCeiling,
+    layers,
+    // Physical size follows the object's pixel box (1px ≈ 0.75pt) so axis
+    // labels stay proportionate to the box the figure is drawn into.
+    width: Math.max(1, obj.w * 0.75),
+    height: Math.max(1, obj.h * 0.75),
+    unit: 'pt',
+    theme,
+    colormap: obj.colormap,
+    dynamic_range_db: 70,
+    max_db: null,
+    spectrogram_width_px: 1000,
+    spectrogram_height_px: 300,
+    window_length: 0.005,
+    pitch_floor_hz: defaults.pitch.floorHz,
+    pitch_ceiling_hz: defaults.pitch.ceilingHz,
+    pitch_unit: 'hertz',
+    formant_ceiling_hz: obj.freqCeiling,
+    formant_max: defaults.formant.maxFormants,
+    formant_smoothed: defaults.formant.smoothed,
+    intensity_floor_hz: defaults.intensity.floorHz
+  };
+}
+
+/** viewBox width/height parsed from a rendered SVG string, for compositing. */
+export function svgViewBox(svg: string): { w: number; h: number } {
+  const vb = svg.match(/viewBox="([\d.\s-]+)"/);
+  if (vb) {
+    const parts = vb[1].trim().split(/\s+/).map(Number);
+    if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) return { w: parts[2], h: parts[3] };
+  }
+  const w = svg.match(/\bwidth="([\d.]+)/);
+  const h = svg.match(/\bheight="([\d.]+)/);
+  return { w: w ? Number(w[1]) : 1, h: h ? Number(h[1]) : 1 };
+}
+
+/** Inner markup of an SVG string (everything between the outer svg tags). */
+export function svgInner(svg: string): string {
+  const open = svg.indexOf('>', svg.indexOf('<svg'));
+  const close = svg.lastIndexOf('</svg>');
+  return open >= 0 && close > open ? svg.slice(open + 1, close) : svg;
+}
+
+/**
+ * Prefixes every `id` and its `url(#…)`/`href="#…"` references so several
+ * rendered figures can coexist in one document — on the canvas and in the
+ * composited export — without their clip-path and gradient ids colliding.
+ */
+export function namespaceSvgIds(svg: string, prefix: string): string {
+  return svg
+    .replace(/\bid="([^"]+)"/g, `id="${prefix}-$1"`)
+    .replace(/\burl\(#([^)]+)\)/g, `url(#${prefix}-$1)`)
+    .replace(/(\bxlink:href|\bhref)="#([^"]+)"/g, `$1="#${prefix}-$2"`);
+}
