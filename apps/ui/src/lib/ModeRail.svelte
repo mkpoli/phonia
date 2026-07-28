@@ -213,21 +213,58 @@
       animation-delay: 0.85s, 2.5s;
     }
 
-    /* Becoming active retraces the icon's strokes and gives the glyph a nudge. */
+    /* Becoming active: the glyph coils, springs up to attention, and settles,
+       while a warm accent glow blooms off its strokes then fades — the same
+       overshoot easing the brand dot pops with, so the rail reads as one hand.
+       The label lifts a hair in sympathy so the whole tab moves together. */
     .mode.active :global(svg) {
-      animation: nudge 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation:
+        pounce 0.52s cubic-bezier(0.34, 1.56, 0.64, 1),
+        bloom 0.66s ease-out;
     }
 
-    .mode.active :global(svg *) {
-      stroke-dasharray: 100;
-      stroke-dashoffset: 100;
-      animation: draw 0.55s cubic-bezier(0.55, 0.06, 0.25, 1) forwards;
+    .mode.active span {
+      animation: liftin 0.52s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
   }
 
-  @keyframes draw {
-    to {
-      stroke-dashoffset: 0;
+  @keyframes pounce {
+    0% {
+      transform: translateY(0) scale(1);
+    }
+    20% {
+      transform: translateY(1.5px) scale(0.86);
+    }
+    52% {
+      transform: translateY(-3px) scale(1.16);
+    }
+    76% {
+      transform: translateY(0) scale(0.97);
+    }
+    100% {
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes bloom {
+    0% {
+      filter: drop-shadow(0 0 0 transparent);
+    }
+    45% {
+      filter: drop-shadow(0 0 5px var(--accent));
+    }
+    100% {
+      filter: drop-shadow(0 0 0 transparent);
+    }
+  }
+
+  @keyframes liftin {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    52% {
+      transform: translateY(-1.5px);
     }
   }
 
@@ -259,15 +296,9 @@
     }
   }
 
-  @keyframes nudge {
-    35% {
-      transform: scale(1.12);
-    }
-    70% {
-      transform: scale(0.97);
-    }
-    100% {
-      transform: scale(1);
+  @keyframes draw {
+    to {
+      stroke-dashoffset: 0;
     }
   }
 </style>
