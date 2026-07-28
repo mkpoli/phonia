@@ -96,8 +96,10 @@ Single-window, synchronized-pane timeline (the WaveSurfer/DAW model):
 
 ## Visual language
 
-- Spectrogram palettes: viridis default, magma, grayscale; independent tuning
-  per theme — palettes are defined against both backgrounds, never inverted.
+- Spectrogram palettes: a brand default, the matplotlib perceptual ramps,
+  turbo, cubehelix, CMRmap, gnuplot, ocean, and two grayscales (print and
+  dark-floor); every ramp renders identically on both backgrounds, and
+  inverting a ramp is an explicit toggle, never a theme side effect.
 - Light and dark are both first-class; every UI change is screenshot-verified
   in both before merging.
 - Typography and spacing follow a plain, quiet lab-instrument register; no

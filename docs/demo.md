@@ -88,14 +88,15 @@ back through an import as well.
 ## Moment 5 — a grayscale figure for print
 
 1. Press `Ctrl-K`, type `gray`, and run **Spectrogram palette: Grayscale**. The
-   spectrogram redraws in grayscale, tuned for the current theme rather than
-   inverted from the color map.
+   spectrogram redraws in the print ramp: white silence, black peaks, the same
+   in both themes — the picker's *Grayscale Dark* is the dark-floor sibling,
+   and *Invert ramp* in the same popover flips whichever ramp is active.
 2. Press `E` (or click **Export figure** in the status bar) to open the figure
    dialog. The preview renders from the current view through the same SVG backend
    the export writes, so the preview matches what the export saves.
 3. Set **Palette** to *Grayscale (print)*. Toggle **Preview theme** between Light
-   and Dark to confirm the figure reads against a white page as well as a dark
-   one.
+   and Dark: the chrome follows the theme while the grayscale panel stays a
+   white page, exactly what the export writes.
 4. Choose a **Format** and click **Download**. SVG and PNG save from the browser;
    the preview and the saved SVG are byte-for-byte identical. PDF export runs in
    the desktop build (the dialog notes this on the web).

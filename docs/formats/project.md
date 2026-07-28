@@ -219,6 +219,12 @@ One entry per recording that carries an annotation, named by the recording's
 domain and a list of interval and point tiers with their labels, boundaries,
 and cross-tier relations. A recording with no annotation has no entry.
 
+Each tier carries its own `xmin`/`xmax` time domain, usually equal to the
+document's. A file written before tiers carried one omits the pair; a reader
+fills a missing tier domain from the document's, the bounds such a tier
+validated against when the file was written. The document's own `xmin`/`xmax`
+are required.
+
 ## Autosave sidecar
 
 While a project is open, edits are checkpointed to a sidecar file named by

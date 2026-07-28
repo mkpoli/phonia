@@ -66,7 +66,7 @@ phx-wasm ──► phx-engine
 | phx-voice | Pulse extraction from pitch + waveform, jitter/shimmer families, HNR, CPP/CPPS, spectral moments, aggregate voice report | phx-pitch |
 | phx-annot | Tiers (interval/point), typed hierarchy (parent/child spans on the ELAN model), validation of cross-tier integrity | — |
 | phx-textgrid | Praat TextGrid read (long/short/binary text variants; UTF-8/UTF-16/Latin-1) and write (UTF-8 always) | phx-annot |
-| phx-render | Perceptual colormaps (viridis, magma, grayscale), theme-aware dB→RGBA mapping | — |
+| phx-render | Perceptual colormaps (viridis family, turbo, cubehelix, grayscales), dB→RGBA mapping with explicit ramp inversion | — |
 | phx-figure | Backend-agnostic figure model; exporters: SVG, PDF (svg2pdf), PGFPlots/TikZ, Typst/CeTZ, Vega JSON, matplotlib/R/Julia code + data, GraphML | plotters, svg2pdf, typst (later) |
 | phx-project | Project file (versioned, self-describing), media references, analysis parameter profiles, autosave snapshots | serde |
 | phx-engine | The one API both frontends and future bindings consume: commands with explicit arguments, journaled unified undo, content-addressed analysis cache | all core crates |
