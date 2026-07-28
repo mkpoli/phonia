@@ -163,7 +163,7 @@
         ow: number;
         oh: number;
       };
-  let drag: Drag | null = null;
+  let drag = $state<Drag | null>(null);
 
   // Panning the canvas by dragging empty space (objects stop propagation, so
   // this only starts on the bare workspace); a click with no travel deselects.
@@ -516,6 +516,11 @@
                       onpointerdown={(e) => startResize(e, o, h)}
                     ></span>
                   {/each}
+                  {#if drag && drag.id === o.id}
+                    <span class="size-badge" data-testid="plots-size-badge"
+                      >{Math.round(o.w)} × {Math.round(o.h)}</span
+                    >
+                  {/if}
                 {/if}
               </div>
             {/if}
@@ -537,6 +542,47 @@
             oninput={(e) => patchSelected({ name: e.currentTarget.value })}
           />
         </label>
+        <div class="frame">
+          <span class="frame-h">Frame</span>
+          <div class="frame-grid">
+            <label class="field mini">
+              <span>X</span>
+              <input
+                type="number"
+                data-testid="plots-frame-x"
+                value={Math.round(selected.x)}
+                oninput={(e) => patchSelected({ x: Number(e.currentTarget.value) })}
+              />
+            </label>
+            <label class="field mini">
+              <span>Y</span>
+              <input
+                type="number"
+                value={Math.round(selected.y)}
+                oninput={(e) => patchSelected({ y: Number(e.currentTarget.value) })}
+              />
+            </label>
+            <label class="field mini">
+              <span>W</span>
+              <input
+                type="number"
+                min="80"
+                data-testid="plots-frame-w"
+                value={Math.round(selected.w)}
+                oninput={(e) => patchSelected({ w: Math.max(80, Number(e.currentTarget.value)) })}
+              />
+            </label>
+            <label class="field mini">
+              <span>H</span>
+              <input
+                type="number"
+                min="80"
+                value={Math.round(selected.h)}
+                oninput={(e) => patchSelected({ h: Math.max(80, Number(e.currentTarget.value)) })}
+              />
+            </label>
+          </div>
+        </div>
         <div class="field-row">
           <label class="field">
             <span>Start (s)</span>
@@ -1011,6 +1057,23 @@
     border-radius: 2px;
   }
 
+  /* Live dimensions while moving or resizing, Figma-style. */
+  .size-badge {
+    position: absolute;
+    left: 50%;
+    bottom: -1.6rem;
+    transform: translateX(-50%);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: var(--accent);
+    color: var(--ink, #03211b);
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
   .handle.nw {
     top: -6px;
     left: -6px;
@@ -1074,6 +1137,36 @@
     font-size: 0.8rem;
     padding: 0 0.4rem;
     min-width: 0;
+  }
+
+  .frame-h {
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .frame-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 0.3rem;
+  }
+
+  .field.mini {
+    gap: 0.15rem;
+  }
+
+  .field.mini span {
+    font-size: 0.66rem;
+    text-align: center;
+  }
+
+  .field.mini input {
+    text-align: center;
+    padding: 0 0.2rem;
   }
 
   .colour-row {
