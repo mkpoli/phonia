@@ -53,6 +53,8 @@ struct Palette {
     border: Rgb,
     /// Relative luminance of `panel_bg`, cached for contrast adaptation.
     panel_lum: f64,
+    /// Whether interior grid lines are drawn on data panels.
+    show_grid: bool,
 }
 
 impl Palette {
@@ -83,6 +85,7 @@ impl Palette {
             grid,
             border,
             panel_lum: relative_luminance(panel_bg),
+            show_grid: true,
         }
     }
 
@@ -117,7 +120,11 @@ pub fn to_svg(fig: &Figure) -> String {
     let (w_px, h_px) = fig.size.px_at(SVG_DPI);
     let w = f64::from(w_px.max(1));
     let h = f64::from(h_px.max(1));
-    let pal = Palette::for_theme(fig.theme);
+    let mut pal = Palette::for_theme(fig.theme);
+    if let Some([r, g, b]) = fig.axis_color {
+        pal.axis = (r, g, b);
+    }
+    pal.show_grid = fig.show_grid;
 
     let mut s = String::with_capacity(64 * 1024);
     let _ = write!(
@@ -299,7 +306,7 @@ fn draw_panel(s: &mut String, idx: usize, panel: &Panel, r: &PlotRect, pal: &Pal
     // time grid, both suppressed over a spectrogram so the lines do not cut
     // through the raster.
     let value_ticks = nice_ticks(panel.value_axis.min, panel.value_axis.max, 4);
-    if !spectro && !tier_panel {
+    if !spectro && !tier_panel && pal.show_grid {
         for &v in &value_ticks {
             let y = r.map_y(&panel.value_axis, v);
             line(s, r.x0, y, r.x1, y, pal.grid, 0.6, DashStyle::Solid);

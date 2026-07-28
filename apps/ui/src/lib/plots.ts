@@ -102,7 +102,8 @@ export function objectFigureSpec(
   obj: PlotObject,
   audio: AudioInfo,
   annotationId: bigint | null,
-  theme: FigureThemeName
+  theme: FigureThemeName,
+  axis: { color: string | null; showGrid: boolean } = { color: null, showGrid: true }
 ): FigureSpec {
   const defaults = defaultOverlayParams();
   const layers: FigureLayerToggles = {
@@ -114,6 +115,7 @@ export function objectFigureSpec(
     tiers: obj.kind === 'tiers'
   };
   const ink = obj.itemColor ? hexToRgb(obj.itemColor) : null;
+  const axisInk = axis.color ? hexToRgb(axis.color) : null;
   return {
     audio: Number(audio.id),
     annotation: annotationId !== null ? Number(annotationId) : null,
@@ -144,7 +146,9 @@ export function objectFigureSpec(
     waveform_color: obj.kind === 'waveform' ? ink : null,
     pitch_color: obj.kind === 'pitch' ? ink : null,
     formant_color: obj.kind === 'formant' ? ink : null,
-    intensity_color: obj.kind === 'intensity' ? ink : null
+    intensity_color: obj.kind === 'intensity' ? ink : null,
+    axis_color: axisInk,
+    show_grid: axis.showGrid
   };
 }
 

@@ -568,6 +568,10 @@ export interface FigureSpec {
   formant_color?: [number, number, number] | null;
   /** Intensity contour colour as `[r, g, b]`; the theme default when absent. */
   intensity_color?: [number, number, number] | null;
+  /** Axis-line and tick colour as `[r, g, b]`; the theme default when absent. */
+  axis_color?: [number, number, number] | null;
+  /** Whether interior grid lines are drawn on data panels. */
+  show_grid?: boolean;
 }
 
 /** A named file emitted alongside an export's main document. */

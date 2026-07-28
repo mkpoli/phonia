@@ -32,6 +32,8 @@ pub struct FigureBuilder {
     theme: Theme,
     panels: Vec<Panel>,
     caption_meta: CaptionMeta,
+    axis_color: Option<[u8; 3]>,
+    show_grid: bool,
 }
 
 impl FigureBuilder {
@@ -44,6 +46,8 @@ impl FigureBuilder {
             theme,
             panels: Vec::new(),
             caption_meta: CaptionMeta::default(),
+            axis_color: None,
+            show_grid: true,
         }
     }
 
@@ -61,6 +65,20 @@ impl FigureBuilder {
         self
     }
 
+    /// Overrides the axis and tick colour; `None` keeps the theme default.
+    #[must_use]
+    pub fn axis_color(mut self, color: Option<[u8; 3]>) -> Self {
+        self.axis_color = color;
+        self
+    }
+
+    /// Sets whether interior grid lines are drawn.
+    #[must_use]
+    pub fn show_grid(mut self, show: bool) -> Self {
+        self.show_grid = show;
+        self
+    }
+
     /// Finishes the figure.
     #[must_use]
     pub fn build(self) -> Figure {
@@ -69,6 +87,8 @@ impl FigureBuilder {
             theme: self.theme,
             panels: self.panels,
             caption_meta: self.caption_meta,
+            axis_color: self.axis_color,
+            show_grid: self.show_grid,
         }
     }
 }

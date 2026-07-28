@@ -374,6 +374,16 @@ pub struct Figure {
     pub panels: Vec<Panel>,
     /// Analysis provenance for the caption.
     pub caption_meta: CaptionMeta,
+    /// Axis-line and tick colour as `[r, g, b]`; the theme default when absent.
+    #[serde(default)]
+    pub axis_color: Option<[u8; 3]>,
+    /// Whether interior grid lines are drawn on data panels.
+    #[serde(default = "default_true")]
+    pub show_grid: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Figure {

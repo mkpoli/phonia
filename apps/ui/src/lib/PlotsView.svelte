@@ -76,6 +76,10 @@
   let paperBg = $state('#ffffff');
   // An optional figure title drawn at the top of the paper and into the export.
   let figTitle = $state('');
+  // Axis-line/tick colour across every panel; `null` keeps the theme default.
+  let axisColor = $state<string | null>(null);
+  // Whether interior grid lines are drawn on data panels.
+  let showGrid = $state(true);
 
   // Artboard size quick-picks. Widths track the common journal figure widths
   // (single ≈ 3.5 in, double ≈ 7 in) at ~110 px/in so the on-screen paper reads
@@ -103,12 +107,23 @@
     paperBg: string;
     paperTheme: FigureThemeName;
     figTitle: string;
+    axisColor: string | null;
+    showGrid: boolean;
   }
   let history = $state<Snapshot[]>([]);
   let future = $state<Snapshot[]>([]);
 
   function snapshot(): Snapshot {
-    return { objects: objects.map((o) => ({ ...o })), paperW, paperH, paperBg, paperTheme, figTitle };
+    return {
+      objects: objects.map((o) => ({ ...o })),
+      paperW,
+      paperH,
+      paperBg,
+      paperTheme,
+      figTitle,
+      axisColor,
+      showGrid
+    };
   }
 
   function pushHistory(s: Snapshot = snapshot()) {
@@ -129,6 +144,8 @@
     paperBg = s.paperBg;
     paperTheme = s.paperTheme;
     figTitle = s.figTitle;
+    axisColor = s.axisColor;
+    showGrid = s.showGrid;
     if (selectedId && !objects.some((o) => o.id === selectedId)) selectedId = null;
   }
 
@@ -174,7 +191,9 @@
       o.itemColor ?? '',
       Math.round(o.w),
       Math.round(o.h),
-      paperTheme
+      paperTheme,
+      axisColor ?? '',
+      showGrid ? 'g1' : 'g0'
     ].join(':');
   }
 
@@ -188,7 +207,10 @@
       if (renders[o.id]?.key === key) continue;
       const token = (renderTokens.get(o.id) ?? 0) + 1;
       renderTokens.set(o.id, token);
-      const spec = objectFigureSpec(o, audio, annotationId, paperTheme);
+      const spec = objectFigureSpec(o, audio, annotationId, paperTheme, {
+        color: axisColor,
+        showGrid
+      });
       void (async () => {
         try {
           const json = await client.buildFigure(spec);
@@ -1048,6 +1070,36 @@
             </select>
           </label>
         </div>
+        <div class="field-row">
+          <div class="field">
+            <span>Axis colour</span>
+            <span class="colour-row">
+              <ColourField
+                testId="plots-axis-color"
+                value={axisColor ?? '#666666'}
+                onOpen={() => pushHistory()}
+                onChange={(hex) => (axisColor = hex)}
+              />
+              {#if axisColor !== null}
+                <button type="button" class="reset" title="Theme default" onclick={() => (axisColor = null)}
+                  >Default</button
+                >
+              {/if}
+            </span>
+          </div>
+          <label class="field check-field">
+            <span>Grid lines</span>
+            <input
+              type="checkbox"
+              data-testid="plots-grid"
+              checked={showGrid}
+              onchange={(e) => {
+                pushHistory();
+                showGrid = e.currentTarget.checked;
+              }}
+            />
+          </label>
+        </div>
         <p class="props-hint">Select an object to edit its plot, or add one from the toolbar.</p>
       {/if}
     </aside>
@@ -1586,6 +1638,24 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
+  }
+
+  .check-field {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.45rem;
+    align-self: end;
+    min-height: 1.8rem;
+  }
+
+  .check-field input[type='checkbox'] {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    min-height: 0;
+    padding: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
   }
 
   .field input,

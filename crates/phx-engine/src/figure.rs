@@ -208,6 +208,17 @@ pub struct FigureRequest {
     /// Intensity contour colour as `[r, g, b]`; the theme default when absent.
     #[serde(default)]
     pub intensity_color: Option<[u8; 3]>,
+    /// Axis-line and tick colour as `[r, g, b]`; the theme default when absent.
+    #[serde(default)]
+    pub axis_color: Option<[u8; 3]>,
+    /// Whether interior grid lines are drawn on data panels.
+    #[serde(default = "default_true")]
+    pub show_grid: bool,
+}
+
+/// Grid lines are on unless a request turns them off.
+fn default_true() -> bool {
+    true
 }
 
 /// A downloadable figure export: one main file plus any sidecar files.
@@ -463,7 +474,9 @@ impl Engine {
         }
 
         let size = SizeSpec::new(req.width, req.height, req.unit.into());
-        let mut builder = FigureBuilder::new(size, theme);
+        let mut builder = FigureBuilder::new(size, theme)
+            .axis_color(req.axis_color)
+            .show_grid(req.show_grid);
         for panel in panels {
             builder = builder.panel(panel);
         }
@@ -730,6 +743,8 @@ pub fn default_figure_request(
         pitch_color: None,
         formant_color: None,
         intensity_color: None,
+        axis_color: None,
+        show_grid: true,
     }
 }
 
