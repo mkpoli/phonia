@@ -76,6 +76,18 @@
   // An optional figure title drawn at the top of the paper and into the export.
   let figTitle = $state('');
 
+  // Artboard size quick-picks. Widths track the common journal figure widths
+  // (single ≈ 3.5 in, double ≈ 7 in) at ~110 px/in so the on-screen paper reads
+  // at a comfortable working scale; heights are sensible starting canvases.
+  const SIZE_PRESETS: { label: string; w: number; h: number }[] = [
+    { label: 'Single column', w: 390, h: 300 },
+    { label: 'Single column, tall', w: 390, h: 520 },
+    { label: 'Double column', w: 770, h: 420 },
+    { label: 'Double column, tall', w: 770, h: 620 },
+    { label: 'Slide (16:9)', w: 960, h: 540 },
+    { label: 'Square', w: 520, h: 520 }
+  ];
+
   let objects = $state<PlotObject[]>([]);
   let selectedId = $state<string | null>(null);
   const selected = $derived(objects.find((o) => o.id === selectedId) ?? null);
@@ -971,6 +983,27 @@
             bind:value={figTitle}
             onfocus={() => pushHistory()}
           />
+        </label>
+        <label class="field">
+          <span>Preset size</span>
+          <select
+            data-testid="plots-size-preset"
+            aria-label="Artboard size preset"
+            onchange={(e) => {
+              const p = SIZE_PRESETS.find((s) => s.label === e.currentTarget.value);
+              if (p) {
+                pushHistory();
+                paperW = p.w;
+                paperH = p.h;
+              }
+              e.currentTarget.selectedIndex = 0;
+            }}
+          >
+            <option value="">Choose a size…</option>
+            {#each SIZE_PRESETS as p (p.label)}
+              <option value={p.label}>{p.label} · {p.w}×{p.h}</option>
+            {/each}
+          </select>
         </label>
         <div class="field-row">
           <label class="field">
