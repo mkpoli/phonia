@@ -194,6 +194,15 @@
       selectRange(anchor, id);
       return;
     }
+    // In select mode — once anything is selected — a plain click keeps
+    // selecting rather than opening the project, so a card added to or removed
+    // from the selection never surprises the user by navigating away. Clearing
+    // the selection returns clicks to opening.
+    if (manage && selected.size > 0) {
+      toggleSelect(id);
+      anchor = id;
+      return;
+    }
     clearSelection();
     onOpenProject(id);
   }
