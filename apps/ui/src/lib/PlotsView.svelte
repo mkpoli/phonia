@@ -8,6 +8,8 @@
   import IconMaximize from '~icons/lucide/maximize';
   import IconUndo from '~icons/lucide/undo-2';
   import IconRedo from '~icons/lucide/redo-2';
+  import IconChevronUp from '~icons/lucide/chevron-up';
+  import IconChevronDown from '~icons/lucide/chevron-down';
   import { untrack } from 'svelte';
   import {
     makePlotObject,
@@ -228,6 +230,20 @@
     pushHistory();
     objects = objects.map((o) => (o.id === id ? { ...o, visible: !o.visible } : o));
   }
+
+  // Later in the array draws on top, so "forward" moves toward the end.
+  function reorder(id: string, delta: 1 | -1) {
+    const i = objects.findIndex((o) => o.id === id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= objects.length) return;
+    pushHistory();
+    const next = [...objects];
+    [next[i], next[j]] = [next[j], next[i]];
+    objects = next;
+  }
+
+  const isFront = (id: string) => objects.length > 0 && objects[objects.length - 1].id === id;
+  const isBack = (id: string) => objects.length > 0 && objects[0].id === id;
 
   function patchSelected(patch: Partial<PlotObject>) {
     if (!selectedId) return;
@@ -636,6 +652,27 @@
                   data-testid="plots-layer-item"
                   onclick={() => (selectedId = o.id)}>{o.name}</button
                 >
+                <button
+                  type="button"
+                  class="layer-move"
+                  data-testid="plots-forward"
+                  aria-label="Bring forward"
+                  title="Bring forward"
+                  disabled={isFront(o.id)}
+                  onclick={() => reorder(o.id, 1)}
+                >
+                  <IconChevronUp aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="layer-move"
+                  aria-label="Send backward"
+                  title="Send backward"
+                  disabled={isBack(o.id)}
+                  onclick={() => reorder(o.id, -1)}
+                >
+                  <IconChevronDown aria-hidden="true" />
+                </button>
                 <button
                   type="button"
                   class="layer-del"
@@ -1152,11 +1189,12 @@
   }
 
   .layer-eye,
-  .layer-del {
+  .layer-del,
+  .layer-move {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.5rem;
+    width: 1.4rem;
     height: 1.5rem;
     flex: none;
     border: none;
@@ -1165,10 +1203,30 @@
     border-radius: var(--radius-sm);
   }
 
+  .layer-move {
+    width: 1.15rem;
+    opacity: 0;
+  }
+
+  .layer:hover .layer-move,
+  .layer.sel .layer-move {
+    opacity: 1;
+  }
+
   .layer-eye:hover,
-  .layer-del:hover {
+  .layer-del:hover,
+  .layer-move:hover:not(:disabled) {
     background: var(--panel-soft);
     color: var(--text);
+  }
+
+  .layer-move:disabled {
+    opacity: 0.2 !important;
+    cursor: default;
+  }
+
+  .layer-move :global(svg) {
+    font-size: 0.8rem;
   }
 
   .layer-del:hover {
