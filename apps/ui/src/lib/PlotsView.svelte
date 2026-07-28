@@ -70,6 +70,8 @@
   // The paper (canvas) colour behind the plot panels; the panels keep their
   // own light/dark backgrounds set by the theme above.
   let paperBg = $state('#ffffff');
+  // An optional figure title drawn at the top of the paper and into the export.
+  let figTitle = $state('');
 
   let objects = $state<PlotObject[]>([]);
   let selectedId = $state<string | null>(null);
@@ -84,12 +86,13 @@
     paperH: number;
     paperBg: string;
     paperTheme: FigureThemeName;
+    figTitle: string;
   }
   let history = $state<Snapshot[]>([]);
   let future = $state<Snapshot[]>([]);
 
   function snapshot(): Snapshot {
-    return { objects: objects.map((o) => ({ ...o })), paperW, paperH, paperBg, paperTheme };
+    return { objects: objects.map((o) => ({ ...o })), paperW, paperH, paperBg, paperTheme, figTitle };
   }
 
   function pushHistory(s: Snapshot = snapshot()) {
@@ -109,6 +112,7 @@
     paperH = s.paperH;
     paperBg = s.paperBg;
     paperTheme = s.paperTheme;
+    figTitle = s.figTitle;
     if (selectedId && !objects.some((o) => o.id === selectedId)) selectedId = null;
   }
 
@@ -443,7 +447,19 @@
         return `<svg x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" viewBox="0 0 ${r.vb.w} ${r.vb.h}" preserveAspectRatio="none" overflow="visible">${svgInner(r.svg)}</svg>`;
       })
       .join('');
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${paperW}" height="${paperH}" viewBox="0 0 ${paperW} ${paperH}"><rect width="${paperW}" height="${paperH}" fill="${bg}"/>${parts}</svg>`;
+    const titleInk = paperTheme === 'dark' ? '#e9efec' : '#1c1c1c';
+    const title = figTitle
+      ? `<text x="24" y="30" font-family="Georgia, serif" font-size="17" font-weight="600" fill="${titleInk}">${escapeXml(figTitle)}</text>`
+      : '';
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${paperW}" height="${paperH}" viewBox="0 0 ${paperW} ${paperH}"><rect width="${paperW}" height="${paperH}" fill="${bg}"/>${title}${parts}</svg>`;
+  }
+
+  function escapeXml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   function saveBlob(blob: Blob, name: string) {
@@ -645,6 +661,11 @@
           style:height="{paperH}px"
           style:background={paperBg}
         >
+          {#if figTitle}
+            <div class="fig-title" class:dark={paperTheme === 'dark'} data-testid="plots-title">
+              {figTitle}
+            </div>
+          {/if}
           {#if objects.length === 0}
             <p class="art-hint">Add a plot from the toolbar, then drag to arrange it.</p>
           {/if}
@@ -831,6 +852,16 @@
         {/if}
       {:else}
         <h2>Artboard</h2>
+        <label class="field">
+          <span>Figure title</span>
+          <input
+            type="text"
+            data-testid="plots-title-input"
+            placeholder="e.g. Figure 1 — Danger trail"
+            bind:value={figTitle}
+            onfocus={() => pushHistory()}
+          />
+        </label>
         <div class="field-row">
           <label class="field">
             <span>Width (px)</span>
@@ -1197,6 +1228,24 @@
 
   .artboard.dark .art-hint {
     color: color-mix(in oklab, #fff 55%, transparent);
+  }
+
+  .fig-title {
+    position: absolute;
+    top: 0.6rem;
+    left: 1.5rem;
+    right: 1.5rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #1c1c1c;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .fig-title.dark {
+    color: #e9efec;
   }
 
   /* Alignment guides while snapping — thin gold rules across the artboard. */
