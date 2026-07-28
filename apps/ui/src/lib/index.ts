@@ -8,6 +8,7 @@ export { default as FirstRunKeyModePrompt } from './FirstRunKeyModePrompt.svelte
 export { default as GradientEditor } from './GradientEditor.svelte';
 export { default as KeyboardMap } from './KeyboardMap.svelte';
 export { default as PalettePicker } from './PalettePicker.svelte';
+export { default as PlotsView } from './PlotsView.svelte';
 export { default as ShortcutEditor } from './ShortcutEditor.svelte';
 export { default as HomeView } from './HomeView.svelte';
 export { default as InlineRename } from './InlineRename.svelte';

@@ -7,6 +7,7 @@
     FirstRunKeyModePrompt,
     HomeView,
     ModeRail,
+    PlotsView,
     ProjectView,
     RecordingStrip,
     ShortcutEditor,
@@ -41,7 +42,7 @@
   } from '$lib/project/ProjectStore';
   import LandingPage from '$lib/landing/LandingPage.svelte';
 
-  type Route = 'home' | 'project' | 'editor';
+  type Route = 'home' | 'project' | 'editor' | 'plots';
 
   let client = $state<WasmCoreClient | null>(null);
   let store = $state<ProjectStore | null>(null);
@@ -54,7 +55,9 @@
   let recording = $state<RecordingEntry | null>(null);
 
   let audio = $state<AudioInfo | null>(null);
-  const mode = $derived<'library' | 'analyze'>(route === 'editor' ? 'analyze' : 'library');
+  const mode = $derived<'library' | 'analyze' | 'plots'>(
+    route === 'editor' ? 'analyze' : route === 'plots' ? 'plots' : 'library'
+  );
   // Home group holding the open project, shown as the breadcrumb's first crumb.
   const projectGroupName = $derived.by(() => {
     const p = project;
@@ -62,11 +65,13 @@
     return homeIndex.groups.find((g) => g.members.includes(p.id))?.name;
   });
 
-  function handleModeNavigate(next: 'library' | 'analyze') {
+  function handleModeNavigate(next: 'library' | 'analyze' | 'plots') {
     if (next === 'library') {
-      if (route === 'editor') backToProject();
+      if (route === 'editor' || route === 'plots') backToProject();
     } else if (next === 'analyze') {
       if (audio) route = 'editor';
+    } else if (next === 'plots') {
+      if (audio) route = 'plots';
     }
   }
 
@@ -1373,7 +1378,12 @@
 {#if showLanding}
   <LandingPage onEnterApp={enterApp} />
 {:else}
-<ModeRail active={mode} analyzeEnabled={audio !== null} onNavigate={handleModeNavigate} />
+<ModeRail
+  active={mode}
+  analyzeEnabled={audio !== null}
+  plotsEnabled={audio !== null}
+  onNavigate={handleModeNavigate}
+/>
 
 <div class="app-content">
   {#if route === 'home'}
@@ -1495,6 +1505,16 @@
       {loopEnabled}
       onLoopToggle={handleLoopToggle}
       {dirty}
+    />
+  {:else if route === 'plots'}
+    <PlotsView
+      {client}
+      {audio}
+      {annotationId}
+      {theme}
+      {palette}
+      projectName={project?.name}
+      onExit={backToProject}
     />
   {/if}
 </div>

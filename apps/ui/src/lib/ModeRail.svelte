@@ -3,22 +3,23 @@
   import IconActivity from '~icons/lucide/activity';
   import IconChartSpline from '~icons/lucide/chart-spline';
 
+  type ModeId = 'library' | 'analyze' | 'plots';
+
   interface Props {
     /** Which mode is current; drives aria-current and the active visual state. */
-    active: 'library' | 'analyze';
+    active: ModeId;
     /** False disables the Analyse button (no recording is open to analyse). */
     analyzeEnabled: boolean;
-    onNavigate: (mode: 'library' | 'analyze') => void;
+    /** False disables the Plots button (no recording is open to plot). */
+    plotsEnabled: boolean;
+    onNavigate: (mode: ModeId) => void;
   }
 
-  let { active, analyzeEnabled, onNavigate }: Props = $props();
-
-  type ModeId = 'library' | 'analyze' | 'plots';
+  let { active, analyzeEnabled, plotsEnabled, onNavigate }: Props = $props();
 
   const MODES: { id: ModeId; label: string }[] = [
     { id: 'library', label: 'Library' },
     { id: 'analyze', label: 'Analyse' },
-    // Plots stays disabled until the figure view exists; its click is inert.
     { id: 'plots', label: 'Plots' }
     // Studio and Script are planned modes; add each as one more entry here
     // plus one icon import above.
@@ -32,18 +33,17 @@
 
   function disabledFor(id: ModeId): boolean {
     if (id === 'analyze') return !analyzeEnabled;
-    if (id === 'plots') return true;
+    if (id === 'plots') return !plotsEnabled;
     return false;
   }
 
   function titleFor(id: ModeId, label: string): string {
     if (id === 'analyze' && !analyzeEnabled) return 'Analyse — open a recording first';
-    if (id === 'plots') return 'Plots — not yet available';
+    if (id === 'plots' && !plotsEnabled) return 'Plots — open a recording first';
     return label;
   }
 
   function navigate(id: ModeId) {
-    if (id === 'plots') return;
     onNavigate(id);
   }
 </script>
