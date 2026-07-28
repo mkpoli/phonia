@@ -25,7 +25,13 @@ export type WasmColormapName =
   | 'Plasma'
   | 'Cividis'
   | 'Golden'
-  | 'Grayscale';
+  | 'Turbo'
+  | 'Cubehelix'
+  | 'Cmrmap'
+  | 'Gnuplot'
+  | 'Ocean'
+  | 'Grayscale'
+  | 'GrayscaleDark';
 export type WasmThemeName = 'Light' | 'Dark';
 
 /** WAV output sample format: 16/24/32-bit PCM or lossless 32-bit float. */
@@ -67,11 +73,11 @@ export interface SpectrogramTileRequest {
   dynamicRangeDb: number;
   maxDb?: number;
   colormap: WasmColormapName;
-  theme: WasmThemeName;
+  /** Samples the ramp reversed: the display floor renders in the ceiling color. */
+  invert: boolean;
   /**
    * A custom 768-byte ramp (256 `R, G, B` triples). When present it colorizes
-   * the tile instead of `colormap`, and `theme` is ignored — a custom ramp is a
-   * fixed table, like the perceptual built-ins.
+   * the tile instead of `colormap`.
    */
   lut?: Uint8Array;
 }

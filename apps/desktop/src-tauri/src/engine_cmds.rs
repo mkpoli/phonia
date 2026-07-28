@@ -6,8 +6,7 @@ use phx_engine::{
     AlignMode, AnnotationId, Applied, AudioId, BoundaryId, Colormap, Command, DisplayMapping,
     Engine, EngineError, Figure, FigureFormat, FigureRequest, FormantParams, IntensityParams,
     IntervalId, LabelPattern, LabelQuery, LabelTarget, PitchParams, PointId, SpectrogramParams,
-    Theme, Tier, TierId, TierRelation, TileRequest, export_figure as engine_export_figure,
-    figure_to_svg,
+    Tier, TierId, TierRelation, TileRequest, export_figure as engine_export_figure, figure_to_svg,
 };
 use serde::Deserialize;
 use tauri::State;
@@ -48,22 +47,26 @@ pub struct TileReq {
     dynamic_range_db: f64,
     max_db: Option<f64>,
     colormap: String,
-    theme: String,
+    invert: bool,
+    lut: Option<Vec<u8>>,
 }
 
 fn colormap_of(name: &str) -> Colormap {
     match name {
+        "Phonia" => Colormap::Phonia,
         "Magma" => Colormap::Magma,
+        "Inferno" => Colormap::Inferno,
+        "Plasma" => Colormap::Plasma,
+        "Cividis" => Colormap::Cividis,
         "Golden" => Colormap::Golden,
+        "Turbo" => Colormap::Turbo,
+        "Cubehelix" => Colormap::Cubehelix,
+        "Cmrmap" => Colormap::Cmrmap,
+        "Gnuplot" => Colormap::Gnuplot,
+        "Ocean" => Colormap::Ocean,
         "Grayscale" => Colormap::Grayscale,
+        "GrayscaleDark" => Colormap::GrayscaleDark,
         _ => Colormap::Viridis,
-    }
-}
-
-fn theme_of(name: &str) -> Theme {
-    match name {
-        "Dark" => Theme::Dark,
-        _ => Theme::Light,
     }
 }
 
@@ -109,15 +112,40 @@ pub fn spectrogram_tile(state: State<AppState>, id: u64, req: TileReq) -> Result
         max_db: req.max_db,
     };
     let engine = lock(&state)?;
-    let rgba = engine
-        .spectrogram_tile_rgba(
-            AudioId::from_u64(id),
-            &tile,
-            &display,
-            colormap_of(&req.colormap),
-            theme_of(&req.theme),
-        )
-        .map_err(err)?;
+    // A custom ramp carries a 768-byte LUT and colorizes through the LUT path;
+    // otherwise the named built-in colormap renders.
+    let rgba = match req.lut {
+        Some(lut) => {
+            if lut.len() != 768 {
+                return Err(format!(
+                    "custom ramp LUT must be 768 bytes (256 RGB triples), got {}",
+                    lut.len()
+                ));
+            }
+            let mut table = [[0u8; 3]; 256];
+            for (i, entry) in table.iter_mut().enumerate() {
+                *entry = [lut[i * 3], lut[i * 3 + 1], lut[i * 3 + 2]];
+            }
+            engine
+                .spectrogram_tile_rgba_lut(
+                    AudioId::from_u64(id),
+                    &tile,
+                    &display,
+                    &table,
+                    req.invert,
+                )
+                .map_err(err)?
+        }
+        None => engine
+            .spectrogram_tile_rgba(
+                AudioId::from_u64(id),
+                &tile,
+                &display,
+                colormap_of(&req.colormap),
+                req.invert,
+            )
+            .map_err(err)?,
+    };
     Ok(Response::new(rgba))
 }
 
@@ -445,7 +473,11 @@ pub fn add_point_tier(
 
 /// Renames a stored audio buffer. Journaled; undo restores the prior name.
 #[tauri::command]
-pub fn rename_audio(state: State<AppState>, audio_id: u64, name: String) -> Result<AppliedDto, String> {
+pub fn rename_audio(
+    state: State<AppState>,
+    audio_id: u64,
+    name: String,
+) -> Result<AppliedDto, String> {
     let mut engine = lock(&state)?;
     Ok(apply(
         &mut engine,

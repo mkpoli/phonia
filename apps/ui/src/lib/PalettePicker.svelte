@@ -1,5 +1,7 @@
 <script lang="ts">
   import IconChevronDown from '~icons/lucide/chevron-down';
+  import IconCheck from '~icons/lucide/check';
+  import IconFlipHorizontal2 from '~icons/lucide/flip-horizontal-2';
   import IconPencil from '~icons/lucide/pencil';
   import IconPlus from '~icons/lucide/plus';
   import {
@@ -15,13 +17,17 @@
 
   interface Props {
     palette: PaletteSelection;
+    /** Whether the active ramp renders reversed (floor in the ceiling color). */
+    invert: boolean;
     customRamps: CustomRamp[];
     onSelect: (palette: PaletteSelection) => void;
+    onToggleInvert: () => void;
     onNewRamp: () => void;
     onEditRamp: (ramp: CustomRamp) => void;
   }
 
-  let { palette, customRamps, onSelect, onNewRamp, onEditRamp }: Props = $props();
+  let { palette, invert, customRamps, onSelect, onToggleInvert, onNewRamp, onEditRamp }: Props =
+    $props();
 
   type Row =
     | { kind: 'builtin'; sel: PaletteSelection; label: string; gradient: string; note?: string }
@@ -147,7 +153,7 @@
     aria-label="Spectrogram palette"
     onclick={toggle}
   >
-    <span class="strip" style="background: {paletteGradientCss(palette)}"></span>
+    <span class="strip" style="background: {paletteGradientCss(palette, invert)}"></span>
     <span class="trigger-name" data-testid="palette-current">{paletteLabel(palette)}</span>
     <span class="chev" class:open aria-hidden="true"><IconChevronDown /></span>
   </button>
@@ -166,6 +172,22 @@
         {#each rows as row, i (row.kind === 'new' ? 'new' : paletteKey(row.sel))}
           {#if row.kind === 'new'}
             <li class="sep" role="presentation"></li>
+            <li role="presentation">
+              <button
+                type="button"
+                class="invert-row"
+                class:on={invert}
+                data-testid="palette-invert"
+                aria-pressed={invert}
+                onclick={() => onToggleInvert()}
+              >
+                <span class="new-icon"><IconFlipHorizontal2 aria-hidden="true" /></span>
+                Invert ramp
+                {#if invert}
+                  <span class="check"><IconCheck aria-hidden="true" /></span>
+                {/if}
+              </button>
+            </li>
             <li role="presentation">
               <button
                 type="button"
@@ -402,6 +424,45 @@
 
   .new-row:hover {
     background: var(--accent-tint);
+  }
+
+  .invert-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.4rem 0.45rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .invert-row:hover {
+    background: var(--panel-soft);
+  }
+
+  .invert-row.on {
+    color: var(--accent-strong);
+  }
+
+  .invert-row .check {
+    display: inline-grid;
+    place-items: center;
+    margin-left: auto;
+    color: var(--accent-strong);
+  }
+
+  .invert-row .new-icon {
+    color: var(--muted);
+  }
+
+  .invert-row.on .new-icon {
+    color: var(--accent-strong);
   }
 
   .new-icon {

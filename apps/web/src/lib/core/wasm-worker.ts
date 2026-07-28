@@ -3,7 +3,6 @@ import init, {
 	WasmColormap,
 	WasmContentHasher,
 	WasmEngine,
-	WasmTheme,
 	WasmTierRelation,
 	contentHash as wasmContentHash,
 	exportFigure as wasmExportFigure,
@@ -285,10 +284,6 @@ function colormap(name: SpectrogramTileRequest['colormap']): WasmColormap {
   return WasmColormap[name];
 }
 
-function theme(name: SpectrogramTileRequest['theme']): WasmTheme {
-  return WasmTheme[name];
-}
-
 type WasmAppliedLike = {
   kind: string;
   annotation?: bigint;
@@ -514,7 +509,7 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       case 'spectrogramTile': {
         const req = message.req;
         // A custom ramp carries a 768-byte LUT and colorizes through the LUT
-        // path; otherwise a built-in colormap renders per theme.
+        // path; otherwise the named built-in colormap renders.
         const data = req.lut
           ? wasm.spectrogramTileRgbaLut(
               message.audioId,
@@ -530,7 +525,8 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
               req.frequencyStep,
               req.dynamicRangeDb,
               req.maxDb,
-              req.lut
+              req.lut,
+              req.invert
             )
           : wasm.spectrogramTileRgba(
               message.audioId,
@@ -547,7 +543,7 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
               req.dynamicRangeDb,
               req.maxDb,
               colormap(req.colormap),
-              theme(req.theme)
+              req.invert
             );
         const copy = new Uint8Array(data.length);
         copy.set(data);
@@ -579,7 +575,7 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
             req.dynamicRangeDb,
             req.maxDb,
             colormap(cm),
-            theme(req.theme)
+            req.invert
           );
         const cold0 = performance.now();
         run('Viridis');

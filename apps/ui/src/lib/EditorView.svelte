@@ -878,8 +878,10 @@
 
       <PalettePicker
         {palette}
+        invert={paletteInvert}
         {customRamps}
         onSelect={onPaletteChange}
+        onToggleInvert={onPaletteInvertToggle}
         onNewRamp={openNewRamp}
         onEditRamp={openEditRamp}
       />
@@ -982,6 +984,7 @@
         {viewport}
         {theme}
         palette={activePalette}
+        {paletteInvert}
         {overlayParams}
         onOverlayStats={(stats) => (overlayStats = stats)}
         {selection}

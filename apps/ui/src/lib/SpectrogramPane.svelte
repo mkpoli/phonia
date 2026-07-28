@@ -32,6 +32,8 @@
     viewport: ViewportState;
     theme: 'light' | 'dark';
     palette: PaletteSelection;
+    /** Whether the active ramp renders reversed (floor in the ceiling color). */
+    paletteInvert: boolean;
     overlayParams: OverlayParams;
     onOverlayStats?: (stats: OverlayStats) => void;
     selection?: Selection | null;
@@ -59,6 +61,7 @@
     viewport,
     theme,
     palette,
+    paletteInvert,
     overlayParams,
     onOverlayStats,
     selection = null,
@@ -116,9 +119,10 @@
   }
 
   // A custom ramp resolves to its 768-byte LUT; a built-in resolves to its name.
-  // The id keys the tile cache so a palette change — or a live edit of a custom
-  // ramp — recolors, and re-selecting the same palette hits the cache.
-  const paletteId = $derived(paletteKey(palette));
+  // The id keys the tile cache so a palette change — a live edit of a custom
+  // ramp, or an invert flip — recolors, and re-selecting the same palette hits
+  // the cache.
+  const paletteId = $derived(`${paletteKey(palette)}${paletteInvert ? ':inv' : ''}`);
   const paletteLut = $derived(
     palette.kind === 'custom' ? rampToLut(palette.ramp.stops) : undefined
   );
@@ -191,7 +195,6 @@
     viewport.t1;
     viewport.f0;
     viewport.f1;
-    theme;
     paletteId;
     applyTransform();
     scheduleFetch();
@@ -208,8 +211,7 @@
       viewport.f1.toFixed(1),
       cssWidth,
       cssHeight,
-      paletteId,
-      theme
+      paletteId
     ].join(':');
     const key = `${String(audio.id)}:spec:${tile0}:${tile1}:${paramsHash}`;
     const cached = cache.get(key);
@@ -227,7 +229,7 @@
       frequencyStep: 20,
       dynamicRangeDb: 70,
       colormap: palette.kind === 'builtin' ? palette.name : 'Phonia',
-      theme: theme === 'dark' ? 'Dark' : 'Light',
+      invert: paletteInvert,
       lut: paletteLut
     };
     const bitmap = await client.spectrogramTile(audio.id, req);

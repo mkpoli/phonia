@@ -40,6 +40,8 @@ export interface BuiltinPalette {
   preview: string[];
   /** One-line note shown in the picker. */
   note?: string;
+  /** Extra command-palette search terms ('colormap' and the label always match). */
+  keywords?: string[];
 }
 
 // Sample points are canonical stops of each ramp (matplotlib control points for
@@ -50,13 +52,15 @@ export const BUILTIN_PALETTES: BuiltinPalette[] = [
     name: 'Phonia',
     label: 'Phonia',
     preview: ['#17160f', '#194b4e', '#26827a', '#65bda2', '#f7edcb'],
-    note: 'Brand default'
+    note: 'Brand default',
+    keywords: ['default', 'brand']
   },
   {
     name: 'Viridis',
     label: 'Viridis',
     preview: ['#440154', '#414487', '#2a788e', '#22a884', '#7ad151', '#fde725'],
-    note: 'Colorblind-validated'
+    note: 'Colorblind-validated',
+    keywords: ['color-blind', 'cvd', 'accessible']
   },
   {
     name: 'Magma',
@@ -82,13 +86,51 @@ export const BUILTIN_PALETTES: BuiltinPalette[] = [
     name: 'Golden',
     label: 'Golden',
     preview: ['#17160f', '#482a15', '#6b3f1f', '#c9862f', '#f5d68a'],
-    note: 'Warm sibling of Phonia'
+    note: 'Warm sibling of Phonia',
+    keywords: ['amber', 'warm', 'umber', 'gold']
+  },
+  {
+    name: 'Turbo',
+    label: 'Turbo',
+    preview: ['#30123b', '#3e9bfe', '#46f884', '#e1dd37', '#f05b12', '#7a0403'],
+    note: 'Vivid rainbow'
+  },
+  {
+    name: 'Cubehelix',
+    label: 'Cubehelix',
+    preview: ['#000000', '#163d4e', '#54792f', '#d07e93', '#c1caf3', '#ffffff'],
+    note: 'Spiral, print-safe'
+  },
+  {
+    name: 'Cmrmap',
+    label: 'CMRmap',
+    preview: ['#000000', '#3d26a6', '#ad366e', '#eb7308', '#e6cf42', '#ffffff']
+  },
+  {
+    name: 'Gnuplot',
+    label: 'Gnuplot',
+    preview: ['#000000', '#7202f3', '#a11096', '#c63700', '#e48300', '#ffff00'],
+    note: 'pm3d classic'
+  },
+  {
+    name: 'Ocean',
+    label: 'Ocean',
+    preview: ['#008000', '#003333', '#001a66', '#006699', '#66b3cc', '#ffffff'],
+    note: 'Cool'
   },
   {
     name: 'Grayscale',
     label: 'Grayscale',
+    preview: ['#ffffff', '#c8c8c8', '#969696', '#5a5a5a', '#000000'],
+    note: 'Print',
+    keywords: ['gray', 'print', 'publication']
+  },
+  {
+    name: 'GrayscaleDark',
+    label: 'Grayscale Dark',
     preview: ['#1e1e1e', '#5a5a5a', '#969696', '#c8c8c8', '#ebebeb'],
-    note: 'Print'
+    note: 'Night',
+    keywords: ['gray', 'grey', 'dark']
   }
 ];
 
@@ -163,11 +205,17 @@ export function builtinGradientCss(preview: string[]): string {
   return `linear-gradient(to right, ${parts.join(', ')})`;
 }
 
-/** The CSS preview gradient for any palette selection. */
-export function paletteGradientCss(sel: PaletteSelection): string {
-  if (sel.kind === 'custom') return rampGradientCss(sel.ramp.stops);
+/** The CSS preview gradient for any palette selection, reversed under `invert`. */
+export function paletteGradientCss(sel: PaletteSelection, invert = false): string {
+  if (sel.kind === 'custom') {
+    const stops = invert
+      ? sel.ramp.stops.map((s) => ({ pos: 1 - s.pos, color: s.color }))
+      : sel.ramp.stops;
+    return rampGradientCss(stops);
+  }
   const meta = BUILTIN_PALETTES.find((p) => p.name === sel.name);
-  return meta ? builtinGradientCss(meta.preview) : 'linear-gradient(to right, #000, #fff)';
+  if (!meta) return 'linear-gradient(to right, #000, #fff)';
+  return builtinGradientCss(invert ? [...meta.preview].reverse() : meta.preview);
 }
 
 /** The human label for any palette selection. */
@@ -204,8 +252,9 @@ function relativeLuminance(r: number, g: number, b: number): number {
 
 /**
  * Whether a ramp's relative luminance never decreases from floor to ceiling —
- * the property the built-in ramps guarantee. A custom ramp that fails this reads
- * a louder region as darker than a quieter one somewhere along the scale.
+ * the property the sequential built-in ramps hold (the hue-driven ones like
+ * Turbo deliberately do not). A custom ramp that fails this reads a louder
+ * region as darker than a quieter one somewhere along the scale.
  */
 export function rampIsMonotonic(stops: GradientStop[]): boolean {
   const lut = rampToLut(stops);

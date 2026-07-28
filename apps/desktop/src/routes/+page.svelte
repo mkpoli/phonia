@@ -53,6 +53,7 @@
   let isPlaying = $state(false);
   let theme = $state<'light' | 'dark'>('light');
   let palette = $state<PaletteSelection>(DEFAULT_PALETTE);
+  let paletteInvert = $state(false);
   let customRamps = $state<CustomRamp[]>([]);
   let error = $state('');
   let busy = $state(false);
@@ -105,7 +106,7 @@
           : 'light';
     applyTheme(theme);
     customRamps = loadCustomRamps();
-    palette = loadPalette(customRamps);
+    ({ palette, invert: paletteInvert } = loadPalette(customRamps));
     void refreshProjects();
     void applyDmabufGuard().then((advisory) => {
       if (advisory) error = advisory;
@@ -151,28 +152,31 @@
 
   const PALETTE_KEY = 'phonia:palette';
 
-  function loadPalette(ramps: CustomRamp[]): PaletteSelection {
+  function loadPalette(ramps: CustomRamp[]): { palette: PaletteSelection; invert: boolean } {
     try {
       const raw = localStorage.getItem(PALETTE_KEY);
-      if (!raw) return DEFAULT_PALETTE;
-      const saved = JSON.parse(raw) as { kind: string; name?: string; id?: string };
+      if (!raw) return { palette: DEFAULT_PALETTE, invert: false };
+      const saved = JSON.parse(raw) as { kind: string; name?: string; id?: string; invert?: boolean };
+      const invert = saved.invert === true;
       if (saved.kind === 'custom' && saved.id) {
         const ramp = ramps.find((r) => r.id === saved.id);
-        return ramp ? { kind: 'custom', ramp } : DEFAULT_PALETTE;
+        return { palette: ramp ? { kind: 'custom', ramp } : DEFAULT_PALETTE, invert };
       }
       if (saved.kind === 'builtin' && saved.name) {
-        return { kind: 'builtin', name: saved.name } as PaletteSelection;
+        return { palette: { kind: 'builtin', name: saved.name } as PaletteSelection, invert };
       }
     } catch {
       // Unreadable selection: the default ramp stands.
     }
-    return DEFAULT_PALETTE;
+    return { palette: DEFAULT_PALETTE, invert: false };
   }
 
-  function persistPalette(sel: PaletteSelection) {
+  function persistPalette(sel: PaletteSelection, invert: boolean) {
     try {
       const ref =
-        sel.kind === 'custom' ? { kind: 'custom', id: sel.ramp.id } : { kind: 'builtin', name: sel.name };
+        sel.kind === 'custom'
+          ? { kind: 'custom', id: sel.ramp.id, invert }
+          : { kind: 'builtin', name: sel.name, invert };
       localStorage.setItem(PALETTE_KEY, JSON.stringify(ref));
     } catch {
       // Storage unavailable: the selection stays for the session.
@@ -181,7 +185,12 @@
 
   function handlePaletteChange(next: PaletteSelection) {
     palette = next;
-    persistPalette(next);
+    persistPalette(next, paletteInvert);
+  }
+
+  function handlePaletteInvertToggle() {
+    paletteInvert = !paletteInvert;
+    persistPalette(palette, paletteInvert);
   }
 
   function saveRamp(ramp: CustomRamp) {
@@ -627,11 +636,13 @@
     {isPlaying}
     {theme}
     {palette}
+    {paletteInvert}
     {customRamps}
     onFile={editorImportFile}
     onPlayToggle={handlePlayToggle}
     onThemeChange={handleThemeChange}
     onPaletteChange={handlePaletteChange}
+    onPaletteInvertToggle={handlePaletteInvertToggle}
     onSaveRamp={saveRamp}
     onDeleteRamp={deleteRamp}
     onCursorChange={handleCursorChange}
