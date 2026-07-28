@@ -66,7 +66,8 @@ impl From<FigureUnit> for LengthUnit {
     }
 }
 
-/// Theme a figure is described against; the spectrogram colorizes to it.
+/// Theme a figure's chrome is described against: axes, labels, and panel
+/// backgrounds. The spectrogram ramp itself renders the same under either.
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FigureTheme {

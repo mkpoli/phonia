@@ -61,15 +61,7 @@ pub fn to_tikz(fig: &Figure) -> TextExport {
 
     for (idx, panel) in fig.panels.iter().enumerate() {
         let ph = (usable_cm * panel.height_share.max(0.0) / share_sum).max(0.4);
-        write_panel(
-            &mut s,
-            idx,
-            panel,
-            ph,
-            &time_title,
-            fig.theme,
-            &mut sidecars,
-        );
+        write_panel(&mut s, idx, panel, ph, &time_title, &mut sidecars);
     }
 
     s.push_str("\\end{groupplot}\n\\end{tikzpicture}\n\\end{document}\n");
@@ -94,7 +86,6 @@ fn write_panel(
     panel: &Panel,
     height_cm: f64,
     time_title: &str,
-    theme: phx_render::Theme,
     sidecars: &mut Vec<SidecarFile>,
 ) {
     let ta = &panel.time_axis;
@@ -124,7 +115,7 @@ fn write_panel(
     s.push_str("]\n");
 
     for layer in &panel.layers {
-        write_layer(s, idx, panel, layer, theme, sidecars);
+        write_layer(s, idx, panel, layer, sidecars);
     }
 }
 
@@ -133,7 +124,6 @@ fn write_layer(
     idx: usize,
     panel: &Panel,
     layer: &Layer,
-    theme: phx_render::Theme,
     sidecars: &mut Vec<SidecarFile>,
 ) {
     match layer {
@@ -152,7 +142,7 @@ fn write_layer(
             colormap,
         } => {
             let name = format!("spectrogram-p{idx}.png");
-            let png = spectrogram_png(db, *width, *height, display, *colormap, theme);
+            let png = spectrogram_png(db, *width, *height, display, *colormap);
             sidecars.push(SidecarFile::binary(&name, png));
             let _ = writeln!(
                 s,

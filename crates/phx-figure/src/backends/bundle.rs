@@ -9,7 +9,7 @@
 //! raw-decibel tile to a deterministic PNG, formatting numbers compactly, and
 //! escaping label text for the target syntaxes.
 
-use phx_render::{Colormap, DisplayMapping, Theme, colorize};
+use phx_render::{Colormap, DisplayMapping, colorize};
 
 /// A named file emitted alongside an export's main document.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -80,8 +80,8 @@ pub enum CodeLang {
     Julia,
 }
 
-/// Colorize a raw-decibel tile against `theme` and encode it as a PNG whose
-/// row 0 is the highest frequency (image top).
+/// Colorize a raw-decibel tile and encode it as a PNG whose row 0 is the
+/// highest frequency (image top).
 ///
 /// The tile stores row 0 at the lowest frequency; an image places row 0 at the
 /// top, so the rows are flipped before encoding. Encoding uses fixed,
@@ -93,9 +93,8 @@ pub(crate) fn spectrogram_png(
     height: u32,
     display: &DisplayMapping,
     colormap: Colormap,
-    theme: Theme,
 ) -> Vec<u8> {
-    let flat = colorize(db, width, height, display, colormap, theme);
+    let flat = colorize(db, width, height, display, colormap, false);
     let (w, h) = (width as usize, height as usize);
     let stride = w * 4;
     let mut flipped = vec![0u8; flat.len()];
@@ -165,7 +164,13 @@ pub(crate) fn colormap_name(cm: Colormap) -> &'static str {
         // Golden is a Phonia-family brand ramp with no native matplotlib
         // equivalent; falls back to viridis for the same reason Phonia does.
         Colormap::Golden => "viridis",
+        Colormap::Turbo => "turbo",
+        Colormap::Cubehelix => "cubehelix",
+        Colormap::Cmrmap => "CMRmap",
+        Colormap::Gnuplot => "gnuplot",
+        Colormap::Ocean => "ocean",
         Colormap::Grayscale => "gray",
+        Colormap::GrayscaleDark => "gray_r",
     }
 }
 

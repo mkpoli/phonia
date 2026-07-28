@@ -99,6 +99,62 @@ fn round_trip_preserves_structure() {
     assert_eq!(project, loaded);
 }
 
+/// Rewrites one ZIP entry's contents, keeping every other entry byte-identical.
+fn rewrite_entry(bytes: &[u8], entry: &str, contents: &str) -> Vec<u8> {
+    use std::io::Read;
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("zip reads");
+    let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default();
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).expect("entry reads");
+        out.start_file(file.name(), options).expect("entry writes");
+        if file.name() == entry {
+            out.write_all(contents.as_bytes()).expect("entry writes");
+        } else {
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).expect("entry reads");
+            out.write_all(&buf).expect("entry writes");
+        }
+    }
+    out.finish().expect("zip closes").into_inner()
+}
+
+#[test]
+fn loads_annotations_written_before_tier_time_domains() {
+    let project = sample_project();
+    let bytes = save(&project);
+
+    // Rewrite the annotation entry into the shape written before tiers
+    // carried their own time domain: a name and its entries only. Such a tier
+    // validated against the document's domain at the time, so the read fills
+    // the missing pair from it.
+    let mut legacy =
+        serde_json::to_value(project.annotations.values().next().unwrap()).expect("serializes");
+    for slot in legacy["tiers"].as_array_mut().expect("tiers array") {
+        let tier = slot["tier"].as_object_mut().expect("tier variant");
+        for payload in tier.values_mut() {
+            let obj = payload.as_object_mut().expect("tier object");
+            obj.remove("xmin");
+            obj.remove("xmax");
+        }
+    }
+    let legacy_text = serde_json::to_string_pretty(&legacy).expect("legacy serializes");
+    let bytes = rewrite_entry(&bytes, "annotations/1.json", &legacy_text);
+
+    let loaded = load(&bytes).expect("legacy container loads");
+    let annotation = loaded.annotations.values().next().expect("annotation");
+    for slot in annotation.tiers() {
+        let (xmin, xmax) = match &slot.tier {
+            phx_annot::Tier::Interval(t) => (t.xmin, t.xmax),
+            phx_annot::Tier::Point(t) => (t.xmin, t.xmax),
+        };
+        assert_eq!((xmin, xmax), (annotation.xmin(), annotation.xmax()));
+    }
+    // The fixture's tiers all cover the document domain, so the filled
+    // document equals the one the current writer produced.
+    assert_eq!(project, loaded);
+}
+
 #[test]
 fn round_trip_default_project() {
     let project = Project::new("empty");

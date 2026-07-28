@@ -150,7 +150,7 @@ pub fn to_typst(fig: &Figure) -> TextExport {
     }
 
     for (idx, (panel, r)) in fig.panels.iter().zip(&rects).enumerate() {
-        draw_panel(&mut body, idx, panel, r, &pal, fig.theme, &mut sidecars);
+        draw_panel(&mut body, idx, panel, r, &pal, &mut sidecars);
     }
 
     if let (Some(last), Some(bottom)) = (rects.last(), fig.panels.last()) {
@@ -191,7 +191,6 @@ fn draw_panel(
     panel: &Panel,
     r: &Rect,
     pal: &Palette,
-    theme: Theme,
     sidecars: &mut Vec<SidecarFile>,
 ) {
     if r.y1 - r.y0 <= 0.0 || r.x1 - r.x0 <= 0.0 {
@@ -231,7 +230,7 @@ fn draw_panel(
 
     // Layers.
     for layer in &panel.layers {
-        draw_layer(s, idx, panel, r, layer, pal, theme, sidecars);
+        draw_layer(s, idx, panel, r, layer, pal, sidecars);
     }
 
     // Border.
@@ -258,7 +257,6 @@ fn draw_layer(
     r: &Rect,
     layer: &Layer,
     pal: &Palette,
-    theme: Theme,
     sidecars: &mut Vec<SidecarFile>,
 ) {
     match layer {
@@ -277,7 +275,7 @@ fn draw_layer(
             colormap,
         } => {
             let name = format!("spectrogram-p{idx}.png");
-            let png = spectrogram_png(db, *width, *height, display, *colormap, theme);
+            let png = spectrogram_png(db, *width, *height, display, *colormap);
             sidecars.push(SidecarFile::binary(&name, png));
             let ix0 = r.map_x(&panel.time_axis, t[0]);
             let ix1 = r.map_x(&panel.time_axis, t[1]);

@@ -500,7 +500,13 @@ enum ColormapDef {
     Plasma,
     Cividis,
     Golden,
+    Turbo,
+    Cubehelix,
+    Cmrmap,
+    Gnuplot,
+    Ocean,
     Grayscale,
+    GrayscaleDark,
 }
 
 /// serde mirror of [`phx_render::DisplayMapping`].

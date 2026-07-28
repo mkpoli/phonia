@@ -29,7 +29,7 @@ pub fn to_vega(fig: &Figure) -> String {
         .map(|(idx, panel)| {
             let is_last = idx + 1 == fig.panels.len();
             let ph = (total_h * panel.height_share.max(0.0) / share_sum).max(24.0);
-            panel_view(panel, width, ph, is_last, fig.theme)
+            panel_view(panel, width, ph, is_last)
         })
         .collect();
 
@@ -82,17 +82,11 @@ fn value_axis_encoding(field: &str, axis: &Axis) -> Value {
     })
 }
 
-fn panel_view(
-    panel: &Panel,
-    width: f64,
-    height: f64,
-    is_last: bool,
-    theme: phx_render::Theme,
-) -> Value {
+fn panel_view(panel: &Panel, width: f64, height: f64, is_last: bool) -> Value {
     // A panel becomes a single layered view: its layers stack in draw order.
     let mut layers: Vec<Value> = Vec::new();
     for layer in &panel.layers {
-        layers.extend(layer_specs(layer, panel, width, height, theme));
+        layers.extend(layer_specs(layer, panel, width, height));
     }
     if layers.is_empty() {
         layers.push(json!({ "data": { "values": [] }, "mark": "point" }));
@@ -108,13 +102,7 @@ fn panel_view(
     })
 }
 
-fn layer_specs(
-    layer: &Layer,
-    panel: &Panel,
-    width: f64,
-    height: f64,
-    theme: phx_render::Theme,
-) -> Vec<Value> {
+fn layer_specs(layer: &Layer, panel: &Panel, width: f64, height: f64) -> Vec<Value> {
     match layer {
         Layer::Waveform {
             minmax,
@@ -153,7 +141,7 @@ fn layer_specs(
             display,
             colormap,
         } => {
-            let png = spectrogram_png(db, *sw, *sh, display, *colormap, theme);
+            let png = spectrogram_png(db, *sw, *sh, display, *colormap);
             let uri = format!(
                 "data:image/png;base64,{}",
                 base64::engine::general_purpose::STANDARD.encode(&png)

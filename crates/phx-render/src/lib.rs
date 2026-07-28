@@ -1,11 +1,12 @@
-//! Perceptual colormaps (viridis, magma, grayscale), theme-aware dB→RGBA
-//! tile rendering.
+//! Perceptual colormaps (viridis, magma, turbo, grayscale) and dB→RGBA tile
+//! rendering.
 //!
 //! [`colorize`] maps a row-major tile of dB power values onto 8-bit RGBA
 //! pixels: a linear-in-dB clip against `[floor, ceiling]`
-//! ([`DisplayMapping`]), then a perceptual [`Colormap`] lookup tuned per
-//! [`Theme`]. The crate takes plain arrays in and out; it has no
-//! dependency on the rest of the workspace.
+//! ([`DisplayMapping`]), then a [`Colormap`] lookup. Ramps are fixed tables
+//! that render identically on light and dark backgrounds; the `invert` flag
+//! reverses whichever ramp was chosen. The crate takes plain arrays in and
+//! out; it has no dependency on the rest of the workspace.
 #![warn(missing_docs)]
 
 mod colormap;
@@ -24,7 +25,9 @@ pub use theme::Theme;
 /// (autoscaling `max_db` to the tile's maximum finite value when
 /// `map.max_db` is `None`) and mapped linearly onto the colormap. A
 /// non-finite input value (`NaN`, `-inf`, e.g. from a silent frame) is
-/// treated as the display floor.
+/// treated as the display floor. With `invert` set, the ramp is sampled
+/// reversed: the floor renders in the ceiling color and the ceiling in the
+/// floor color.
 ///
 /// Returns `4 * w * h` bytes, four per pixel in `R, G, B, A` order; tiles
 /// are always fully opaque (`A = 255`) since color alone carries the
@@ -38,9 +41,9 @@ pub fn colorize(
     h: u32,
     map: &DisplayMapping,
     cm: Colormap,
-    theme: Theme,
+    invert: bool,
 ) -> Vec<u8> {
-    colorize_with(tile_db, w, h, map, |t| cm.sample(t, theme))
+    colorize_with(tile_db, w, h, map, |t| cm.sample(t), invert)
 }
 
 /// Colorize a row-major tile of dB power values with a caller-supplied
@@ -61,8 +64,9 @@ pub fn colorize_with_lut(
     h: u32,
     map: &DisplayMapping,
     lut: &[[u8; 3]; 256],
+    invert: bool,
 ) -> Vec<u8> {
-    colorize_with(tile_db, w, h, map, |t| sample_u8_lut(lut, t))
+    colorize_with(tile_db, w, h, map, |t| sample_u8_lut(lut, t), invert)
 }
 
 /// Linearly interpolate a caller-supplied 256-entry 8-bit sRGB lookup table at
@@ -85,15 +89,17 @@ fn sample_u8_lut(lut: &[[u8; 3]; 256], t: f32) -> [u8; 3] {
 }
 
 /// Shared dB→RGBA driver: resolve the clip window once, then map each value to
-/// a normalized `t` and hand it to `sample`. Keeps the display mapping, the
-/// non-finite-is-floor rule, and the always-opaque alpha identical between the
-/// built-in and custom-LUT paths.
+/// a normalized `t` and hand it to `sample` — at `1 - t` when `invert` is set,
+/// so a reversed ramp is the same code path with the table read backwards.
+/// Keeps the display mapping, the non-finite-is-floor rule, and the
+/// always-opaque alpha identical between the built-in and custom-LUT paths.
 fn colorize_with(
     tile_db: &[f32],
     w: u32,
     h: u32,
     map: &DisplayMapping,
     sample: impl Fn(f32) -> [u8; 3],
+    invert: bool,
 ) -> Vec<u8> {
     let expected_len = w as usize * h as usize;
     assert_eq!(
@@ -117,6 +123,7 @@ fn colorize_with(
         } else {
             0.0
         };
+        let t = if invert { 1.0 - t } else { t };
         let [r, g, b] = sample(t);
         out.extend_from_slice(&[r, g, b, 255]);
     }
@@ -136,7 +143,7 @@ mod tests {
             2,
             &DisplayMapping::default(),
             Colormap::Viridis,
-            Theme::Light,
+            false,
         );
         assert_eq!(out.len(), 6 * 4);
     }
@@ -150,7 +157,7 @@ mod tests {
             1,
             &DisplayMapping::default(),
             Colormap::Magma,
-            Theme::Dark,
+            false,
         );
         for chunk in out.chunks(4) {
             assert_eq!(chunk[3], 255);
@@ -164,7 +171,7 @@ mod tests {
             max_db: Some(0.0),
         };
         let tile = [f32::NEG_INFINITY, -1000.0, -50.0];
-        let out = colorize(&tile, 3, 1, &map, Colormap::Viridis, Theme::Light);
+        let out = colorize(&tile, 3, 1, &map, Colormap::Viridis, false);
         let floor = out[0..3].to_vec();
         assert_eq!(out[4..7], floor[..]);
         assert_eq!(out[8..11], floor[..]);
@@ -174,10 +181,39 @@ mod tests {
     fn autoscale_uses_tile_maximum_finite_value() {
         let map = DisplayMapping::default();
         let tile = [-80.0f32, -10.0, f32::NEG_INFINITY];
-        let out = colorize(&tile, 3, 1, &map, Colormap::Grayscale, Theme::Light);
-        // -10 dB is the autoscaled ceiling -> t=1 -> black on the light
+        let out = colorize(&tile, 3, 1, &map, Colormap::Grayscale, false);
+        // -10 dB is the autoscaled ceiling -> t=1 -> black on the print
         // grayscale ramp.
         assert_eq!(&out[4..8], &[0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn invert_swaps_floor_and_ceiling_colors() {
+        let map = DisplayMapping {
+            dynamic_range_db: 50.0,
+            max_db: Some(0.0),
+        };
+        let tile = [-50.0f32, 0.0];
+        let plain = colorize(&tile, 2, 1, &map, Colormap::Viridis, false);
+        let flipped = colorize(&tile, 2, 1, &map, Colormap::Viridis, true);
+        assert_eq!(plain[0..3], flipped[4..7]);
+        assert_eq!(plain[4..7], flipped[0..3]);
+    }
+
+    #[test]
+    fn invert_reverses_a_custom_lut() {
+        let mut lut = [[0u8; 3]; 256];
+        for (i, entry) in lut.iter_mut().enumerate() {
+            *entry = [i as u8, 0, 255 - i as u8];
+        }
+        let map = DisplayMapping {
+            dynamic_range_db: 50.0,
+            max_db: Some(0.0),
+        };
+        let tile = [-50.0f32, 0.0];
+        let out = colorize_with_lut(&tile, 2, 1, &map, &lut, true);
+        assert_eq!(&out[0..4], &[255, 0, 0, 255]);
+        assert_eq!(&out[4..8], &[0, 0, 255, 255]);
     }
 
     #[test]
@@ -192,7 +228,7 @@ mod tests {
         };
         // t = [0.0, 0.5, 1.0] over the 50 dB window.
         let tile = [-100.0f32, -25.0, 0.0];
-        let out = colorize_with_lut(&tile, 3, 1, &map, &lut);
+        let out = colorize_with_lut(&tile, 3, 1, &map, &lut, false);
         assert_eq!(&out[0..4], &[0, 0, 0, 255]);
         assert_eq!(&out[8..12], &[255, 255, 255, 255]);
         // Midpoint interpolates between entries 127 and 128.
@@ -209,7 +245,7 @@ mod tests {
             2,
             &DisplayMapping::default(),
             Colormap::Viridis,
-            Theme::Light,
+            false,
         );
     }
 }

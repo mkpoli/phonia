@@ -39,8 +39,6 @@ type Rgb = (u8, u8, u8);
 
 /// Theme-resolved surface and ink colors.
 struct Palette {
-    /// The theme these colors resolve, forwarded to spectrogram colorization.
-    theme: phx_render::Theme,
     /// Figure background outside the panels.
     canvas: Rgb,
     /// Plot background inside a non-spectrogram panel.
@@ -78,7 +76,6 @@ impl Palette {
             ),
         };
         Self {
-            theme,
             canvas,
             panel_bg,
             fg,
@@ -508,9 +505,7 @@ fn draw_layer(s: &mut String, layer: &Layer, panel: &Panel, r: &PlotRect, pal: &
             display,
             colormap,
         } => {
-            draw_spectrogram(
-                s, db, *width, *height, *t, *f, display, *colormap, panel, r, pal,
-            );
+            draw_spectrogram(s, db, *width, *height, *t, *f, display, *colormap, panel, r);
         }
         Layer::PitchLine { points, style, .. } => {
             draw_line_series(s, points, panel, r, pal, *style);
@@ -595,16 +590,15 @@ fn draw_spectrogram(
     colormap: phx_render::Colormap,
     panel: &Panel,
     r: &PlotRect,
-    pal: &Palette,
 ) {
     let (w, h) = (width as usize, height as usize);
     if w == 0 || h == 0 || db.len() != w * h {
         return;
     }
-    // Colorize raw dB against the figure theme, then flip vertically: tile row
-    // 0 is the lowest frequency, but PNG row 0 is the image top, which is the
-    // highest frequency in the plot.
-    let rgba = colorize_flipped(db, width, height, display, colormap, pal.theme);
+    // Colorize raw dB, then flip vertically: tile row 0 is the lowest
+    // frequency, but PNG row 0 is the image top, which is the highest
+    // frequency in the plot.
+    let rgba = colorize_flipped(db, width, height, display, colormap);
     let png = encode_png(&rgba, width, height);
     let b64 = base64::engine::general_purpose::STANDARD.encode(&png);
 
@@ -821,18 +815,17 @@ fn draw_tiers(
 
 // ---- colorization + PNG encoding --------------------------------------------
 
-/// Colorize a raw-dB tile against `theme` and flip rows so PNG row 0 is the
-/// highest frequency (image top): tile row 0 is the lowest frequency, and the
-/// image top edge sits at the highest frequency in the plot.
+/// Colorize a raw-dB tile and flip rows so PNG row 0 is the highest frequency
+/// (image top): tile row 0 is the lowest frequency, and the image top edge
+/// sits at the highest frequency in the plot.
 fn colorize_flipped(
     db: &[f32],
     width: u32,
     height: u32,
     display: &phx_render::DisplayMapping,
     colormap: phx_render::Colormap,
-    theme: phx_render::Theme,
 ) -> Vec<u8> {
-    let flat = colorize(db, width, height, display, colormap, theme);
+    let flat = colorize(db, width, height, display, colormap, false);
     let (w, h) = (width as usize, height as usize);
     let stride = w * 4;
     let mut out = vec![0u8; flat.len()];

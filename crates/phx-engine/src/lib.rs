@@ -345,7 +345,7 @@ impl Engine {
         req: &TileRequest,
         display: &DisplayMapping,
         colormap: Colormap,
-        theme: Theme,
+        invert: bool,
     ) -> Result<Vec<u8>, EngineError> {
         validate_tile_request(req)?;
         let tile_db = self.spectrogram_tile_db(id, req)?;
@@ -370,7 +370,7 @@ impl Engine {
             req.height_px,
             display,
             colormap,
-            theme,
+            invert,
         ))
     }
 
@@ -381,9 +381,7 @@ impl Engine {
     /// The raw dB is read from the same block cache
     /// [`Engine::spectrogram_tile_rgba`] uses, so switching between a built-in
     /// palette and a custom ramp, or between two custom ramps, re-colorizes
-    /// cached dB and never recomputes the STFT. The custom path takes no
-    /// [`Theme`]: a custom LUT is a fixed ramp defined against both
-    /// backgrounds, like the perceptual built-ins.
+    /// cached dB and never recomputes the STFT.
     ///
     /// Returns `4 * req.width_px * req.height_px` bytes, `R, G, B, A` per
     /// pixel, row 0 first.
@@ -396,6 +394,7 @@ impl Engine {
         req: &TileRequest,
         display: &DisplayMapping,
         lut: &[[u8; 3]; 256],
+        invert: bool,
     ) -> Result<Vec<u8>, EngineError> {
         validate_tile_request(req)?;
         let tile_db = self.spectrogram_tile_db(id, req)?;
@@ -420,6 +419,7 @@ impl Engine {
             req.height_px,
             display,
             lut,
+            invert,
         ))
     }
 
@@ -1905,13 +1905,13 @@ mod tests {
         };
         let display = DisplayMapping::default();
         let viridis = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, Theme::Dark)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
             .unwrap();
         let after_first = engine.spectrogram_cached_block_count();
         assert!(after_first > 0, "first tile populates the block cache");
 
         let magma = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Magma, Theme::Dark)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Magma, false)
             .unwrap();
         // Re-colorizing the same viewport reuses every cached block: no new STFT.
         assert_eq!(engine.spectrogram_cached_block_count(), after_first);
@@ -1926,18 +1926,18 @@ mod tests {
             *entry = [i as u8, (255 - i) as u8, i as u8];
         }
         let custom = engine
-            .spectrogram_tile_rgba_lut(id, &req, &display, &lut)
+            .spectrogram_tile_rgba_lut(id, &req, &display, &lut, false)
             .unwrap();
         assert_eq!(engine.spectrogram_cached_block_count(), after_first);
         assert_ne!(custom, magma, "a custom ramp produces its own pixels");
 
         // Deterministic through the cache: the same request twice is identical.
         let viridis_again = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, Theme::Dark)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
             .unwrap();
         assert_eq!(viridis, viridis_again);
         let custom_again = engine
-            .spectrogram_tile_rgba_lut(id, &req, &display, &lut)
+            .spectrogram_tile_rgba_lut(id, &req, &display, &lut, false)
             .unwrap();
         assert_eq!(custom, custom_again);
     }
@@ -1958,7 +1958,7 @@ mod tests {
             params: SpectrogramParams::default(),
         };
         engine
-            .spectrogram_tile_rgba(id, &base, &display, Colormap::Viridis, Theme::Dark)
+            .spectrogram_tile_rgba(id, &base, &display, Colormap::Viridis, false)
             .unwrap();
         let after_base = engine.spectrogram_cached_block_count();
 
@@ -1970,7 +1970,7 @@ mod tests {
             ..base.clone()
         };
         engine
-            .spectrogram_tile_rgba(id, &widened, &display, Colormap::Viridis, Theme::Dark)
+            .spectrogram_tile_rgba(id, &widened, &display, Colormap::Viridis, false)
             .unwrap();
         // A different analysis parameter hashes to a different key, so the new
         // blocks sit alongside the old rather than colliding with them.
@@ -2126,7 +2126,7 @@ mod tests {
                 },
                 &DisplayMapping::default(),
                 Colormap::Viridis,
-                Theme::Light,
+                false,
             ),
             Err(EngineError::UnknownAudioId(_))
         ));
@@ -2235,7 +2235,7 @@ mod tests {
                 &req,
                 &DisplayMapping::default(),
                 Colormap::Viridis,
-                Theme::Light
+                false
             ),
             Err(EngineError::InvalidRequest { .. })
         ));
@@ -2344,10 +2344,10 @@ mod tests {
         };
         let display = DisplayMapping::default();
         let first = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, Theme::Dark)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
             .unwrap();
         let second = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, Theme::Dark)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
             .unwrap();
         assert_eq!(first.len(), 40 * 30 * 4);
         assert_eq!(first, second);
@@ -2496,7 +2496,7 @@ mod tests {
                 &req,
                 &DisplayMapping::default(),
                 Colormap::Viridis,
-                Theme::Light
+                false
             ),
             Err(EngineError::InvalidRequest { .. })
         ));

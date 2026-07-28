@@ -6,9 +6,8 @@ use phx_engine::{
     AlignMode, Annotation, AnnotationId, Applied, AudioId, BitDepth, BoundaryId,
     Colormap as EngineColormap, Command, DisplayMapping, Engine, ExportBundle, Figure,
     FigureFormat, FigureRequest, FormantParams, IntensityParams, IntervalId, LabelPattern,
-    LabelQuery, LabelTarget, PitchParams, PointId, RecordingId, SpectrogramParams,
-    Theme as EngineTheme, Tier, TierId, TierRelation, TileRequest,
-    export_figure as engine_export_figure, figure_to_svg,
+    LabelQuery, LabelTarget, PitchParams, PointId, RecordingId, SpectrogramParams, Tier, TierId,
+    TierRelation, TileRequest, export_figure as engine_export_figure, figure_to_svg,
 };
 use phx_project::{ContentHash, LibraryNode, MediaId, MediaRef, Project};
 use serde::{Deserialize, Serialize};
@@ -36,8 +35,21 @@ pub enum WasmColormap {
     /// Warm sibling of Phonia: the same charcoal floor through a
     /// burnt-umber and amber midtone into a golden-cream highlight.
     Golden,
-    /// Achromatic ramp, tuned separately per theme.
+    /// High-contrast blue→cyan→green→yellow→red rainbow (Google's turbo).
+    Turbo,
+    /// Black→green→purple→white helix with monotonic luminance (Green 2011).
+    Cubehelix,
+    /// Black→indigo→red→yellow→white ramp (Carey Rappaport's CMRmap).
+    Cmrmap,
+    /// The classic gnuplot pm3d ramp: black→purple→red→orange→yellow.
+    Gnuplot,
+    /// Cool sequential ramp: deep green-navy→mid blue→pale blue-white.
+    Ocean,
+    /// Achromatic print ramp: white silence through black peak.
     Grayscale,
+    /// Achromatic dark-floor ramp: dark neutral silence through soft white
+    /// peak, tuned to merge with a dark panel background.
+    GrayscaleDark,
 }
 
 impl From<WasmColormap> for EngineColormap {
@@ -50,7 +62,13 @@ impl From<WasmColormap> for EngineColormap {
             WasmColormap::Plasma => EngineColormap::Plasma,
             WasmColormap::Cividis => EngineColormap::Cividis,
             WasmColormap::Golden => EngineColormap::Golden,
+            WasmColormap::Turbo => EngineColormap::Turbo,
+            WasmColormap::Cubehelix => EngineColormap::Cubehelix,
+            WasmColormap::Cmrmap => EngineColormap::Cmrmap,
+            WasmColormap::Gnuplot => EngineColormap::Gnuplot,
+            WasmColormap::Ocean => EngineColormap::Ocean,
             WasmColormap::Grayscale => EngineColormap::Grayscale,
+            WasmColormap::GrayscaleDark => EngineColormap::GrayscaleDark,
         }
     }
 }
@@ -76,25 +94,6 @@ impl From<WasmBitDepth> for BitDepth {
             WasmBitDepth::Pcm24 => BitDepth::Pcm24,
             WasmBitDepth::Pcm32 => BitDepth::Pcm32,
             WasmBitDepth::Float32 => BitDepth::Float32,
-        }
-    }
-}
-
-/// Light/dark UI theme exposed to JavaScript.
-#[wasm_bindgen]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WasmTheme {
-    /// Light application background.
-    Light,
-    /// Dark application background.
-    Dark,
-}
-
-impl From<WasmTheme> for EngineTheme {
-    fn from(value: WasmTheme) -> Self {
-        match value {
-            WasmTheme::Light => EngineTheme::Light,
-            WasmTheme::Dark => EngineTheme::Dark,
         }
     }
 }
@@ -1007,7 +1006,8 @@ impl WasmEngine {
     /// provenance); this walking-skeleton surface does not yet expose the
     /// Hanning/Kaiser alternatives over the JS boundary. `dynamic_range_db`
     /// and `max_db` are [`phx_engine::DisplayMapping`] fields (`max_db =
-    /// undefined` autoscales).
+    /// undefined` autoscales). `invert` samples the colormap reversed, floor
+    /// in the ceiling color.
     ///
     /// Returns `4 * width_px * height_px` bytes, `R, G, B, A` per pixel, row
     /// 0 first, as a `Uint8Array` built from the owned result buffer in one
@@ -1036,7 +1036,7 @@ impl WasmEngine {
         dynamic_range_db: f64,
         max_db: Option<f64>,
         colormap: WasmColormap,
-        theme: WasmTheme,
+        invert: bool,
     ) -> Result<Uint8Array, JsError> {
         let req = TileRequest {
             t0,
@@ -1062,7 +1062,7 @@ impl WasmEngine {
             &req,
             &display,
             colormap.into(),
-            theme.into(),
+            invert,
         )?;
         Ok(Uint8Array::from(rgba.as_slice()))
     }
@@ -1071,10 +1071,10 @@ impl WasmEngine {
     /// ramp: `lut` is 768 bytes, 256 `R, G, B` triples in ramp order.
     ///
     /// The parameters mirror [`WasmEngine::spectrogram_tile_rgba`] apart from
-    /// the color source. A custom ramp is theme-independent, so no theme is
-    /// taken. The dB is read from the same block cache the built-in path uses,
-    /// so switching between a built-in palette and a custom ramp re-colorizes
-    /// cached dB without recomputing the STFT.
+    /// the color source. The dB is read from the same block cache the built-in
+    /// path uses, so switching between a built-in palette and a custom ramp
+    /// re-colorizes cached dB without recomputing the STFT. `invert` samples
+    /// the table reversed.
     ///
     /// Returns `4 * width_px * height_px` bytes, `R, G, B, A` per pixel, row 0
     /// first.
@@ -1101,6 +1101,7 @@ impl WasmEngine {
         dynamic_range_db: f64,
         max_db: Option<f64>,
         lut: &[u8],
+        invert: bool,
     ) -> Result<Uint8Array, JsError> {
         if lut.len() != 768 {
             return Err(JsError::new(&format!(
@@ -1131,15 +1132,19 @@ impl WasmEngine {
             dynamic_range_db,
             max_db,
         };
-        let rgba =
-            self.inner
-                .spectrogram_tile_rgba_lut(AudioId::from_u64(id), &req, &display, &table)?;
+        let rgba = self.inner.spectrogram_tile_rgba_lut(
+            AudioId::from_u64(id),
+            &req,
+            &display,
+            &table,
+            invert,
+        )?;
         Ok(Uint8Array::from(rgba.as_slice()))
     }
 
     /// Number of raw dB spectrogram blocks currently held in the tile cache.
     ///
-    /// A colormap, theme, or dynamic-range change must leave this unchanged: the
+    /// A colormap or dynamic-range change must leave this unchanged: the
     /// engine re-colorizes cached dB rather than recomputing the STFT. The perf
     /// probe reads it to prove that property.
     #[wasm_bindgen(js_name = spectrogramCachedBlockCount)]
@@ -2864,7 +2869,7 @@ mod tests {
                 50.0,
                 None,
                 WasmColormap::Viridis,
-                WasmTheme::Dark,
+                false,
             )
             .unwrap();
         assert_eq!(rgba.length(), 16 * 12 * 4);
@@ -2893,6 +2898,7 @@ mod tests {
                 50.0,
                 None,
                 &lut,
+                false,
             )
             .unwrap();
         assert_eq!(rgba_lut.length(), 16 * 12 * 4);
@@ -2912,7 +2918,8 @@ mod tests {
                     default_params.frequency_step,
                     50.0,
                     None,
-                    &[0u8; 10]
+                    &[0u8; 10],
+                    false,
                 )
                 .is_err()
         );

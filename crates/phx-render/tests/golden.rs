@@ -1,16 +1,16 @@
 //! Golden-image tests: one fixed 4-pixel tile, colorized with every
-//! `(Colormap, Theme)` combination, compared byte-for-byte against a raw
-//! RGBA fixture under `tests/golden/`.
+//! `Colormap`, compared byte-for-byte against a raw RGBA fixture under
+//! `tests/golden/`.
 //!
 //! The tile carries dB values `[-100, -50, -25, 0]` under
 //! `DisplayMapping { dynamic_range_db: 50.0, max_db: Some(0.0) }`, giving
 //! normalized positions `[0.0, 0.0, 0.5, 1.0]` — the display floor
 //! (clipped and exact), the ramp midpoint, and the ceiling. Fixture bytes
-//! were derived independently from the published viridis/magma
-//! control-point data and the documented grayscale endpoints, not
-//! captured from this crate's own output.
+//! were derived from the published control-point data and the documented
+//! grayscale endpoints with the sampler's own rounding rule, not captured
+//! from this crate's own output.
 
-use phx_render::{Colormap, DisplayMapping, Theme, colorize};
+use phx_render::{Colormap, DisplayMapping, colorize};
 
 const TILE_DB: [f32; 4] = [-100.0, -50.0, -25.0, 0.0];
 const MAPPING: DisplayMapping = DisplayMapping {
@@ -18,187 +18,107 @@ const MAPPING: DisplayMapping = DisplayMapping {
     max_db: Some(0.0),
 };
 
-fn check(colormap: Colormap, theme: Theme, fixture_bytes: &[u8]) {
-    let out = colorize(&TILE_DB, 4, 1, &MAPPING, colormap, theme);
+fn check(colormap: Colormap, fixture_bytes: &[u8]) {
+    let out = colorize(&TILE_DB, 4, 1, &MAPPING, colormap, false);
     assert_eq!(
         out, fixture_bytes,
-        "{colormap:?}/{theme:?} tile does not match golden fixture"
+        "{colormap:?} tile does not match golden fixture"
     );
 }
 
 #[test]
-fn phonia_light_matches_golden() {
-    check(
-        Colormap::Phonia,
-        Theme::Light,
-        include_bytes!("golden/phonia_light.rgba"),
-    );
+fn phonia_matches_golden() {
+    check(Colormap::Phonia, include_bytes!("golden/phonia.rgba"));
 }
 
 #[test]
-fn phonia_dark_matches_golden() {
-    check(
-        Colormap::Phonia,
-        Theme::Dark,
-        include_bytes!("golden/phonia_dark.rgba"),
-    );
+fn viridis_matches_golden() {
+    check(Colormap::Viridis, include_bytes!("golden/viridis.rgba"));
 }
 
 #[test]
-fn viridis_light_matches_golden() {
-    check(
-        Colormap::Viridis,
-        Theme::Light,
-        include_bytes!("golden/viridis_light.rgba"),
-    );
+fn magma_matches_golden() {
+    check(Colormap::Magma, include_bytes!("golden/magma.rgba"));
 }
 
 #[test]
-fn viridis_dark_matches_golden() {
-    check(
-        Colormap::Viridis,
-        Theme::Dark,
-        include_bytes!("golden/viridis_dark.rgba"),
-    );
+fn inferno_matches_golden() {
+    check(Colormap::Inferno, include_bytes!("golden/inferno.rgba"));
 }
 
 #[test]
-fn magma_light_matches_golden() {
-    check(
-        Colormap::Magma,
-        Theme::Light,
-        include_bytes!("golden/magma_light.rgba"),
-    );
+fn plasma_matches_golden() {
+    check(Colormap::Plasma, include_bytes!("golden/plasma.rgba"));
 }
 
 #[test]
-fn magma_dark_matches_golden() {
-    check(
-        Colormap::Magma,
-        Theme::Dark,
-        include_bytes!("golden/magma_dark.rgba"),
-    );
+fn cividis_matches_golden() {
+    check(Colormap::Cividis, include_bytes!("golden/cividis.rgba"));
 }
 
 #[test]
-fn inferno_light_matches_golden() {
-    check(
-        Colormap::Inferno,
-        Theme::Light,
-        include_bytes!("golden/inferno_light.rgba"),
-    );
+fn golden_matches_golden() {
+    check(Colormap::Golden, include_bytes!("golden/golden.rgba"));
 }
 
 #[test]
-fn inferno_dark_matches_golden() {
-    check(
-        Colormap::Inferno,
-        Theme::Dark,
-        include_bytes!("golden/inferno_dark.rgba"),
-    );
+fn turbo_matches_golden() {
+    check(Colormap::Turbo, include_bytes!("golden/turbo.rgba"));
 }
 
 #[test]
-fn plasma_light_matches_golden() {
-    check(
-        Colormap::Plasma,
-        Theme::Light,
-        include_bytes!("golden/plasma_light.rgba"),
-    );
+fn cubehelix_matches_golden() {
+    check(Colormap::Cubehelix, include_bytes!("golden/cubehelix.rgba"));
 }
 
 #[test]
-fn plasma_dark_matches_golden() {
-    check(
-        Colormap::Plasma,
-        Theme::Dark,
-        include_bytes!("golden/plasma_dark.rgba"),
-    );
+fn cmrmap_matches_golden() {
+    check(Colormap::Cmrmap, include_bytes!("golden/cmrmap.rgba"));
 }
 
 #[test]
-fn cividis_light_matches_golden() {
-    check(
-        Colormap::Cividis,
-        Theme::Light,
-        include_bytes!("golden/cividis_light.rgba"),
-    );
+fn gnuplot_matches_golden() {
+    check(Colormap::Gnuplot, include_bytes!("golden/gnuplot.rgba"));
 }
 
 #[test]
-fn cividis_dark_matches_golden() {
-    check(
-        Colormap::Cividis,
-        Theme::Dark,
-        include_bytes!("golden/cividis_dark.rgba"),
-    );
+fn ocean_matches_golden() {
+    check(Colormap::Ocean, include_bytes!("golden/ocean.rgba"));
 }
 
 #[test]
-fn golden_light_matches_golden() {
-    check(
-        Colormap::Golden,
-        Theme::Light,
-        include_bytes!("golden/golden_light.rgba"),
-    );
-}
-
-#[test]
-fn golden_dark_matches_golden() {
-    check(
-        Colormap::Golden,
-        Theme::Dark,
-        include_bytes!("golden/golden_dark.rgba"),
-    );
-}
-
-#[test]
-fn grayscale_light_matches_golden() {
-    check(
-        Colormap::Grayscale,
-        Theme::Light,
-        include_bytes!("golden/grayscale_light.rgba"),
-    );
+fn grayscale_matches_golden() {
+    check(Colormap::Grayscale, include_bytes!("golden/grayscale.rgba"));
 }
 
 #[test]
 fn grayscale_dark_matches_golden() {
     check(
-        Colormap::Grayscale,
-        Theme::Dark,
+        Colormap::GrayscaleDark,
         include_bytes!("golden/grayscale_dark.rgba"),
     );
 }
 
-/// Viridis and magma are theme-independent: the golden fixtures for light
-/// and dark are byte-identical, and this asserts that invariant directly
-/// rather than only through the duplicated fixture files.
+/// Inverting the print grayscale swaps its endpoints: the floor renders
+/// black, the ceiling white, and the midpoint is the same gray from both
+/// directions.
 #[test]
-fn viridis_and_magma_ignore_theme() {
-    let light = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Viridis, Theme::Light);
-    let dark = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Viridis, Theme::Dark);
-    assert_eq!(light, dark);
-
-    let light = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Magma, Theme::Light);
-    let dark = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Magma, Theme::Dark);
-    assert_eq!(light, dark);
-
-    let light = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Phonia, Theme::Light);
-    let dark = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Phonia, Theme::Dark);
-    assert_eq!(light, dark);
+fn grayscale_inverted_is_the_endpoint_swap() {
+    let out = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Grayscale, true);
+    assert_eq!(&out[0..4], &[0, 0, 0, 255]);
+    assert_eq!(&out[4..8], &[0, 0, 0, 255]);
+    assert_eq!(&out[12..16], &[255, 255, 255, 255]);
+    let plain = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Grayscale, false);
+    assert_eq!(out[8..11], plain[8..11]);
 }
 
-/// Grayscale is never a naive channel inversion between themes: the light
-/// floor/ceiling pair must not simply be the dark ramp's ceiling/floor
-/// swapped.
+/// The two achromatic ramps are independent designs, not endpoint swaps of
+/// each other: the dark-floor ramp keeps both ends off the pure extremes.
 #[test]
-fn grayscale_dark_is_not_the_light_ramp_inverted() {
-    let light = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Grayscale, Theme::Light);
-    let dark = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Grayscale, Theme::Dark);
-    assert_ne!(light, dark);
-    // A naive inversion would reuse the same 0/255 endpoints; the dark
-    // floor color must differ from pure black and the ceiling from pure
-    // white.
+fn grayscale_dark_is_not_the_print_ramp_inverted() {
+    let print_flipped = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::Grayscale, true);
+    let dark = colorize(&TILE_DB, 4, 1, &MAPPING, Colormap::GrayscaleDark, false);
+    assert_ne!(print_flipped, dark);
     assert_ne!(&dark[0..3], &[0, 0, 0]);
     assert_ne!(&dark[12..15], &[255, 255, 255]);
 }

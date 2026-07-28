@@ -1,12 +1,18 @@
 //! Colormap selection and dB→color sampling.
 
 use crate::data::{
-    cividis::CIVIDIS_DATA, golden::GOLDEN_DATA, inferno::INFERNO_DATA, magma::MAGMA_DATA,
-    phonia::PHONIA_DATA, plasma::PLASMA_DATA, viridis::VIRIDIS_DATA,
+    cividis::CIVIDIS_DATA, cmrmap::CMRMAP_DATA, cubehelix::CUBEHELIX_DATA, gnuplot::GNUPLOT_DATA,
+    golden::GOLDEN_DATA, inferno::INFERNO_DATA, magma::MAGMA_DATA, ocean::OCEAN_DATA,
+    phonia::PHONIA_DATA, plasma::PLASMA_DATA, turbo::TURBO_DATA, viridis::VIRIDIS_DATA,
 };
-use crate::theme::Theme;
 
 /// Perceptual colormap used to render a normalized dB tile.
+///
+/// Every ramp is a fixed table: none of them reshapes itself against the UI
+/// theme, so a tile looks the same on a light and a dark background. Two
+/// achromatic ramps cover the two reading directions explicitly, and any
+/// ramp can be reversed at render time with the `invert` flag of
+/// [`crate::colorize`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Colormap {
     /// The app's default ramp: warm charcoal floor through the teal identity
@@ -34,16 +40,33 @@ pub enum Colormap {
     /// saturated than Phonia's paper cream. Monotonically increasing in
     /// relative luminance.
     Golden,
-    /// Achromatic ramp, tuned separately per [`Theme`] rather than
-    /// inverted.
+    /// High-contrast blue→cyan→green→yellow→red rainbow (Google's turbo).
+    /// Luminance peaks mid-ramp; quiet and loud separate by hue.
+    Turbo,
+    /// Black→green→purple→white helix (Green 2011). Hue rotates while
+    /// luminance increases monotonically.
+    Cubehelix,
+    /// Black→indigo→red→yellow→white ramp (Carey Rappaport's CMRmap).
+    Cmrmap,
+    /// The classic gnuplot pm3d ramp: black→purple→red→orange→yellow.
+    Gnuplot,
+    /// Cool sequential ramp: deep green-navy→mid blue→pale blue-white.
+    Ocean,
+    /// Achromatic print ramp: white silence through black peak, ink density
+    /// on a page.
     Grayscale,
+    /// Achromatic dark-floor ramp: dark neutral gray silence through soft
+    /// white peak. The endpoints stop short of pure black and pure white,
+    /// so low-energy regions merge with a dark panel background and peak
+    /// brightness is reserved for genuinely loud content.
+    GrayscaleDark,
 }
 
 impl Colormap {
     /// Sample the colormap at normalized position `t` (clamped to
     /// `[0, 1]`, where `0` is the display floor and `1` is `max_db`),
     /// returning 8-bit sRGB channel values.
-    pub(crate) fn sample(self, t: f32, theme: Theme) -> [u8; 3] {
+    pub(crate) fn sample(self, t: f32) -> [u8; 3] {
         match self {
             Colormap::Phonia => sample_lut(&PHONIA_DATA, t),
             Colormap::Viridis => sample_lut(&VIRIDIS_DATA, t),
@@ -52,7 +75,13 @@ impl Colormap {
             Colormap::Plasma => sample_lut(&PLASMA_DATA, t),
             Colormap::Cividis => sample_lut(&CIVIDIS_DATA, t),
             Colormap::Golden => sample_lut(&GOLDEN_DATA, t),
-            Colormap::Grayscale => sample_grayscale(t, theme),
+            Colormap::Turbo => sample_lut(&TURBO_DATA, t),
+            Colormap::Cubehelix => sample_lut(&CUBEHELIX_DATA, t),
+            Colormap::Cmrmap => sample_lut(&CMRMAP_DATA, t),
+            Colormap::Gnuplot => sample_lut(&GNUPLOT_DATA, t),
+            Colormap::Ocean => sample_lut(&OCEAN_DATA, t),
+            Colormap::Grayscale => sample_grayscale(t, GRAYSCALE_PRINT),
+            Colormap::GrayscaleDark => sample_grayscale(t, GRAYSCALE_DARK),
         }
     }
 }
@@ -74,26 +103,20 @@ fn sample_lut(lut: &[[f32; 3]; 256], t: f32) -> [u8; 3] {
     ]
 }
 
-/// Grayscale endpoints, `(floor_color, ceiling_color)`.
+/// Achromatic endpoints, `(floor_color, ceiling_color)`.
 ///
-/// Light theme runs white (silence) to black (loudest), matching ink
-/// density on a page. Dark theme is not that ramp inverted: pure black
-/// at the floor would read as a hole punched through the dark panel
-/// background, and pure white at the ceiling would blow out against it.
-/// Instead the floor sits at a dark neutral gray close to the panel
-/// background and the ceiling stops short of full white, keeping
-/// low-energy regions visually merged with the surrounding UI and
-/// reserving peak brightness for genuinely loud content.
-const GRAYSCALE_LIGHT: ([u8; 3], [u8; 3]) = ([255, 255, 255], [0, 0, 0]);
+/// The print ramp runs white (silence) to black (loudest), matching ink
+/// density on a page. The dark-floor ramp is not that ramp inverted: pure
+/// black at the floor would read as a hole punched through a dark panel
+/// background, and pure white at the ceiling would blow out against it, so
+/// its endpoints are tuned in from both extremes.
+const GRAYSCALE_PRINT: ([u8; 3], [u8; 3]) = ([255, 255, 255], [0, 0, 0]);
 const GRAYSCALE_DARK: ([u8; 3], [u8; 3]) = ([30, 30, 30], [235, 235, 235]);
 
-/// Sample the theme-tuned grayscale ramp at normalized position `t`.
-fn sample_grayscale(t: f32, theme: Theme) -> [u8; 3] {
+/// Sample an achromatic ramp between `endpoints` at normalized position `t`.
+fn sample_grayscale(t: f32, endpoints: ([u8; 3], [u8; 3])) -> [u8; 3] {
     let t = t.clamp(0.0, 1.0);
-    let (floor, ceiling) = match theme {
-        Theme::Light => GRAYSCALE_LIGHT,
-        Theme::Dark => GRAYSCALE_DARK,
-    };
+    let (floor, ceiling) = endpoints;
     [
         lerp_u8(floor[0], ceiling[0], t),
         lerp_u8(floor[1], ceiling[1], t),
@@ -116,10 +139,10 @@ mod tests {
     use super::*;
 
     /// WCAG 2.x relative luminance of a linear-`[0, 1]` control-point triple
-    /// (no 8-bit quantization). This is the property the colormap data was
-    /// designed to satisfy; testing it pre-quantization avoids spurious
-    /// failures from the same 1-LSB rounding jitter that shows up as a
-    /// handful of near-zero luminance dips once the ramp is rounded to
+    /// (no 8-bit quantization). This is the property the sequential colormap
+    /// data was designed to satisfy; testing it pre-quantization avoids
+    /// spurious failures from the same 1-LSB rounding jitter that shows up
+    /// as a handful of near-zero luminance dips once the ramp is rounded to
     /// 8-bit sRGB (an imperceptible quantization artifact, not a property
     /// of the ramp itself).
     fn relative_luminance_linear([r, g, b]: [f32; 3]) -> f64 {
@@ -186,6 +209,58 @@ mod tests {
         assert_monotonic_luminance(&GOLDEN_DATA, "golden");
     }
 
+    #[test]
+    fn turbo_endpoints_match_published_hex() {
+        // The published turbo table runs #30123b to #7a0403.
+        assert_eq!(sample_lut(&TURBO_DATA, 0.0), [48, 18, 59]);
+        assert_eq!(sample_lut(&TURBO_DATA, 1.0), [122, 4, 3]);
+    }
+
+    #[test]
+    fn cubehelix_endpoints_are_black_and_white() {
+        assert_eq!(sample_lut(&CUBEHELIX_DATA, 0.0), [0, 0, 0]);
+        assert_eq!(sample_lut(&CUBEHELIX_DATA, 1.0), [255, 255, 255]);
+    }
+
+    #[test]
+    fn cmrmap_endpoints_are_black_and_white() {
+        assert_eq!(sample_lut(&CMRMAP_DATA, 0.0), [0, 0, 0]);
+        assert_eq!(sample_lut(&CMRMAP_DATA, 1.0), [255, 255, 255]);
+    }
+
+    #[test]
+    fn gnuplot_endpoints_are_black_and_yellow() {
+        assert_eq!(sample_lut(&GNUPLOT_DATA, 0.0), [0, 0, 0]);
+        assert_eq!(sample_lut(&GNUPLOT_DATA, 1.0), [255, 255, 0]);
+    }
+
+    #[test]
+    fn ocean_endpoints_are_deep_green_and_white() {
+        assert_eq!(sample_lut(&OCEAN_DATA, 0.0), [0, 128, 0]);
+        assert_eq!(sample_lut(&OCEAN_DATA, 1.0), [255, 255, 255]);
+    }
+
+    #[test]
+    fn grayscale_endpoints_run_white_to_black() {
+        assert_eq!(Colormap::Grayscale.sample(0.0), [255, 255, 255]);
+        assert_eq!(Colormap::Grayscale.sample(1.0), [0, 0, 0]);
+    }
+
+    #[test]
+    fn grayscale_dark_endpoints_stay_off_pure_black_and_white() {
+        // Never a naive inversion of the print ramp.
+        assert_ne!(Colormap::GrayscaleDark.sample(0.0), [0, 0, 0]);
+        assert_ne!(Colormap::GrayscaleDark.sample(1.0), [255, 255, 255]);
+        assert_eq!(Colormap::GrayscaleDark.sample(0.0), [30, 30, 30]);
+        assert_eq!(Colormap::GrayscaleDark.sample(1.0), [235, 235, 235]);
+    }
+
+    #[test]
+    fn grayscale_dark_floor_is_darker_than_its_ceiling() {
+        let (floor, ceiling) = GRAYSCALE_DARK;
+        assert!(floor[0] < ceiling[0]);
+    }
+
     fn assert_monotonic_luminance(data: &[[f32; 3]; 256], name: &str) {
         let mut prev = relative_luminance_linear(data[0]);
         for (i, &stop) in data.iter().enumerate().skip(1) {
@@ -214,37 +289,17 @@ mod tests {
     }
 
     #[test]
+    fn cubehelix_luminance_is_monotonic() {
+        assert_monotonic_luminance(&CUBEHELIX_DATA, "cubehelix");
+    }
+
+    #[test]
     fn viridis_luminance_is_monotonic() {
-        let mut prev = relative_luminance_linear(VIRIDIS_DATA[0]);
-        for (i, &stop) in VIRIDIS_DATA.iter().enumerate().skip(1) {
-            let lum = relative_luminance_linear(stop);
-            assert!(
-                lum + 1e-12 >= prev,
-                "luminance decreased at stop {i}: {prev} -> {lum}"
-            );
-            prev = lum;
-        }
+        assert_monotonic_luminance(&VIRIDIS_DATA, "viridis");
     }
 
     #[test]
     fn magma_luminance_is_monotonic() {
-        let mut prev = relative_luminance_linear(MAGMA_DATA[0]);
-        for (i, &stop) in MAGMA_DATA.iter().enumerate().skip(1) {
-            let lum = relative_luminance_linear(stop);
-            assert!(
-                lum + 1e-12 >= prev,
-                "luminance decreased at stop {i}: {prev} -> {lum}"
-            );
-            prev = lum;
-        }
-    }
-
-    #[test]
-    fn grayscale_dark_floor_is_not_pure_black() {
-        // Never a naive inversion of the light ramp.
-        let (floor, ceiling) = GRAYSCALE_DARK;
-        assert_ne!(floor, [0, 0, 0]);
-        assert_ne!(ceiling, [255, 255, 255]);
-        assert_ne!((floor, ceiling), (GRAYSCALE_LIGHT.1, GRAYSCALE_LIGHT.0));
+        assert_monotonic_luminance(&MAGMA_DATA, "magma");
     }
 }
