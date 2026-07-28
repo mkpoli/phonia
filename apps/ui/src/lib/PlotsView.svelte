@@ -10,6 +10,7 @@
   import IconRedo from '~icons/lucide/redo-2';
   import IconChevronUp from '~icons/lucide/chevron-up';
   import IconChevronDown from '~icons/lucide/chevron-down';
+  import ColourField from './ColourField.svelte';
   import { untrack } from 'svelte';
   import {
     makePlotObject,
@@ -260,6 +261,13 @@
   function patchSelected(patch: Partial<PlotObject>) {
     if (!selectedId) return;
     pushHistory();
+    objects = objects.map((o) => (o.id === selectedId ? { ...o, ...patch } : o));
+  }
+
+  // Applies a change without touching history — the colour popover snapshots
+  // once on open, so its continuous edits stay one undo step.
+  function setSelected(patch: Partial<PlotObject>) {
+    if (!selectedId) return;
     objects = objects.map((o) => (o.id === selectedId ? { ...o, ...patch } : o));
   }
 
@@ -952,14 +960,14 @@
           </div>
         {/if}
         {#if kindHasItemColor(selected.kind)}
-          <label class="field">
+          <div class="field">
             <span>Item colour</span>
             <span class="colour-row">
-              <input
-                type="color"
-                data-testid="plots-item-color"
+              <ColourField
+                testId="plots-item-color"
                 value={selected.itemColor ?? defaultItemColor(selected.kind)}
-                oninput={(e) => patchSelected({ itemColor: e.currentTarget.value })}
+                onOpen={() => pushHistory()}
+                onChange={(hex) => setSelected({ itemColor: hex })}
               />
               {#if selected.itemColor}
                 <button
@@ -970,7 +978,7 @@
                 >
               {/if}
             </span>
-          </label>
+          </div>
         {/if}
       {:else}
         <h2>Artboard</h2>
@@ -1016,17 +1024,22 @@
           </label>
         </div>
         <div class="field-row">
-          <label class="field">
+          <div class="field">
             <span>Background</span>
             <span class="colour-row">
-              <input type="color" data-testid="plots-bg-color" bind:value={paperBg} />
+              <ColourField
+                testId="plots-bg-color"
+                value={paperBg}
+                onOpen={() => pushHistory()}
+                onChange={(hex) => (paperBg = hex)}
+              />
               {#if paperBg.toLowerCase() !== '#ffffff'}
                 <button type="button" class="reset" title="White" onclick={() => (paperBg = '#ffffff')}
                   >White</button
                 >
               {/if}
             </span>
-          </label>
+          </div>
           <label class="field">
             <span>Panel theme</span>
             <select bind:value={paperTheme} data-testid="plots-theme">
@@ -1653,14 +1666,6 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-  }
-
-  .colour-row input[type='color'] {
-    flex: none;
-    width: 2.2rem;
-    height: 1.8rem;
-    padding: 1px;
-    cursor: pointer;
   }
 
   .reset {
