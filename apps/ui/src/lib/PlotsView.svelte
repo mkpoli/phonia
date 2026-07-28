@@ -6,6 +6,8 @@
   import IconEyeOff from '~icons/lucide/eye-off';
   import IconTrash from '~icons/lucide/trash-2';
   import IconMaximize from '~icons/lucide/maximize';
+  import IconUndo from '~icons/lucide/undo-2';
+  import IconRedo from '~icons/lucide/redo-2';
   import { untrack } from 'svelte';
   import {
     makePlotObject,
@@ -73,6 +75,61 @@
   let selectedId = $state<string | null>(null);
   const selected = $derived(objects.find((o) => o.id === selectedId) ?? null);
 
+  // Undo/redo over the whole editable figure state. Each mutating action snaps
+  // the pre-change state onto the history; undo swaps it back. Praat offers only
+  // one level of undo — a real editor keeps the whole trail.
+  interface Snapshot {
+    objects: PlotObject[];
+    paperW: number;
+    paperH: number;
+    paperBg: string;
+    paperTheme: FigureThemeName;
+  }
+  let history = $state<Snapshot[]>([]);
+  let future = $state<Snapshot[]>([]);
+
+  function snapshot(): Snapshot {
+    return { objects: objects.map((o) => ({ ...o })), paperW, paperH, paperBg, paperTheme };
+  }
+
+  function pushHistory(s: Snapshot = snapshot()) {
+    history = [...history.slice(-49), s];
+    future = [];
+  }
+
+  // A drag captures its pre-move state up front and only commits it to history
+  // on release if the object actually moved, so a plain click never floods the
+  // undo trail with no-op steps.
+  let dragBaseline: Snapshot | null = null;
+  let dragChanged = false;
+
+  function restore(s: Snapshot) {
+    objects = s.objects.map((o) => ({ ...o }));
+    paperW = s.paperW;
+    paperH = s.paperH;
+    paperBg = s.paperBg;
+    paperTheme = s.paperTheme;
+    if (selectedId && !objects.some((o) => o.id === selectedId)) selectedId = null;
+  }
+
+  function undo() {
+    if (history.length === 0) return;
+    const cur = snapshot();
+    const prev = history[history.length - 1];
+    history = history.slice(0, -1);
+    future = [cur, ...future];
+    restore(prev);
+  }
+
+  function redo() {
+    if (future.length === 0) return;
+    const cur = snapshot();
+    const next = future[0];
+    future = future.slice(1);
+    history = [...history, cur];
+    restore(next);
+  }
+
   // Each object's rendered SVG (namespaced), keyed by id, plus the render key
   // it was produced for so a render only re-runs when a visual input changes.
   let renders = $state<Record<string, { svg: string; key: string; vb: { w: number; h: number } }>>(
@@ -131,6 +188,7 @@
 
   function addObject(kind: PlotKind) {
     addOpen = false;
+    pushHistory();
     // Stack new objects below the existing ones and align their left edges, so
     // adding waveform → spectrogram → tiers composes a clean figure straight
     // away; they stay fully draggable afterwards.
@@ -144,6 +202,7 @@
   }
 
   function deleteObject(id: string) {
+    pushHistory();
     objects = objects.filter((o) => o.id !== id);
     delete renders[id];
     renders = { ...renders };
@@ -151,11 +210,13 @@
   }
 
   function toggleVisible(id: string) {
+    pushHistory();
     objects = objects.map((o) => (o.id === id ? { ...o, visible: !o.visible } : o));
   }
 
   function patchSelected(patch: Partial<PlotObject>) {
     if (!selectedId) return;
+    pushHistory();
     objects = objects.map((o) => (o.id === selectedId ? { ...o, ...patch } : o));
   }
 
@@ -198,6 +259,8 @@
     if (event.button !== 0) return;
     event.stopPropagation();
     selectedId = o.id;
+    dragBaseline = snapshot();
+    dragChanged = false;
     const p = clientToArtboard(event.clientX, event.clientY);
     drag = { mode: 'move', id: o.id, startX: p.x, startY: p.y, ox: o.x, oy: o.y };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -207,6 +270,8 @@
     if (event.button !== 0) return;
     event.stopPropagation();
     selectedId = o.id;
+    dragBaseline = snapshot();
+    dragChanged = false;
     const p = clientToArtboard(event.clientX, event.clientY);
     drag = {
       mode: 'resize',
@@ -275,6 +340,7 @@
       return;
     }
     if (!drag) return;
+    dragChanged = true;
     const p = clientToArtboard(event.clientX, event.clientY);
     const dx = p.x - drag.startX;
     const dy = p.y - drag.startY;
@@ -310,6 +376,11 @@
         // capture may already be gone
       }
     }
+    // A move or resize that actually changed the object commits its pre-drag
+    // snapshot to the undo trail.
+    if (drag && dragChanged && dragBaseline) pushHistory(dragBaseline);
+    dragBaseline = null;
+    dragChanged = false;
     // A bare click on the workspace (no pan travel) clears the selection.
     if (pan && !pan.moved) selectedId = null;
     pan = null;
@@ -322,6 +393,18 @@
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
       event.preventDefault();
       deleteObject(selectedId);
+      return;
+    }
+    const mod = event.ctrlKey || event.metaKey;
+    if (mod && event.key.toLowerCase() === 'z') {
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (mod && event.key.toLowerCase() === 'y') {
+      event.preventDefault();
+      redo();
     }
   }
 
@@ -445,6 +528,26 @@
 
     <div class="spacer"></div>
 
+    <button
+      type="button"
+      class="ghost"
+      data-testid="plots-undo"
+      title="Undo (Ctrl+Z)"
+      disabled={history.length === 0}
+      onclick={undo}
+    >
+      <IconUndo aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="ghost"
+      data-testid="plots-redo"
+      title="Redo (Ctrl+Shift+Z)"
+      disabled={future.length === 0}
+      onclick={redo}
+    >
+      <IconRedo aria-hidden="true" />
+    </button>
     <button
       type="button"
       class="ghost"
@@ -898,9 +1001,14 @@
     color: var(--muted);
   }
 
-  .ghost:hover {
+  .ghost:hover:not(:disabled) {
     background: var(--panel);
     color: var(--text);
+  }
+
+  .ghost:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
 
   .export {
