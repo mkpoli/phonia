@@ -149,6 +149,18 @@
       };
   let drag: Drag | null = null;
 
+  // Panning the canvas by dragging empty space (objects stop propagation, so
+  // this only starts on the bare workspace); a click with no travel deselects.
+  let pan = $state<{ startX: number; startY: number; ox: number; oy: number; moved: boolean } | null>(
+    null
+  );
+
+  function onCanvasPointerDown(event: PointerEvent) {
+    if (event.button !== 0) return;
+    pan = { startX: event.clientX, startY: event.clientY, ox: panX, oy: panY, moved: false };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
   function clientToArtboard(clientX: number, clientY: number): { x: number; y: number } {
     const rect = canvasEl?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
@@ -186,6 +198,14 @@
   const MIN_SIZE = 80;
 
   function onPointerMove(event: PointerEvent) {
+    if (pan) {
+      const dx = event.clientX - pan.startX;
+      const dy = event.clientY - pan.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) pan.moved = true;
+      panX = pan.ox + dx;
+      panY = pan.oy + dy;
+      return;
+    }
     if (!drag) return;
     const p = clientToArtboard(event.clientX, event.clientY);
     const dx = p.x - drag.startX;
@@ -211,13 +231,16 @@
   }
 
   function endDrag(event: PointerEvent) {
-    if (drag) {
+    if (drag || pan) {
       try {
         (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
       } catch {
         // capture may already be gone
       }
     }
+    // A bare click on the workspace (no pan travel) clears the selection.
+    if (pan && !pan.moved) selectedId = null;
+    pan = null;
     drag = null;
   }
 
@@ -429,7 +452,8 @@
       role="application"
       tabindex="0"
       data-testid="plots-canvas"
-      onpointerdown={() => (selectedId = null)}
+      class:panning={pan !== null}
+      onpointerdown={onCanvasPointerDown}
       onpointermove={onPointerMove}
       onpointerup={endDrag}
       onkeydown={onCanvasKey}
@@ -850,12 +874,20 @@
     position: relative;
     overflow: hidden;
     outline: none;
+    /* Dragging objects or panning must never sweep-select the figure text. */
+    user-select: none;
+    -webkit-user-select: none;
     background:
       radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--accent) 5%, transparent), transparent 60%),
       var(--canvas);
     background-image:
       radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--muted) 18%, transparent) 1px, transparent 0);
     background-size: 22px 22px;
+    cursor: grab;
+  }
+
+  .canvas.panning {
+    cursor: grabbing;
   }
 
   .artboard-wrap {
