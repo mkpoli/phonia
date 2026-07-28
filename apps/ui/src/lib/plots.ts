@@ -83,6 +83,12 @@ export function makePlotObject(kind: PlotKind, x: number, y: number): PlotObject
   };
 }
 
+/** A copy of `o` with a fresh id, offset so it lands clear of the original. */
+export function cloneObject(o: PlotObject, dx = 20, dy = 20): PlotObject {
+  objectCounter += 1;
+  return { ...o, id: `obj-${objectCounter}`, name: `${o.name} copy`, x: o.x + dx, y: o.y + dy };
+}
+
 /** `[r, g, b]` parsed from a `#rrggbb` string, or null if unparseable. */
 export function hexToRgb(hex: string): [number, number, number] | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());

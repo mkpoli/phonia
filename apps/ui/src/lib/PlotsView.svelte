@@ -11,6 +11,7 @@
   import { untrack } from 'svelte';
   import {
     makePlotObject,
+    cloneObject,
     objectFigureSpec,
     namespaceSvgIds,
     stripOuterBackground,
@@ -203,6 +204,16 @@
     // Grow the artboard to hold the new object with a margin.
     paperW = Math.max(paperW, obj.x + obj.w + STACK_MARGIN);
     paperH = Math.max(paperH, obj.y + obj.h + STACK_MARGIN);
+  }
+
+  function duplicateSelected() {
+    if (!selected) return;
+    pushHistory();
+    const clone = cloneObject(selected);
+    objects = [...objects, clone];
+    selectedId = clone.id;
+    paperW = Math.max(paperW, clone.x + clone.w + STACK_MARGIN);
+    paperH = Math.max(paperH, clone.y + clone.h + STACK_MARGIN);
   }
 
   function deleteObject(id: string) {
@@ -409,6 +420,11 @@
     if (mod && event.key.toLowerCase() === 'y') {
       event.preventDefault();
       redo();
+      return;
+    }
+    if (mod && event.key.toLowerCase() === 'd' && selectedId) {
+      event.preventDefault();
+      duplicateSelected();
     }
   }
 
@@ -720,7 +736,16 @@
     <!-- Properties: the selected object, or the artboard when nothing is picked. -->
     <aside class="props" aria-label="Properties">
       {#if selected}
-        <h2>{plotKindLabel(selected.kind)}</h2>
+        <div class="props-head">
+          <h2>{plotKindLabel(selected.kind)}</h2>
+          <button
+            type="button"
+            class="reset"
+            data-testid="plots-duplicate"
+            title="Duplicate (Ctrl+D)"
+            onclick={duplicateSelected}>Duplicate</button
+          >
+        </div>
         <label class="field">
           <span>Name</span>
           <input
@@ -1387,6 +1412,13 @@
     font-size: 0.8rem;
     padding: 0 0.4rem;
     min-width: 0;
+  }
+
+  .props-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
   .frame-h {
