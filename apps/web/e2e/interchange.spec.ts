@@ -106,7 +106,9 @@ test('project bundle round-trips groups, tags, and annotations across a wiped pr
   const fresh = await browser.newContext();
   try {
     const page2 = await fresh.newPage();
-    await page2.goto('/');
+    // `?app=1` skips the first-visit landing gate to reach the app directly,
+    // as every other spec does; a fresh profile still starts with no projects.
+    await page2.goto('/?app=1');
     await expect(page2.getByTestId('home-empty')).toBeVisible();
     await expect(page2.getByTestId('open-project-file')).toBeVisible();
 
