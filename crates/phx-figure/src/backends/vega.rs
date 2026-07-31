@@ -12,7 +12,7 @@ use base64::Engine as _;
 use serde_json::{Value, json};
 
 use crate::backends::bundle::{axis_title, db_window, spectrogram_png};
-use crate::model::{Axis, Figure, Layer, Panel, TierContent};
+use crate::model::{Axis, Figure, Layer, LayerKind, Panel, TierContent};
 
 /// Renders `fig` to a Vega-Lite v5 JSON string.
 #[must_use]
@@ -35,7 +35,7 @@ pub fn to_vega(fig: &Figure) -> String {
 
     let spec = json!({
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "description": caption_text(fig),
+        "description": figure_description(fig),
         "resolve": { "scale": { "x": "independent", "y": "independent" } },
         "spacing": 8,
         "vconcat": views,
@@ -44,20 +44,32 @@ pub fn to_vega(fig: &Figure) -> String {
     serde_json::to_string_pretty(&spec).unwrap_or_else(|_| "{}".to_owned())
 }
 
-fn caption_text(fig: &Figure) -> String {
-    let mut parts = vec!["Phonetics figure over a shared time axis (s).".to_owned()];
-    for src in &fig.caption_meta.sources {
-        let mut line = format!("{:?}", src.layer);
-        if !src.params.is_empty() {
-            let ps: Vec<String> = src.params.iter().map(|(k, v)| format!("{k}={v}")).collect();
-            line.push_str(&format!(" ({})", ps.join(", ")));
-        }
-        if src.smoothed == Some(true) {
-            line.push_str(" [smoothed track]");
-        }
-        parts.push(line);
+/// A plain-language accessibility description naming the layers on show. The
+/// analysis parameters are provenance, not screen-reader text, so they stay in
+/// the figure metadata rather than here.
+fn figure_description(fig: &Figure) -> String {
+    let layers: Vec<&str> = fig
+        .caption_meta
+        .sources
+        .iter()
+        .map(|src| match src.layer {
+            LayerKind::Waveform => "waveform",
+            LayerKind::Spectrogram => "spectrogram",
+            LayerKind::Pitch => "pitch contour",
+            LayerKind::Formant => "formants",
+            LayerKind::Intensity => "intensity contour",
+            LayerKind::Tiers => "annotation tiers",
+            LayerKind::SpectralSlice => "spectral slice",
+        })
+        .collect();
+    if layers.is_empty() {
+        "Phonetics figure over a shared time axis (seconds).".to_owned()
+    } else {
+        format!(
+            "Phonetics figure over a shared time axis (seconds): {}.",
+            layers.join(", ")
+        )
     }
-    parts.join(" ")
 }
 
 fn time_axis_encoding(axis: &Axis, show_labels: bool) -> Value {

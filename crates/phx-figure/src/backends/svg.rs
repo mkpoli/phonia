@@ -20,7 +20,7 @@ use std::fmt::Write as _;
 use base64::Engine as _;
 use phx_render::colorize;
 
-use crate::model::{Axis, AxisScale, CaptionMeta, Figure, Layer, Panel};
+use crate::model::{Axis, AxisScale, Figure, Layer, Panel};
 use crate::style::{DashStyle, LineStyle, RgbaColor, SpeckleStyle, TierStyle};
 
 /// SVG user-space resolution: one user unit is one pixel at this DPI, so a
@@ -137,26 +137,19 @@ pub fn to_svg(fig: &Figure) -> String {
     rect(&mut s, 0.0, 0.0, w, h, Some(pal.canvas), None, 0.0);
 
     // Vertical budget: panels stack between the top pad and the shared time
-    // axis; the caption sits below the time axis.
+    // axis, with a small margin below the axis labels.
     let pad_top = 10.0;
     let pad_side = 10.0;
     let left_gutter = 60.0;
     let right_gutter = 60.0;
     let time_axis_h = 42.0;
-    let caption_px = 9.0;
-    let caption_lh = caption_px + 3.0;
-    let caption_lines = fig.caption_meta.sources.len();
-    let caption_h = if caption_lines == 0 {
-        6.0
-    } else {
-        caption_lines as f64 * caption_lh + 10.0
-    };
+    let pad_bottom = 6.0;
     let panel_gap = 12.0;
 
     let x0 = pad_side + left_gutter;
     let x1 = w - pad_side - right_gutter;
     let content_top = pad_top;
-    let content_bottom = h - caption_h - time_axis_h;
+    let content_bottom = h - pad_bottom - time_axis_h;
 
     let n = fig.panels.len();
     let share_sum: f64 = fig.panels.iter().map(|p| p.height_share.max(0.0)).sum();
@@ -187,17 +180,6 @@ pub fn to_svg(fig: &Figure) -> String {
     if let (Some(last), Some(bottom_panel)) = (rects.last(), fig.panels.last()) {
         draw_time_axis(&mut s, &bottom_panel.time_axis, x0, x1, last.y1, &pal);
     }
-
-    draw_caption(
-        &mut s,
-        &fig.caption_meta,
-        pad_side,
-        content_bottom + time_axis_h,
-        w - 2.0 * pad_side,
-        caption_px,
-        caption_lh,
-        &pal,
-    );
 
     s.push_str("</svg>");
     s
@@ -462,38 +444,6 @@ fn draw_time_axis(s: &mut String, axis: &Axis, x0: f64, x1: f64, y_bottom: f64, 
 }
 
 #[allow(clippy::too_many_arguments)]
-fn draw_caption(
-    s: &mut String,
-    meta: &CaptionMeta,
-    x: f64,
-    y_top: f64,
-    max_width: f64,
-    size_px: f64,
-    line_h: f64,
-    pal: &Palette,
-) {
-    // A conservative average glyph advance keeps the label inside the figure
-    // without shaping: overrun is trimmed to an ellipsis.
-    let max_chars = ((max_width / (size_px * 0.55)).floor() as usize).max(8);
-    let mut y = y_top + size_px;
-    for src in &meta.sources {
-        let mut line_txt = format!("{:?}", src.layer);
-        if !src.params.is_empty() {
-            let params: Vec<String> = src.params.iter().map(|(k, v)| format!("{k}={v}")).collect();
-            line_txt.push_str(" — ");
-            line_txt.push_str(&params.join(", "));
-        }
-        if src.smoothed == Some(true) {
-            line_txt.push_str(" (smoothed track)");
-        }
-        if line_txt.chars().count() > max_chars {
-            line_txt = line_txt.chars().take(max_chars - 1).collect::<String>() + "…";
-        }
-        text_px(s, x, y, &line_txt, size_px, pal.fg, "start");
-        y += line_h;
-    }
-}
-
 fn draw_layer(s: &mut String, layer: &Layer, panel: &Panel, r: &PlotRect, pal: &Palette) {
     match layer {
         Layer::Waveform {

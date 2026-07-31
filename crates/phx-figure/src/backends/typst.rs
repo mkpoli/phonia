@@ -118,18 +118,13 @@ pub fn to_typst(fig: &Figure) -> TextExport {
     let right_gutter = 1.4;
     let top_pad = 0.3;
     let time_axis_h = 1.1;
-    let caption_lh = 0.4;
-    let caption_h = if fig.caption_meta.sources.is_empty() {
-        0.2
-    } else {
-        fig.caption_meta.sources.len() as f64 * caption_lh + 0.2
-    };
+    let pad_bottom = 0.2;
     let panel_gap = 0.35;
 
     let x0 = left_gutter;
     let x1 = w - right_gutter;
     let content_top = h - top_pad;
-    let content_bottom = time_axis_h + caption_h;
+    let content_bottom = time_axis_h + pad_bottom;
 
     let n = fig.panels.len();
     let share_sum: f64 = fig.panels.iter().map(|p| p.height_share.max(0.0)).sum();
@@ -156,8 +151,6 @@ pub fn to_typst(fig: &Figure) -> TextExport {
     if let (Some(last), Some(bottom)) = (rects.last(), fig.panels.last()) {
         draw_time_axis(&mut body, &bottom.time_axis, x0, x1, last.y0, &pal);
     }
-
-    draw_caption(&mut body, fig, x0, caption_h, caption_lh, &pal);
 
     let mut s = String::with_capacity(body.len() + 512);
     s.push_str(
@@ -548,23 +541,6 @@ fn draw_time_axis(s: &mut String, axis: &Axis, x0: f64, x1: f64, y_bottom: f64, 
             pal.fg,
             "north",
         );
-    }
-}
-
-fn draw_caption(s: &mut String, fig: &Figure, x: f64, caption_h: f64, line_h: f64, pal: &Palette) {
-    let mut y = (caption_h - 0.15).max(0.1);
-    for src in &fig.caption_meta.sources {
-        let mut line_txt = format!("{:?}", src.layer);
-        if !src.params.is_empty() {
-            let params: Vec<String> = src.params.iter().map(|(k, v)| format!("{k}={v}")).collect();
-            line_txt.push_str(" — ");
-            line_txt.push_str(&params.join(", "));
-        }
-        if src.smoothed == Some(true) {
-            line_txt.push_str(" (smoothed track)");
-        }
-        label(s, x, y, &line_txt, 7.0, pal.fg, "west");
-        y -= line_h;
     }
 }
 

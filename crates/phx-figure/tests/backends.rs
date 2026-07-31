@@ -182,9 +182,10 @@ fn svg_is_well_formed_and_carries_every_surface() {
     assert!(svg.contains("Frequency (Hz)"));
     assert!(svg.contains("Time (s)"));
     assert!(svg.contains("danger"));
-    // Caption provenance is present.
-    assert!(svg.contains("Spectrogram"));
-    assert!(svg.contains("window_length_s"));
+    // Raw analysis parameters are provenance, not on-figure text — they stay in
+    // the figure metadata and the reproducible code export, never painted here.
+    assert!(!svg.contains("window_length_s"));
+    assert!(!svg.contains("frequency_step_hz"));
 }
 
 #[test]
