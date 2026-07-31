@@ -182,11 +182,13 @@ test('annotate, recover after reload via autosave, then delete', async ({ page }
     timeout: 60_000
   });
 
-  // Back to the grid, delete the project; the empty state returns.
+  // Back to the grid, delete the project; deletion takes an inline confirm, and
+  // then the empty state returns.
   await page.getByTestId('back-corpus').click();
   await expect(page.getByTestId('corpus')).toBeVisible();
   await page.getByTestId('back-home').click();
   await expect(page.getByTestId('home')).toBeVisible();
   await page.getByTestId('delete-project').click();
+  await page.getByTestId('delete-project-confirm').click();
   await expect(page.getByTestId('home-empty')).toBeVisible();
 });
