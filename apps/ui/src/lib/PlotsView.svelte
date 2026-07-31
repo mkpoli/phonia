@@ -137,6 +137,11 @@
   let dragBaseline: Snapshot | null = null;
   let dragChanged = false;
 
+  // A run of arrow-key nudges coalesces into one undo step: the first nudge
+  // snapshots the pre-nudge state, later nudges mutate in place, and any other
+  // interaction ends the run so the next nudge starts a fresh step.
+  let nudging = false;
+
   function restore(s: Snapshot) {
     objects = s.objects.map((o) => ({ ...o }));
     paperW = s.paperW;
@@ -318,6 +323,7 @@
 
   function onCanvasPointerDown(event: PointerEvent) {
     if (event.button !== 0) return;
+    nudging = false;
     pan = { startX: event.clientX, startY: event.clientY, ox: panX, oy: panY, moved: false };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   }
@@ -331,6 +337,7 @@
   function startMove(event: PointerEvent, o: PlotObject) {
     if (event.button !== 0) return;
     event.stopPropagation();
+    nudging = false;
     selectedId = o.id;
     dragBaseline = snapshot();
     dragChanged = false;
@@ -342,6 +349,7 @@
   function startResize(event: PointerEvent, o: PlotObject, handle: string) {
     if (event.button !== 0) return;
     event.stopPropagation();
+    nudging = false;
     selectedId = o.id;
     dragBaseline = snapshot();
     dragChanged = false;
@@ -462,7 +470,34 @@
     guideY = null;
   }
 
+  const NUDGE_KEYS: Record<string, { dx: number; dy: number }> = {
+    ArrowLeft: { dx: -1, dy: 0 },
+    ArrowRight: { dx: 1, dy: 0 },
+    ArrowUp: { dx: 0, dy: -1 },
+    ArrowDown: { dx: 0, dy: 1 }
+  };
+
   function onCanvasKey(event: KeyboardEvent) {
+    // A bare modifier press (Shift held to switch to a coarse nudge) must not
+    // end the current nudge run before the arrow key arrives.
+    if (event.key === 'Shift' || event.key === 'Control' || event.key === 'Alt' || event.key === 'Meta') {
+      return;
+    }
+    const nudge = NUDGE_KEYS[event.key];
+    if (nudge && selectedId) {
+      event.preventDefault();
+      const o = objects.find((x) => x.id === selectedId);
+      if (!o) return;
+      // Shift nudges by a coarse step, matching the arrange tools' feel.
+      const step = event.shiftKey ? 10 : 1;
+      if (!nudging) {
+        pushHistory();
+        nudging = true;
+      }
+      setSelected({ x: o.x + nudge.dx * step, y: o.y + nudge.dy * step });
+      return;
+    }
+    nudging = false;
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
       event.preventDefault();
       deleteObject(selectedId);
