@@ -246,6 +246,9 @@
     // Grow the artboard to hold the new object with a margin.
     paperW = Math.max(paperW, obj.x + obj.w + STACK_MARGIN);
     paperH = Math.max(paperH, obj.y + obj.h + STACK_MARGIN);
+    // Move focus to the canvas so the new, selected object nudges with the arrow
+    // keys straight away, without a click to hand off focus from the toolbar.
+    canvasEl?.focus();
   }
 
   function duplicateSelected() {
@@ -254,6 +257,7 @@
     const clone = cloneObject(selected);
     objects = [...objects, clone];
     selectedId = clone.id;
+    canvasEl?.focus();
     paperW = Math.max(paperW, clone.x + clone.w + STACK_MARGIN);
     paperH = Math.max(paperH, clone.y + clone.h + STACK_MARGIN);
   }
