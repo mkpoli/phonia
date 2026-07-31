@@ -69,7 +69,11 @@ test('pin lifts a project to the top and persists across reload', async ({ page 
     'data-project-name',
     'alpha'
   );
-  await expect(card(page, 'alpha')).toHaveAttribute('data-pinned', 'true');
+  // Scope to the pinned section: the just-pinned card animates out of the grid,
+  // leaving a brief inert ghost there, so match the live pinned card directly.
+  await expect(
+    page.getByTestId('home-pinned').locator('[data-project-name="alpha"]')
+  ).toHaveAttribute('data-pinned', 'true');
 
   // The pin is written to the home index; give the write a beat, then reload.
   await page.waitForTimeout(600);
