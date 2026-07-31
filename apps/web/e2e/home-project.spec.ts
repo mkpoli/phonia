@@ -145,9 +145,10 @@ test('annotate, recover after reload via autosave, then delete', async ({ page }
   await expect(page.getByTestId('corpus')).toBeVisible();
   await expect(page.getByTestId('corpus-row')).toHaveCount(2, { timeout: 30_000 });
 
-  // Open a recording and annotate one interval.
+  // Open a recording and annotate one interval. Loading journaled both audio
+  // imports and the empty annotation document opened here, for three steps.
   await page.locator('[data-recording-name="synth_vowel_a"]').click();
-  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '1', {
+  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '3', {
     timeout: 60_000
   });
   await page.getByTestId('add-interval-tier').focus();

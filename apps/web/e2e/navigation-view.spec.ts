@@ -148,7 +148,7 @@ test('clicking a tier interval selects and plays it, and never opens the label e
   page
 }) => {
   await openEditorWithFixture(page, arcticFixture);
-  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '1', {
+  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '2', {
     timeout: 60_000
   });
   // Import a TextGrid so the pane holds real labelled intervals.

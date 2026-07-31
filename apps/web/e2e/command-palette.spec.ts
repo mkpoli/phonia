@@ -35,9 +35,9 @@ async function runCommand(page: Page, id: string, query: string) {
 
 async function loadEditor(page: Page) {
   await openEditorWithFixture(page, wavFixture);
-  // Opening the recording attaches an empty annotation document; the attach
-  // command queues behind the whole-signal analyses in the engine worker.
-  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '1', {
+  // Loading journals the audio import and the empty annotation document opened
+  // with the recording; both queue behind the whole-signal analyses.
+  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '2', {
     timeout: 60_000
   });
 }
@@ -82,12 +82,12 @@ test('palette runs the same code paths as buttons and keys', async ({ page }) =>
   await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-tier-count', '0');
   await runCommand(page, 'addIntervalTier', 'interval');
   await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-tier-count', '1');
-  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '2');
+  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '3');
 
   // Undo the tier from the palette.
   await runCommand(page, 'undo', 'undo');
   await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-tier-count', '0');
-  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '1');
+  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '2');
 
   // Open the figure export dialog.
   await expect(page.getByTestId('export-dialog')).toHaveCount(0);

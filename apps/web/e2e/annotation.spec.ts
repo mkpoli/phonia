@@ -11,9 +11,10 @@ const screenshots = path.join(here, 'screenshots');
 
 async function loadFixture(page: Page) {
   await openEditorWithFixture(page, wavFixture);
-  // Opening the recording attaches an empty annotation document; the attach
-  // command queues behind the whole-signal analyses in the engine worker.
-  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '1', {
+  // Loading the fixture journals two reversible steps: the audio import and the
+  // empty annotation document attached when the recording opens. Both queue
+  // behind the whole-signal analyses in the engine worker.
+  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '2', {
     timeout: 60_000
   });
 }
@@ -91,13 +92,13 @@ test('keyboard-only annotation: tier, boundaries, labels, merge, undo x5, redo x
   await page.keyboard.press('m');
   await expect(page.getByTestId('interval')).toHaveCount(2);
   const afterMerge = await stateHash(page);
-  expect(await undoDepth(page)).toBe(8); // attach, tier, 2 splits, 3 labels, merge
+  expect(await undoDepth(page)).toBe(9); // import, attach, tier, 2 splits, 3 labels, merge
 
   // Undo x5 (merge, three labels, second split) restores the split-only state.
   for (let i = 0; i < 5; i += 1) {
     await page.keyboard.press('Control+z');
   }
-  await expect(pane(page)).toHaveAttribute('data-undo-depth', '3');
+  await expect(pane(page)).toHaveAttribute('data-undo-depth', '4');
   await expect(page.getByTestId('interval')).toHaveCount(2);
   await expect(page.getByTestId('interval').nth(0)).toHaveAttribute('data-label', '');
   await expect.poll(() => stateHash(page)).toBe(afterSplit1);
@@ -106,7 +107,7 @@ test('keyboard-only annotation: tier, boundaries, labels, merge, undo x5, redo x
   for (let i = 0; i < 5; i += 1) {
     await page.keyboard.press('Control+Shift+z');
   }
-  await expect(pane(page)).toHaveAttribute('data-undo-depth', '8');
+  await expect(pane(page)).toHaveAttribute('data-undo-depth', '9');
   await expect(page.getByTestId('interval')).toHaveCount(2);
   await expect.poll(() => stateHash(page)).toBe(afterMerge);
 
@@ -191,27 +192,27 @@ test('label search finds hits and navigates between them', async ({ page }) => {
 
 test('undoing a textgrid import repoints the pane instead of going blank', async ({ page }) => {
   await loadFixture(page);
-  // Opening the recording already attached an empty document (undo depth 1,
-  // zero tiers); importing the TextGrid attaches a second document on top of
-  // it rather than replacing it.
+  // Loading already journaled the audio import and an empty document (undo
+  // depth 2, zero tiers); importing the TextGrid attaches a second document on
+  // top of it rather than replacing it.
   await expect(pane(page)).toHaveAttribute('data-tier-count', '0');
 
   await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);
   await expect(pane(page)).toHaveAttribute('data-tier-count', '3');
-  await expect(pane(page)).toHaveAttribute('data-undo-depth', '2');
+  await expect(pane(page)).toHaveAttribute('data-undo-depth', '3');
   const importedHash = await stateHash(page);
 
   // Undo the import: the pane repoints to the pre-import document (empty,
   // not an error) instead of continuing to point at the now-detached one.
   await page.keyboard.press('Control+z');
-  await expect(pane(page)).toHaveAttribute('data-undo-depth', '1');
+  await expect(pane(page)).toHaveAttribute('data-undo-depth', '2');
   await expect(pane(page)).toHaveAttribute('data-tier-count', '0');
   await expect(page.getByTestId('tier-empty')).toBeVisible();
   await expect(page.getByTestId('tier-status')).toHaveCount(0);
 
   // Redo reattaches the imported document and its tiers return.
   await page.keyboard.press('Control+Shift+z');
-  await expect(pane(page)).toHaveAttribute('data-undo-depth', '2');
+  await expect(pane(page)).toHaveAttribute('data-undo-depth', '3');
   await expect(pane(page)).toHaveAttribute('data-tier-count', '3');
   await expect.poll(() => stateHash(page)).toBe(importedHash);
   await expect(

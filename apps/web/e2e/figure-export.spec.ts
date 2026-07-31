@@ -14,7 +14,7 @@ const figcheck = path.join(root, 'tools/figcheck/check.sh');
 
 async function loadFixture(page: Page) {
   await openEditorWithFixture(page, wavFixture);
-  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '1', {
+  await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '2', {
     timeout: 60_000
   });
 }
