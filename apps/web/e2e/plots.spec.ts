@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openEditorWithFixture } from './helpers';
@@ -25,6 +26,16 @@ async function objectSvg(page: Page): Promise<string> {
   const svg = page.locator('[data-testid="plots-canvas"] svg').first();
   await expect(svg).toBeVisible({ timeout: 30_000 });
   return svg.evaluate((el) => el.outerHTML);
+}
+
+/** Triggers a download from `testId` and returns its name and bytes. */
+async function download(page: Page, testId: string): Promise<{ name: string; buffer: Buffer }> {
+  const [file] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId(testId).click()
+  ]);
+  const onDisk = await file.path();
+  return { name: file.suggestedFilename(), buffer: fs.readFileSync(onDisk) };
 }
 
 test('plots: adding a layer renders one figure object', async ({ page }) => {
@@ -83,4 +94,47 @@ test('plots: Delete removes the selected object', async ({ page }) => {
 
   await page.keyboard.press('Delete');
   await expect(page.getByTestId('plots-obj')).toHaveCount(0);
+});
+
+test('plots: exports the composed figure as SVG', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  await objectSvg(page); // wait for the object figure to build before exporting
+
+  await page.getByTestId('plots-export').click();
+  const { name, buffer } = await download(page, 'plots-export-svg');
+  expect(name).toBe('figure.svg');
+  const svg = buffer.toString('utf8');
+  expect(svg.startsWith('<svg')).toBe(true);
+  // The composed document nests the waveform object, axis title and all.
+  expect(svg).toContain('Amplitude');
+});
+
+test('plots: exports the composed figure as PNG', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  await objectSvg(page);
+
+  await page.getByTestId('plots-export').click();
+  const { name, buffer } = await download(page, 'plots-export-png');
+  expect(name).toBe('figure.png');
+  // PNG magic number: the rasteriser produced a real image, not an empty blob.
+  expect(buffer.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+});
+
+test('plots: setting an axis colour recolours the rendered figure', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  const before = await objectSvg(page);
+
+  // Axis colour is an artboard control: deselect, then pick a preset far from
+  // the theme default so the axis strokes carry the chosen colour.
+  await page.getByTestId('plots-canvas').click({ position: { x: 40, y: 720 } });
+  await page.getByTestId('plots-axis-color').click();
+  await page.getByRole('button', { name: '#c80000' }).click();
+
+  await expect
+    .poll(async () => (await objectSvg(page)).includes('c80000'), { timeout: 15_000 })
+    .toBe(true);
+  expect(await objectSvg(page)).not.toBe(before);
 });
