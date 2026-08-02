@@ -316,7 +316,8 @@
         oy: number;
         ow: number;
         oh: number;
-      };
+      }
+    | { mode: 'paper'; handle: string; startX: number; startY: number; ow: number; oh: number };
   let drag = $state<Drag | null>(null);
 
   // Panning the canvas by dragging empty space (objects stop propagation, so
@@ -373,7 +374,22 @@
   }
 
   const MIN_SIZE = 80;
+  const PAPER_MIN = 200;
   const SNAP_PX = 6;
+
+  // Drag the paper's right, bottom, or bottom-right corner to resize the
+  // artboard directly, the same gesture as the numeric Width/Height fields.
+  function startPaperResize(event: PointerEvent, handle: string) {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    nudging = false;
+    selectedId = null;
+    dragBaseline = snapshot();
+    dragChanged = false;
+    const p = clientToArtboard(event.clientX, event.clientY);
+    drag = { mode: 'paper', handle, startX: p.x, startY: p.y, ow: paperW, oh: paperH };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
 
   // Alignment guides shown while a snap is active, in artboard coordinates.
   let guideX = $state<number | null>(null);
@@ -429,7 +445,11 @@
     const p = clientToArtboard(event.clientX, event.clientY);
     const dx = p.x - drag.startX;
     const dy = p.y - drag.startY;
-    if (drag.mode === 'move') {
+    if (drag.mode === 'paper') {
+      const d = drag;
+      if (d.handle.includes('e')) paperW = Math.max(PAPER_MIN, Math.round(d.ow + dx));
+      if (d.handle.includes('s')) paperH = Math.max(PAPER_MIN, Math.round(d.oh + dy));
+    } else if (drag.mode === 'move') {
       const d = drag;
       const moving = objects.find((o) => o.id === d.id);
       const snapped = moving
@@ -878,7 +898,7 @@
                   <div class="obj-loading">{plotKindLabel(o.kind)}…</div>
                 {/if}
                 {#if o.id === selectedId}
-                  {#each ['nw', 'ne', 'sw', 'se'] as h (h)}
+                  {#each ['n', 'e', 's', 'w', 'nw', 'ne', 'sw', 'se'] as h (h)}
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <span
                       class="handle {h}"
@@ -886,7 +906,7 @@
                       onpointerdown={(e) => startResize(e, o, h)}
                     ></span>
                   {/each}
-                  {#if drag && drag.id === o.id}
+                  {#if drag && drag.mode !== 'paper' && drag.id === o.id}
                     <span class="size-badge" data-testid="plots-size-badge"
                       >{Math.round(o.w)} × {Math.round(o.h)}</span
                     >
@@ -895,6 +915,22 @@
               </div>
             {/if}
           {/each}
+
+          {#each ['e', 's', 'se'] as h (h)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <span
+              class="paper-handle {h}"
+              class:active={drag?.mode === 'paper'}
+              data-testid="plots-paper-handle-{h}"
+              title="Drag to resize the paper"
+              onpointerdown={(e) => startPaperResize(e, h)}
+            ></span>
+          {/each}
+          {#if drag?.mode === 'paper'}
+            <span class="paper-size-badge" data-testid="plots-paper-size-badge"
+              >{paperW} × {paperH}</span
+            >
+          {/if}
         </div>
       </div>
     </div>
@@ -1576,6 +1612,13 @@
   .obj {
     position: absolute;
     line-height: 0;
+    cursor: move;
+  }
+
+  /* A faint outline on hover tells you an unselected panel is grabbable. */
+  .obj:hover:not(.sel) {
+    outline: 1px solid color-mix(in oklab, var(--accent) 50%, transparent);
+    outline-offset: 1px;
   }
 
   .obj.sel {
@@ -1649,6 +1692,94 @@
     bottom: -6px;
     right: -6px;
     cursor: nwse-resize;
+  }
+
+  /* Mid-edge handles: resize one dimension without touching the other. */
+  .handle.n {
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+  }
+
+  .handle.s {
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+  }
+
+  .handle.w {
+    top: 50%;
+    left: -6px;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+  }
+
+  .handle.e {
+    top: 50%;
+    right: -6px;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+  }
+
+  /* Grips on the paper's own edges: drag to resize the artboard directly. */
+  .paper-handle {
+    position: absolute;
+    z-index: 5;
+    background: color-mix(in oklab, var(--accent) 45%, transparent);
+    border-radius: 999px;
+    opacity: 0.55;
+    transition: opacity 0.12s ease, background 0.12s ease;
+  }
+
+  .paper-handle:hover,
+  .paper-handle.active {
+    opacity: 1;
+    background: var(--accent);
+  }
+
+  .paper-handle.e {
+    top: 50%;
+    right: -4px;
+    width: 6px;
+    height: 44px;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+  }
+
+  .paper-handle.s {
+    left: 50%;
+    bottom: -4px;
+    width: 44px;
+    height: 6px;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+  }
+
+  .paper-handle.se {
+    right: -6px;
+    bottom: -6px;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    cursor: nwse-resize;
+  }
+
+  .paper-size-badge {
+    position: absolute;
+    right: 0;
+    bottom: -1.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: var(--accent);
+    color: var(--ink, #03211b);
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 5;
   }
 
   .props {
