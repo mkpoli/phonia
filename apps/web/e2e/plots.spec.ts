@@ -96,6 +96,47 @@ test('plots: Delete removes the selected object', async ({ page }) => {
   await expect(page.getByTestId('plots-obj')).toHaveCount(0);
 });
 
+test('plots: the figure survives switching to Analyse and back', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  await expect(page.getByTestId('plots-obj')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Analyse' }).click();
+  await expect(page.getByTestId('editor')).toBeVisible();
+  await page.getByRole('button', { name: 'Plots' }).click();
+
+  // The editor is kept mounted, so the composed figure is still there.
+  await expect(page.getByTestId('plots-obj')).toHaveCount(1);
+});
+
+test('plots: a selected object exposes eight resize handles', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  // Four corners plus four mid-edges, so a single dimension can be resized.
+  await expect(page.locator('[data-testid^="plots-handle-"]')).toHaveCount(8);
+});
+
+test('plots: dragging the paper corner resizes the artboard', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+
+  const artboard = page.getByTestId('plots-artboard');
+  const w0 = (await artboard.boundingBox())!.width;
+  const grip = await page.getByTestId('plots-paper-handle-se').boundingBox();
+  const cx = grip!.x + grip!.width / 2;
+  const cy = grip!.y + grip!.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 160, cy + 120, { steps: 8 });
+  await page.mouse.up();
+
+  const w1 = (await artboard.boundingBox())!.width;
+  expect(w1).toBeGreaterThan(w0 + 100);
+  // One undo restores the pre-drag paper size.
+  await page.getByTestId('plots-undo').click();
+  expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
+});
+
 test('plots: exports the composed figure as SVG', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'waveform');
