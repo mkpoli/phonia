@@ -1506,15 +1506,22 @@
       onLoopToggle={handleLoopToggle}
       {dirty}
     />
-  {:else if route === 'plots'}
-    <PlotsView
-      {client}
-      {audio}
-      {annotationId}
-      {theme}
-      projectName={project?.name}
-      onExit={backToProject}
-    />
+  {/if}
+
+  <!-- Plots stays mounted while a recording is open so switching to Analyse and
+       back does not discard the figure being composed. It only shows on the
+       Plots route; hidden elsewhere, its state simply persists. -->
+  {#if audio}
+    <div class="plots-host" class:hidden={route !== 'plots'} aria-hidden={route !== 'plots'}>
+      <PlotsView
+        {client}
+        {audio}
+        {annotationId}
+        {theme}
+        projectName={project?.name}
+        onExit={backToProject}
+      />
+    </div>
   {/if}
 </div>
 
@@ -1587,6 +1594,12 @@
     /* Keep this offset in sync with the ModeRail width. */
     margin-left: 4.75rem;
     min-height: 100dvh;
+  }
+
+  /* Plots is a fixed-position overlay kept mounted to preserve its figure;
+     display:none takes it (and its fixed children) fully out of view. */
+  .plots-host.hidden {
+    display: none;
   }
 
   .error {
