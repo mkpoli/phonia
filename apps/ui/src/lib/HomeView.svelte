@@ -18,7 +18,7 @@
   import InlineRename from './InlineRename.svelte';
   import { filesFromDataTransfer } from './dnd';
   import { registerCommands } from './commands.svelte';
-  import { LANDING_URL } from './links';
+  import { LANDING_URL, DOWNLOAD_URL } from './links';
   import type { HomeIndex, ProjectSummary } from './types';
 
   interface Props {
@@ -519,9 +519,12 @@
             </button>
           {/if}
         </div>
-        <a class="empty-about" href={LANDING_URL} target="_blank" rel="noopener noreferrer">
-          About Phonia
-        </a>
+        <div class="empty-links">
+          <a class="empty-about" href={DOWNLOAD_URL}>Download the desktop app</a>
+          <a class="empty-about" href={LANDING_URL} target="_blank" rel="noopener noreferrer">
+            About Phonia
+          </a>
+        </div>
       </div>
     {:else if !manage}
       <div class="grid" data-testid="project-grid">
@@ -895,8 +898,14 @@
     background: color-mix(in oklab, var(--accent) 24%, var(--panel));
   }
 
-  .empty-about {
+  .empty-links {
     margin-top: 0.6rem;
+    display: flex;
+    gap: 1.1rem;
+    justify-content: center;
+  }
+
+  .empty-about {
     font-size: 0.8rem;
     color: var(--muted);
     text-decoration: underline;
