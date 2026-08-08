@@ -55,7 +55,7 @@
         await res.json();
       const rel = list.find((r) => !r.draft && (r.assets?.length ?? 0) > 0) ?? list.find((r) => !r.draft);
       const assets = rel?.assets ?? [];
-      version = (rel?.tag_name ?? '').replace(/^desktop-/, '') || null;
+      version = (rel?.tag_name ?? '').replace(/^desktop-v?/, '') || null;
       const resolved: Record<OsId, Build> = {
         mac: { href: pick(assets, (n) => n.endsWith('.dmg')) },
         windows: {
