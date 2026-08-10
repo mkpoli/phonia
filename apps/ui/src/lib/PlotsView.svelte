@@ -207,6 +207,11 @@
   const renderTokens = new Map<string, number>();
   $effect(() => {
     if (!client || !audio) return;
+    // While a resize is dragging, the placed SVG stretches to the box via CSS;
+    // re-rendering every pixel would fire a build_figure round-trip per frame.
+    // Reading `drag` keeps this reactive, so the final size renders once the
+    // drag ends. A move never changes size, so it needs no such guard.
+    if (drag?.mode === 'resize' || drag?.mode === 'paper') return;
     for (const o of objects) {
       const key = renderKey(o);
       if (renders[o.id]?.key === key) continue;
@@ -431,6 +436,72 @@
     return { x: x + sx.delta, y: y + sy.delta };
   }
 
+  type Box = { ox: number; oy: number; ow: number; oh: number };
+
+  // Snap the edge(s) being dragged to the other objects' edges and the artboard,
+  // so a resized panel lines up flush the same way a moved one does.
+  function snapResize(excludeId: string, handle: string, box: Box): Box {
+    const others = objects.filter((o) => o.id !== excludeId && o.visible);
+    const xTargets = [0, paperW / 2, paperW];
+    const yTargets = [0, paperH / 2, paperH];
+    for (const o of others) {
+      xTargets.push(o.x, o.x + o.w / 2, o.x + o.w);
+      yTargets.push(o.y, o.y + o.h / 2, o.y + o.h);
+    }
+    const threshold = SNAP_PX / zoom;
+    const nearest = (value: number, targets: number[]): number | null => {
+      let hit: number | null = null;
+      let dist = threshold;
+      for (const t of targets) {
+        const d = Math.abs(value - t);
+        if (d < dist) {
+          dist = d;
+          hit = t;
+        }
+      }
+      return hit;
+    };
+
+    let { ox, oy, ow, oh } = box;
+    let gx: number | null = null;
+    let gy: number | null = null;
+
+    if (handle.includes('e')) {
+      const t = nearest(ox + ow, xTargets);
+      if (t !== null) {
+        ow = Math.max(MIN_SIZE, t - ox);
+        gx = t;
+      }
+    } else if (handle.includes('w')) {
+      const right = ox + ow;
+      const t = nearest(ox, xTargets);
+      if (t !== null) {
+        ox = Math.min(t, right - MIN_SIZE);
+        ow = right - ox;
+        gx = t;
+      }
+    }
+    if (handle.includes('s')) {
+      const t = nearest(oy + oh, yTargets);
+      if (t !== null) {
+        oh = Math.max(MIN_SIZE, t - oy);
+        gy = t;
+      }
+    } else if (handle.includes('n')) {
+      const bottom = oy + oh;
+      const t = nearest(oy, yTargets);
+      if (t !== null) {
+        oy = Math.min(t, bottom - MIN_SIZE);
+        oh = bottom - oy;
+        gy = t;
+      }
+    }
+
+    guideX = gx;
+    guideY = gy;
+    return { ox, oy, ow, oh };
+  }
+
   function onPointerMove(event: PointerEvent) {
     if (pan) {
       const dx = event.clientX - pan.startX;
@@ -469,6 +540,7 @@
         oh = Math.max(MIN_SIZE, d.oh - dy);
         oy = d.oy + (d.oh - oh);
       }
+      ({ ox, oy, ow, oh } = snapResize(d.id, d.handle, { ox, oy, ow, oh }));
       objects = objects.map((o) => (o.id === d.id ? { ...o, x: ox, y: oy, w: ow, h: oh } : o));
     }
   }
