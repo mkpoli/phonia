@@ -5,6 +5,8 @@
     EditorView,
     FirstRunKeyModePrompt,
     HomeView,
+    ModeRail,
+    PlotsView,
     ProjectView,
     ShortcutEditor,
     provideCommandRegistry,
@@ -33,7 +35,7 @@
   } from '$lib/project/ProjectStore';
   import { applyDmabufGuard } from '$lib/platform/dmabufAdvisory';
 
-  type Route = 'home' | 'project' | 'editor';
+  type Route = 'home' | 'project' | 'editor' | 'plots';
 
   /** Matches the Rust side's `FILES_OPENED_EVENT` in `lib.rs`. */
   const FILES_OPENED_EVENT = 'phonix://files-opened';
@@ -48,6 +50,23 @@
   let recording = $state<RecordingEntry | null>(null);
 
   let audio = $state<AudioInfo | null>(null);
+
+  // The mode-rail's active tab follows the route; navigating it switches routes,
+  // mirroring the web shell so the desktop has the same Library/Analyse/Plots
+  // sidebar.
+  const mode = $derived<'library' | 'analyze' | 'plots'>(
+    route === 'editor' ? 'analyze' : route === 'plots' ? 'plots' : 'library'
+  );
+
+  function handleModeNavigate(next: 'library' | 'analyze' | 'plots') {
+    if (next === 'library') {
+      if (route === 'editor' || route === 'plots') backToProject();
+    } else if (next === 'analyze') {
+      if (audio) route = 'editor';
+    } else if (next === 'plots') {
+      if (audio) route = 'plots';
+    }
+  }
   let annotationId = $state<bigint | null>(null);
   let cursorTime = $state(0);
   let isPlaying = $state(false);
@@ -597,7 +616,15 @@
   });
 </script>
 
-{#if route === 'home'}
+<ModeRail
+  active={mode}
+  analyzeEnabled={audio !== null}
+  plotsEnabled={audio !== null}
+  onNavigate={handleModeNavigate}
+/>
+
+<div class="app-content">
+  {#if route === 'home'}
   <HomeView
     {projects}
     {busy}
@@ -661,7 +688,23 @@
       void playback?.playRange(t0, t1);
     }}
   />
-{/if}
+  {/if}
+
+  <!-- Plots stays mounted while a recording is open so switching modes keeps the
+       figure being composed, matching the web shell. -->
+  {#if audio}
+    <div class="plots-host" class:hidden={route !== 'plots'} aria-hidden={route !== 'plots'}>
+      <PlotsView
+        {client}
+        {audio}
+        {annotationId}
+        {theme}
+        projectName={project?.name}
+        onExit={backToProject}
+      />
+    </div>
+  {/if}
+</div>
 
 {#if recovery}
   <div class="modal-backdrop" data-testid="recovery-prompt">
@@ -701,6 +744,18 @@
 {/if}
 
 <style>
+  /* Leave room for the fixed ModeRail sidebar; keep in sync with its width. */
+  .app-content {
+    margin-left: 4.75rem;
+    min-height: 100dvh;
+  }
+
+  /* Plots is a fixed-position overlay kept mounted to preserve its figure;
+     display:none takes it (and its fixed children) fully out of view. */
+  .plots-host.hidden {
+    display: none;
+  }
+
   .error {
     position: fixed;
     right: 1rem;
