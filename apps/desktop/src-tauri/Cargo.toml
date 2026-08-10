@@ -1,6 +1,6 @@
 [package]
 name = "phonix-desktop"
-version = "0.0.1"
+version = "0.1.0"
 description = "Phonia desktop shell: the shared UI over a native phx-engine core"
 edition = "2024"
 license = "MIT OR Apache-2.0"
