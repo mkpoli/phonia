@@ -59,6 +59,10 @@
     /** Exports one stored project as a self-contained bundle download. */
     onExportStored?: (id: string) => Promise<void>;
     onBatchDelete?: (ids: string[]) => void;
+
+    /** True inside the native desktop app, which hides the "get the desktop
+     * app" link (you already have it). */
+    desktop?: boolean;
   }
 
   let {
@@ -86,7 +90,8 @@
     onToggleGroupCollapse,
     onMoveToGroup,
     onExportStored,
-    onBatchDelete
+    onBatchDelete,
+    desktop = false
   }: Props = $props();
 
   let dragging = $state(false);
@@ -520,7 +525,9 @@
           {/if}
         </div>
         <div class="empty-links">
-          <a class="empty-about" href={DOWNLOAD_URL}>Download the desktop app</a>
+          {#if !desktop}
+            <a class="empty-about" href={DOWNLOAD_URL}>Download the desktop app</a>
+          {/if}
           <a class="empty-about" href={LANDING_URL} target="_blank" rel="noopener noreferrer">
             About Phonia
           </a>
