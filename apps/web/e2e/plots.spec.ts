@@ -96,6 +96,16 @@ test('plots: Delete removes the selected object', async ({ page }) => {
   await expect(page.getByTestId('plots-obj')).toHaveCount(0);
 });
 
+test('plots: Escape deselects the active object', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  // A selected object shows its eight resize handles.
+  await expect(page.locator('[data-testid^="plots-handle-"]')).toHaveCount(8);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid^="plots-handle-"]')).toHaveCount(0);
+});
+
 test('plots: the figure survives switching to Analyse and back', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'waveform');

@@ -594,6 +594,22 @@
       return;
     }
     nudging = false;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (drag) {
+        // Abort the drag: snap the object(s) back to where the drag began, so a
+        // mis-drag doesn't have to be finished and then undone.
+        if (dragBaseline) restore(dragBaseline);
+        drag = null;
+        dragBaseline = null;
+        dragChanged = false;
+        guideX = null;
+        guideY = null;
+      } else if (selectedId) {
+        selectedId = null;
+      }
+      return;
+    }
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
       event.preventDefault();
       deleteObject(selectedId);
