@@ -634,18 +634,28 @@
   }
 
   function onWheel(event: WheelEvent) {
-    if (!event.ctrlKey && !event.metaKey) return;
-    event.preventDefault();
     const rect = canvasEl?.getBoundingClientRect();
     if (!rect) return;
-    const mx = event.clientX - rect.left;
-    const my = event.clientY - rect.top;
-    const factor = event.deltaY < 0 ? 1.1 : 0.9;
-    const next = Math.min(3, Math.max(0.25, zoom * factor));
-    // Keep the point under the cursor fixed while zooming.
-    panX = mx - ((mx - panX) * next) / zoom;
-    panY = my - ((my - panY) * next) / zoom;
-    zoom = next;
+    event.preventDefault();
+    if (event.ctrlKey || event.metaKey) {
+      const mx = event.clientX - rect.left;
+      const my = event.clientY - rect.top;
+      const factor = event.deltaY < 0 ? 1.1 : 0.9;
+      const next = Math.min(3, Math.max(0.25, zoom * factor));
+      // Keep the point under the cursor fixed while zooming.
+      panX = mx - ((mx - panX) * next) / zoom;
+      panY = my - ((my - panY) * next) / zoom;
+      zoom = next;
+      return;
+    }
+    // Plain wheel / two-finger trackpad scroll pans; Shift makes a vertical-only
+    // mouse wheel pan sideways.
+    if (event.shiftKey) {
+      panX -= event.deltaY || event.deltaX;
+    } else {
+      panX -= event.deltaX;
+      panY -= event.deltaY;
+    }
   }
 
   function fitView() {

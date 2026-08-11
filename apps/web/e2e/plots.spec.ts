@@ -147,6 +147,22 @@ test('plots: dragging the paper corner resizes the artboard', async ({ page }) =
   expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
 });
 
+test('plots: scrolling the wheel pans the artboard', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+
+  const artboard = page.getByTestId('plots-artboard');
+  const y0 = (await artboard.boundingBox())!.y;
+
+  // A plain wheel (no modifier) scrolls the view; down moves the paper up.
+  const canvas = await page.getByTestId('plots-canvas').boundingBox();
+  await page.mouse.move(canvas!.x + canvas!.width / 2, canvas!.y + canvas!.height / 2);
+  await page.mouse.wheel(0, 200);
+
+  const y1 = (await artboard.boundingBox())!.y;
+  expect(y1).toBeLessThan(y0 - 100);
+});
+
 test('plots: fit paper to content shrinks the artboard to the objects', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'waveform');
