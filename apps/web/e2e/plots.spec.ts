@@ -147,6 +147,33 @@ test('plots: dragging the paper corner resizes the artboard', async ({ page }) =
   expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
 });
 
+test('plots: Shift locks the aspect ratio while dragging a corner', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+
+  const w0 = Number(await page.getByTestId('plots-frame-w').inputValue());
+  const h0 = Number(await page.getByTestId('plots-frame-h').inputValue());
+  const ratio0 = w0 / h0;
+
+  // Drag the SE corner outward with Shift held; the box grows but keeps its
+  // proportions.
+  const grip = (await page.getByTestId('plots-handle-se').boundingBox())!;
+  const cx = grip.x + grip.width / 2;
+  const cy = grip.y + grip.height / 2;
+  await page.keyboard.down('Shift');
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 200, cy + 40, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+
+  const w1 = Number(await page.getByTestId('plots-frame-w').inputValue());
+  const h1 = Number(await page.getByTestId('plots-frame-h').inputValue());
+  expect(w1).toBeGreaterThan(w0 + 100);
+  // Ratio preserved within a pixel of rounding.
+  expect(w1 / h1).toBeCloseTo(ratio0, 1);
+});
+
 test('plots: align buttons snap the object to the paper edges', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'waveform');

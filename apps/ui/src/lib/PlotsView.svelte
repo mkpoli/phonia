@@ -580,17 +580,31 @@
     } else {
       const d = drag;
       let { ox, oy, ow, oh } = d;
+      const west = d.handle.includes('w');
+      const north = d.handle.includes('n');
       if (d.handle.includes('e')) ow = Math.max(MIN_SIZE, d.ow + dx);
       if (d.handle.includes('s')) oh = Math.max(MIN_SIZE, d.oh + dy);
-      if (d.handle.includes('w')) {
-        ow = Math.max(MIN_SIZE, d.ow - dx);
-        ox = d.ox + (d.ow - ow);
+      if (west) ow = Math.max(MIN_SIZE, d.ow - dx);
+      if (north) oh = Math.max(MIN_SIZE, d.oh - dy);
+      // Shift on a corner handle keeps the object's original proportions,
+      // driven by whichever axis the pointer pulled further.
+      const corner = (d.handle.includes('e') || west) && (d.handle.includes('s') || north);
+      const lockAspect = event.shiftKey && corner && d.oh > 0;
+      if (lockAspect) {
+        const aspect = d.ow / d.oh;
+        if (Math.abs(ow - d.ow) >= Math.abs(oh - d.oh) * aspect) {
+          oh = Math.max(MIN_SIZE, Math.round(ow / aspect));
+          ow = Math.round(oh * aspect);
+        } else {
+          ow = Math.max(MIN_SIZE, Math.round(oh * aspect));
+          oh = Math.round(ow / aspect);
+        }
       }
-      if (d.handle.includes('n')) {
-        oh = Math.max(MIN_SIZE, d.oh - dy);
-        oy = d.oy + (d.oh - oh);
-      }
-      ({ ox, oy, ow, oh } = snapResize(d.id, d.handle, { ox, oy, ow, oh }));
+      // Re-anchor the west / north edges to the final size.
+      if (west) ox = d.ox + (d.ow - ow);
+      if (north) oy = d.oy + (d.oh - oh);
+      // Edge snapping would fight a locked ratio, so only snap when free.
+      if (!lockAspect) ({ ox, oy, ow, oh } = snapResize(d.id, d.handle, { ox, oy, ow, oh }));
       objects = objects.map((o) => (o.id === d.id ? { ...o, x: ox, y: oy, w: ow, h: oh } : o));
     }
   }
@@ -1116,6 +1130,7 @@
                     <span
                       class="handle {h}"
                       data-testid="plots-handle-{h}"
+                      title={h.length === 2 ? 'Drag to resize · Shift keeps ratio' : 'Drag to resize'}
                       onpointerdown={(e) => startResize(e, o, h)}
                     ></span>
                   {/each}
@@ -1205,6 +1220,7 @@
               <input
                 type="number"
                 min="80"
+                data-testid="plots-frame-h"
                 value={Math.round(selected.h)}
                 oninput={(e) => patchSelected({ h: Math.max(80, Number(e.currentTarget.value)) })}
               />
