@@ -1212,6 +1212,11 @@
             <input type="number" min="200" step="20" bind:value={paperH} />
           </label>
         </div>
+        <p class="phys" data-testid="plots-phys-size">
+          Exports at {(paperW / 96).toFixed(1)} × {(paperH / 96).toFixed(1)} in ({Math.round(
+            (paperW / 96) * 25.4
+          )} × {Math.round((paperH / 96) * 25.4)} mm)
+        </p>
         <button
           type="button"
           class="fit-paper"
@@ -1326,6 +1331,13 @@
   .crumb-back:hover {
     background: var(--panel);
     border-color: color-mix(in oklab, var(--accent) 32%, var(--chrome-strong));
+  }
+
+  .phys {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .fit-paper {
