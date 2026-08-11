@@ -960,7 +960,11 @@
       onkeydown={onCanvasKey}
       onwheel={onWheel}
     >
-      <div class="artboard-wrap" style:transform="translate({panX}px, {panY}px) scale({zoom})">
+      <div
+        class="artboard-wrap"
+        style:transform="translate({panX}px, {panY}px) scale({zoom})"
+        style:--z={zoom}
+      >
         <div
           class="artboard"
           class:dark={paperTheme === 'dark'}
@@ -1690,6 +1694,12 @@
     top: 0;
     left: 0;
     transform-origin: 0 0;
+    /* The whole artboard is scaled by --z, so chrome sizes are divided by it to
+       stay a constant number of screen pixels at any zoom. --z is set inline. */
+    --hs: calc(10px / var(--z, 1)); /* handle size */
+    --hb: calc(1.5px / var(--z, 1)); /* handle border / selection outline */
+    --ho: calc(-6px / var(--z, 1)); /* handle inset from the edge */
+    --gl: calc(1px / var(--z, 1)); /* hairline: guides, hover outline */
   }
 
   .artboard {
@@ -1747,15 +1757,15 @@
   .guide.vert {
     top: 0;
     bottom: 0;
-    width: 1px;
-    margin-left: -0.5px;
+    width: var(--gl);
+    margin-left: calc(var(--gl) / -2);
   }
 
   .guide.horz {
     left: 0;
     right: 0;
-    height: 1px;
-    margin-top: -0.5px;
+    height: var(--gl);
+    margin-top: calc(var(--gl) / -2);
   }
 
   .obj {
@@ -1766,13 +1776,13 @@
 
   /* A faint outline on hover tells you an unselected panel is grabbable. */
   .obj:hover:not(.sel) {
-    outline: 1px solid color-mix(in oklab, var(--accent) 50%, transparent);
-    outline-offset: 1px;
+    outline: var(--gl) solid color-mix(in oklab, var(--accent) 50%, transparent);
+    outline-offset: var(--gl);
   }
 
   .obj.sel {
-    outline: 1.5px solid var(--accent);
-    outline-offset: 1px;
+    outline: var(--hb) solid var(--accent);
+    outline-offset: var(--gl);
   }
 
   .obj-svg,
@@ -1795,11 +1805,11 @@
 
   .handle {
     position: absolute;
-    width: 10px;
-    height: 10px;
+    width: var(--hs);
+    height: var(--hs);
     background: var(--panel);
-    border: 1.5px solid var(--accent);
-    border-radius: 2px;
+    border: var(--hb) solid var(--accent);
+    border-radius: calc(2px / var(--z, 1));
   }
 
   /* Live dimensions while moving or resizing, Figma-style. */
@@ -1820,39 +1830,39 @@
   }
 
   .handle.nw {
-    top: -6px;
-    left: -6px;
+    top: var(--ho);
+    left: var(--ho);
     cursor: nwse-resize;
   }
 
   .handle.ne {
-    top: -6px;
-    right: -6px;
+    top: var(--ho);
+    right: var(--ho);
     cursor: nesw-resize;
   }
 
   .handle.sw {
-    bottom: -6px;
-    left: -6px;
+    bottom: var(--ho);
+    left: var(--ho);
     cursor: nesw-resize;
   }
 
   .handle.se {
-    bottom: -6px;
-    right: -6px;
+    bottom: var(--ho);
+    right: var(--ho);
     cursor: nwse-resize;
   }
 
   /* Mid-edge handles: resize one dimension without touching the other. */
   .handle.n {
-    top: -6px;
+    top: var(--ho);
     left: 50%;
     transform: translateX(-50%);
     cursor: ns-resize;
   }
 
   .handle.s {
-    bottom: -6px;
+    bottom: var(--ho);
     left: 50%;
     transform: translateX(-50%);
     cursor: ns-resize;
@@ -1860,14 +1870,14 @@
 
   .handle.w {
     top: 50%;
-    left: -6px;
+    left: var(--ho);
     transform: translateY(-50%);
     cursor: ew-resize;
   }
 
   .handle.e {
     top: 50%;
-    right: -6px;
+    right: var(--ho);
     transform: translateY(-50%);
     cursor: ew-resize;
   }
@@ -1890,28 +1900,28 @@
 
   .paper-handle.e {
     top: 50%;
-    right: -4px;
-    width: 6px;
-    height: 44px;
+    right: calc(-4px / var(--z, 1));
+    width: calc(6px / var(--z, 1));
+    height: calc(44px / var(--z, 1));
     transform: translateY(-50%);
     cursor: ew-resize;
   }
 
   .paper-handle.s {
     left: 50%;
-    bottom: -4px;
-    width: 44px;
-    height: 6px;
+    bottom: calc(-4px / var(--z, 1));
+    width: calc(44px / var(--z, 1));
+    height: calc(6px / var(--z, 1));
     transform: translateX(-50%);
     cursor: ns-resize;
   }
 
   .paper-handle.se {
-    right: -6px;
-    bottom: -6px;
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
+    right: var(--ho);
+    bottom: var(--ho);
+    width: calc(14px / var(--z, 1));
+    height: calc(14px / var(--z, 1));
+    border-radius: calc(3px / var(--z, 1));
     cursor: nwse-resize;
   }
 
