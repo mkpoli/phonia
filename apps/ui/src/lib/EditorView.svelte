@@ -75,6 +75,9 @@
     onDeleteRamp: (id: string) => void;
     onCursorChange?: (time: number) => void;
     onAnnotationChange?: (id: bigint | null) => void;
+    /** Reports the active time selection (or null) so a sibling view — Plots —
+     *  can scope a figure to the same span the user picked here. */
+    onSelectionChange?: (span: { t0: number; t1: number } | null) => void;
     onExit?: () => void;
     projectName?: string;
     /** Name of the home group the project belongs to; leads the breadcrumb. */
@@ -125,6 +128,7 @@
     onDeleteRamp,
     onCursorChange,
     onAnnotationChange,
+    onSelectionChange,
     onExit,
     projectName,
     projectGroupName,
@@ -341,6 +345,12 @@
     return () => {
       cancelled = true;
     };
+  });
+
+  // Mirror the selection's time span to the host, so Plots can offer to scope a
+  // figure to it. Only t0/t1 travel — a box's frequency bounds don't apply.
+  $effect(() => {
+    onSelectionChange?.(selection ? { t0: selection.t0, t1: selection.t1 } : null);
   });
 
   function handleSelectionChange(next: Selection | null) {

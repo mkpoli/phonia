@@ -39,11 +39,14 @@
     audio: AudioInfo | null;
     annotationId: bigint | null;
     theme: 'light' | 'dark';
+    /** The editor's live time selection, so a new object or the selected one can
+     *  be scoped to the span picked in Analyse. Null when nothing is selected. */
+    selection?: { t0: number; t1: number } | null;
     projectName?: string;
     onExit?: () => void;
   }
 
-  let { client, audio, annotationId, theme, projectName, onExit }: Props = $props();
+  let { client, audio, annotationId, theme, selection = null, projectName, onExit }: Props = $props();
 
   const COLORMAPS: FigureColormapName[] = [
     'viridis',
@@ -246,6 +249,12 @@
     // away; they stay fully draggable afterwards.
     const bottom = objects.reduce((b, o) => Math.max(b, o.y + o.h), STACK_MARGIN - STACK_GAP);
     const obj = makePlotObject(kind, STACK_MARGIN, bottom + STACK_GAP);
+    // A live selection in Analyse scopes the new object to that span, so the
+    // figure opens on the region the user was just looking at.
+    if (selection) {
+      obj.t0 = selection.t0;
+      obj.t1 = selection.t1;
+    }
     objects = [...objects, obj];
     selectedId = obj.id;
     // Grow the artboard to hold the new object with a margin.
@@ -1162,6 +1171,7 @@
               min="0"
               step="0.05"
               placeholder="0"
+              data-testid="plots-window-start"
               value={selected.t0 ?? ''}
               oninput={(e) =>
                 patchSelected({ t0: e.currentTarget.value === '' ? null : Number(e.currentTarget.value) })}
@@ -1174,11 +1184,34 @@
               min="0"
               step="0.05"
               placeholder={audio ? audio.duration.toFixed(2) : ''}
+              data-testid="plots-window-end"
               value={selected.t1 ?? ''}
               oninput={(e) =>
                 patchSelected({ t1: e.currentTarget.value === '' ? null : Number(e.currentTarget.value) })}
             />
           </label>
+        </div>
+        <div class="window-actions">
+          {#if selection}
+            <button
+              type="button"
+              class="mini"
+              data-testid="plots-use-selection"
+              onclick={() => patchSelected({ t0: selection.t0, t1: selection.t1 })}
+            >
+              Use selection ({selection.t0.toFixed(2)}–{selection.t1.toFixed(2)} s)
+            </button>
+          {/if}
+          {#if selected.t0 !== null || selected.t1 !== null}
+            <button
+              type="button"
+              class="mini"
+              data-testid="plots-full-recording"
+              onclick={() => patchSelected({ t0: null, t1: null })}
+            >
+              Full recording
+            </button>
+          {/if}
         </div>
         {#if selected.kind === 'spectrogram' || selected.kind === 'formant'}
           <label class="field">
@@ -2125,6 +2158,28 @@
   }
 
   .reset:hover {
+    background: var(--panel);
+    color: var(--text);
+  }
+
+  .window-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .window-actions .mini {
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+    cursor: pointer;
+  }
+
+  .window-actions .mini:hover {
     background: var(--panel);
     color: var(--text);
   }

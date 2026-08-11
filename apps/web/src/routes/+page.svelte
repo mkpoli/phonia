@@ -77,6 +77,8 @@
 
   let annotationId = $state<bigint | null>(null);
   let cursorTime = $state(0);
+  // The editor's live time selection, so Plots can scope a figure to it.
+  let editorSelection = $state<{ t0: number; t1: number } | null>(null);
   let isPlaying = $state(false);
   let loopEnabled = $state(false);
   let theme = $state<'light' | 'dark'>('light');
@@ -1470,6 +1472,7 @@
       onSaveRamp={saveRamp}
       onDeleteRamp={deleteRamp}
       onCursorChange={handleCursorChange}
+      onSelectionChange={(span) => (editorSelection = span)}
       onAnnotationChange={(id) => {
         annotationId = id;
         if (recording) {
@@ -1518,6 +1521,7 @@
         {audio}
         {annotationId}
         {theme}
+        selection={editorSelection}
         projectName={project?.name}
         onExit={backToProject}
       />

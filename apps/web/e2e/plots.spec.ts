@@ -147,6 +147,39 @@ test('plots: dragging the paper corner resizes the artboard', async ({ page }) =
   expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
 });
 
+test('plots: a new object adopts the Analyse time selection', async ({ page }) => {
+  await openEditorWithFixture(page, wavFixture);
+
+  // Drag a box on the spectrogram to set a time selection in Analyse.
+  const canvas = page.getByTestId('spectrogram-canvas');
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.4);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.6, { steps: 6 });
+  await page.mouse.up();
+
+  const bar = page.getByTestId('readout-bar');
+  await expect(bar).toBeVisible();
+  const t0 = Number(await bar.getAttribute('data-t0'));
+  const t1 = Number(await bar.getAttribute('data-t1'));
+  expect(t1).toBeGreaterThan(t0);
+
+  // Switch to Plots and add a layer; it opens scoped to that span.
+  await page.getByRole('button', { name: 'Plots' }).click();
+  await expect(page.getByTestId('plots-view')).toBeVisible();
+  await addLayer(page, 'waveform');
+
+  const start = Number(await page.getByTestId('plots-window-start').inputValue());
+  const end = Number(await page.getByTestId('plots-window-end').inputValue());
+  expect(start).toBeCloseTo(t0, 2);
+  expect(end).toBeCloseTo(t1, 2);
+
+  // 'Full recording' clears the window back to the whole signal.
+  await page.getByTestId('plots-full-recording').click();
+  await expect(page.getByTestId('plots-window-start')).toHaveValue('');
+  await expect(page.getByTestId('plots-window-end')).toHaveValue('');
+});
+
 test('plots: bracket keys restack the selected object', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'waveform');
