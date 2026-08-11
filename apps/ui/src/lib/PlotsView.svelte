@@ -641,6 +641,26 @@
     panY = (rect.height - paperH * zoom) / 2;
   }
 
+  // Shrink the paper to hug the objects with a uniform margin, shifting them so
+  // the top-left inset matches — the one-click "tighten for export" that the
+  // grow-only add flow can't reach.
+  function fitPaperToContent() {
+    const shown = objects.filter((o) => o.visible);
+    if (shown.length === 0) return;
+    const minX = Math.min(...shown.map((o) => o.x));
+    const minY = Math.min(...shown.map((o) => o.y));
+    const maxX = Math.max(...shown.map((o) => o.x + o.w));
+    const maxY = Math.max(...shown.map((o) => o.y + o.h));
+    const m = STACK_MARGIN;
+    const dx = m - minX;
+    const dy = m - minY;
+    if (dx === 0 && dy === 0 && paperW === maxX + m && paperH === maxY + m) return;
+    pushHistory();
+    objects = objects.map((o) => ({ ...o, x: o.x + dx, y: o.y + dy }));
+    paperW = Math.round(maxX - minX + m * 2);
+    paperH = Math.round(maxY - minY + m * 2);
+  }
+
   // --- Export: composite every visible object into one artboard-sized SVG ---
 
   function composeSvg(): string {
@@ -1192,6 +1212,15 @@
             <input type="number" min="200" step="20" bind:value={paperH} />
           </label>
         </div>
+        <button
+          type="button"
+          class="fit-paper"
+          data-testid="plots-fit-paper"
+          disabled={objects.length === 0}
+          onclick={fitPaperToContent}
+        >
+          Fit paper to content
+        </button>
         <div class="field-row">
           <div class="field">
             <span>Background</span>
@@ -1297,6 +1326,28 @@
   .crumb-back:hover {
     background: var(--panel);
     border-color: color-mix(in oklab, var(--accent) 32%, var(--chrome-strong));
+  }
+
+  .fit-paper {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+
+  .fit-paper:hover:not(:disabled) {
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--chrome-strong));
+    background: var(--panel);
+  }
+
+  .fit-paper:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .crumb-back :global(svg) {

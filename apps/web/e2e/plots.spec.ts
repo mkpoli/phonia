@@ -137,6 +137,22 @@ test('plots: dragging the paper corner resizes the artboard', async ({ page }) =
   expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
 });
 
+test('plots: fit paper to content shrinks the artboard to the objects', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  const artboard = page.getByTestId('plots-artboard');
+  const before = (await artboard.boundingBox())!.width;
+
+  // Fit lives on the artboard panel, shown when nothing is selected.
+  await page.getByTestId('plots-canvas').click({ position: { x: 40, y: 720 } });
+  await page.getByTestId('plots-fit-paper').click();
+
+  const after = (await artboard.boundingBox())!.width;
+  expect(after).toBeLessThan(before);
+  await page.getByTestId('plots-undo').click();
+  expect((await artboard.boundingBox())!.width).toBeGreaterThan(after);
+});
+
 test('plots: exports the composed figure as SVG', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'waveform');
