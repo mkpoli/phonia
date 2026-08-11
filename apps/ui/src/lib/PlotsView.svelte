@@ -216,6 +216,8 @@
     // drag ends. A move never changes size, so it needs no such guard.
     if (drag?.mode === 'resize' || drag?.mode === 'paper') return;
     for (const o of objects) {
+      // Text labels are drawn directly, not composed from an engine figure.
+      if (o.kind === 'text') continue;
       const key = renderKey(o);
       if (renders[o.id]?.key === key) continue;
       const token = (renderTokens.get(o.id) ?? 0) + 1;
@@ -721,8 +723,19 @@
   function composeSvg(): string {
     const bg = paperBg;
     const parts = objects
-      .filter((o) => o.visible && renders[o.id])
+      .filter((o) => o.visible && (o.kind === 'text' ? o.text.trim() !== '' : renders[o.id]))
       .map((o) => {
+        if (o.kind === 'text') {
+          const ink = o.itemColor ?? defaultItemColor('text');
+          const spans = o.text
+            .split('\n')
+            .map(
+              (line, i) =>
+                `<tspan x="${o.x}" dy="${i === 0 ? o.fontSize : o.fontSize * 1.25}">${escapeXml(line)}</tspan>`
+            )
+            .join('');
+          return `<text x="${o.x}" y="${o.y}" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="${o.fontSize}" fill="${ink}">${spans}</text>`;
+        }
         const r = renders[o.id];
         return `<svg x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" viewBox="0 0 ${r.vb.w} ${r.vb.h}" preserveAspectRatio="none" overflow="visible">${svgInner(r.svg)}</svg>`;
       })
@@ -751,7 +764,9 @@
     URL.revokeObjectURL(url);
   }
 
-  const hasContent = $derived(objects.some((o) => o.visible && renders[o.id]));
+  const hasContent = $derived(
+    objects.some((o) => o.visible && (o.kind === 'text' ? o.text.trim() !== '' : renders[o.id]))
+  );
 
   let exportOpen = $state(false);
   let copied = $state(false);
@@ -1056,7 +1071,13 @@
                 style:height="{o.h}px"
                 onpointerdown={(e) => startMove(e, o)}
               >
-                {#if renders[o.id]}
+                {#if o.kind === 'text'}
+                  <div
+                    class="obj-text"
+                    style:font-size="{o.fontSize}px"
+                    style:color={o.itemColor ?? defaultItemColor('text')}
+                  >{o.text}</div>
+                {:else if renders[o.id]}
                   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                   <div class="obj-svg">{@html renders[o.id].svg}</div>
                 {:else}
@@ -1163,6 +1184,32 @@
             </label>
           </div>
         </div>
+        {#if selected.kind === 'text'}
+          <label class="field">
+            <span>Text</span>
+            <textarea
+              class="text-input"
+              rows="2"
+              data-testid="plots-text-input"
+              value={selected.text}
+              oninput={(e) => patchSelected({ text: e.currentTarget.value })}
+            ></textarea>
+          </label>
+          <label class="field">
+            <span>Type size (px)</span>
+            <input
+              type="number"
+              min="8"
+              max="200"
+              step="1"
+              data-testid="plots-font-size"
+              value={selected.fontSize}
+              oninput={(e) =>
+                patchSelected({ fontSize: Math.max(8, Number(e.currentTarget.value)) })}
+            />
+          </label>
+        {/if}
+        {#if selected.kind !== 'text'}
         <div class="field-row">
           <label class="field">
             <span>Start (s)</span>
@@ -1213,6 +1260,7 @@
             </button>
           {/if}
         </div>
+        {/if}
         {#if selected.kind === 'spectrogram' || selected.kind === 'formant'}
           <label class="field">
             <span>Frequency ceiling (Hz)</span>
@@ -1882,6 +1930,16 @@
     line-height: 1.2;
   }
 
+  /* A text label draws from the box's top-left, matching the exported <text>. */
+  .obj-text {
+    width: 100%;
+    height: 100%;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.25;
+    white-space: pre-wrap;
+    overflow: hidden;
+  }
+
   .handle {
     position: absolute;
     width: var(--hs);
@@ -2160,6 +2218,17 @@
   .reset:hover {
     background: var(--panel);
     color: var(--text);
+  }
+
+  .text-input {
+    resize: vertical;
+    min-height: 2.4rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text);
+    font: inherit;
+    padding: 0.35rem 0.45rem;
   }
 
   .window-actions {

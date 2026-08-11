@@ -147,6 +147,28 @@ test('plots: dragging the paper corner resizes the artboard', async ({ page }) =
   expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
 });
 
+test('plots: a text label renders on the canvas and into the export', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'text');
+
+  // The new text object shows its default label and is auto-selected.
+  const label = page.locator('[data-testid="plots-obj"][data-kind="text"] .obj-text');
+  await expect(label).toHaveText('Label');
+
+  // Editing the content updates the canvas live.
+  await page.getByTestId('plots-text-input').fill('Formant onset');
+  await expect(label).toHaveText('Formant onset');
+
+  // A text object has no time window, so those controls are hidden.
+  await expect(page.getByTestId('plots-window-start')).toHaveCount(0);
+
+  // The label composes into the exported SVG as real text.
+  await page.getByTestId('plots-export').click();
+  const { name, buffer } = await download(page, 'plots-export-svg');
+  expect(name).toMatch(/\.svg$/);
+  expect(buffer.toString('utf8')).toContain('Formant onset');
+});
+
 test('plots: a new object adopts the Analyse time selection', async ({ page }) => {
   await openEditorWithFixture(page, wavFixture);
 

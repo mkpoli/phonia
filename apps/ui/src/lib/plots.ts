@@ -8,7 +8,14 @@ import {
 } from './types';
 
 /** A kind of plot object that can be placed on the figure canvas. */
-export type PlotKind = 'waveform' | 'spectrogram' | 'pitch' | 'formant' | 'intensity' | 'tiers';
+export type PlotKind =
+  | 'waveform'
+  | 'spectrogram'
+  | 'pitch'
+  | 'formant'
+  | 'intensity'
+  | 'tiers'
+  | 'text';
 
 /** The order objects offer themselves in the Add menu and layers list. */
 export const PLOT_KINDS: { kind: PlotKind; label: string }[] = [
@@ -17,7 +24,8 @@ export const PLOT_KINDS: { kind: PlotKind; label: string }[] = [
   { kind: 'pitch', label: 'Pitch' },
   { kind: 'formant', label: 'Formants' },
   { kind: 'intensity', label: 'Intensity' },
-  { kind: 'tiers', label: 'Tiers' }
+  { kind: 'tiers', label: 'Tiers' },
+  { kind: 'text', label: 'Text' }
 ];
 
 export function plotKindLabel(kind: PlotKind): string {
@@ -48,11 +56,21 @@ export interface PlotObject {
   colormap: FigureColormapName;
   /** Item (trace / speckle) colour as a hex string; `null` uses the default. */
   itemColor: string | null;
+  /** Text-object content; empty for every plot kind. */
+  text: string;
+  /** Text-object type size in pixels. */
+  fontSize: number;
 }
 
 /** Kinds whose ink colour is a single settable stroke/speckle. */
 export function kindHasItemColor(kind: PlotKind): boolean {
-  return kind === 'waveform' || kind === 'pitch' || kind === 'formant' || kind === 'intensity';
+  return (
+    kind === 'waveform' ||
+    kind === 'pitch' ||
+    kind === 'formant' ||
+    kind === 'intensity' ||
+    kind === 'text'
+  );
 }
 
 /** The default ink colour a kind draws with, as a hex string. */
@@ -66,20 +84,23 @@ let objectCounter = 0;
 export function makePlotObject(kind: PlotKind, x: number, y: number): PlotObject {
   objectCounter += 1;
   const tall = kind === 'spectrogram';
+  const text = kind === 'text';
   return {
     id: `obj-${objectCounter}`,
     kind,
-    name: plotKindLabel(kind),
+    name: text ? 'Label' : plotKindLabel(kind),
     x,
     y,
-    w: 420,
-    h: tall ? 220 : kind === 'tiers' ? 120 : 160,
+    w: text ? 220 : 420,
+    h: tall ? 220 : kind === 'tiers' ? 120 : text ? 44 : 160,
     visible: true,
     t0: null,
     t1: null,
     freqCeiling: 5000,
     colormap: 'viridis',
-    itemColor: null
+    itemColor: null,
+    text: text ? 'Label' : '',
+    fontSize: 18
   };
 }
 
