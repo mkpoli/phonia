@@ -701,10 +701,24 @@
   let exportOpen = $state(false);
   let copied = $state(false);
 
+  // A file-safe name from the figure title, else the project, else "figure",
+  // so an export lands as e.g. `danger-trail.svg` and needs no rename.
+  function figureFilename(ext: string): string {
+    const slug = (s: string) =>
+      s
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60);
+    const base = slug(figTitle) || slug(projectName ?? '') || 'figure';
+    return `${base}.${ext}`;
+  }
+
   function exportSvg() {
     exportOpen = false;
     if (!hasContent) return;
-    saveBlob(new Blob([composeSvg()], { type: 'image/svg+xml;charset=utf-8' }), 'figure.svg');
+    saveBlob(new Blob([composeSvg()], { type: 'image/svg+xml;charset=utf-8' }), figureFilename('svg'));
   }
 
   // Rasterize the composed figure to a PNG blob at 2× for crisp output, shared
@@ -736,7 +750,7 @@
     exportOpen = false;
     if (!hasContent) return;
     const png = await renderPngBlob();
-    if (png) saveBlob(png, 'figure.png');
+    if (png) saveBlob(png, figureFilename('png'));
   }
 
   // Copy the figure as a PNG to the clipboard — paste it straight into a paper

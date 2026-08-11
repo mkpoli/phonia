@@ -160,7 +160,8 @@ test('plots: exports the composed figure as SVG', async ({ page }) => {
 
   await page.getByTestId('plots-export').click();
   const { name, buffer } = await download(page, 'plots-export-svg');
-  expect(name).toBe('figure.svg');
+  // The filename derives from the project/title; only the extension is fixed.
+  expect(name).toMatch(/\.svg$/);
   const svg = buffer.toString('utf8');
   expect(svg.startsWith('<svg')).toBe(true);
   // The composed document nests the waveform object, axis title and all.
@@ -174,9 +175,22 @@ test('plots: exports the composed figure as PNG', async ({ page }) => {
 
   await page.getByTestId('plots-export').click();
   const { name, buffer } = await download(page, 'plots-export-png');
-  expect(name).toBe('figure.png');
+  expect(name).toMatch(/\.png$/);
   // PNG magic number: the rasteriser produced a real image, not an empty blob.
   expect(buffer.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+});
+
+test('plots: the export filename follows the figure title', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  await objectSvg(page);
+
+  // The title lives on the artboard panel, shown when nothing is selected.
+  await page.getByTestId('plots-canvas').click({ position: { x: 40, y: 720 } });
+  await page.getByTestId('plots-title-input').fill('Danger Trail F2');
+  await page.getByTestId('plots-export').click();
+  const { name } = await download(page, 'plots-export-svg');
+  expect(name).toBe('danger-trail-f2.svg');
 });
 
 test('plots: setting an axis colour recolours the rendered figure', async ({ page }) => {
