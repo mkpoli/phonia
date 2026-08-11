@@ -147,6 +147,24 @@ test('plots: dragging the paper corner resizes the artboard', async ({ page }) =
   expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
 });
 
+test('plots: bracket keys restack the selected object', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+  await addLayer(page, 'pitch');
+
+  // The layers list is front-most first; the just-added Pitch sits on top.
+  const names = page.getByTestId('plots-layer-item');
+  await expect(names.first()).toHaveText('Pitch');
+
+  // '[' sends the selection back one step.
+  await page.keyboard.press('[');
+  await expect(names.first()).toHaveText('Waveform');
+
+  // Shift+']' brings it all the way back to the front.
+  await page.keyboard.press('Shift+]');
+  await expect(names.first()).toHaveText('Pitch');
+});
+
 test('plots: scrolling the wheel pans the artboard', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'waveform');

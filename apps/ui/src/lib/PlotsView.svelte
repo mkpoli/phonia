@@ -291,6 +291,18 @@
     objects = next;
   }
 
+  function reorderEnd(id: string, end: 'front' | 'back') {
+    const i = objects.findIndex((o) => o.id === id);
+    if (i < 0) return;
+    if (end === 'front' && i === objects.length - 1) return;
+    if (end === 'back' && i === 0) return;
+    pushHistory();
+    const next = objects.filter((o) => o.id !== id);
+    if (end === 'front') next.push(objects[i]);
+    else next.unshift(objects[i]);
+    objects = next;
+  }
+
   const isFront = (id: string) => objects.length > 0 && objects[objects.length - 1].id === id;
   const isBack = (id: string) => objects.length > 0 && objects[0].id === id;
 
@@ -613,6 +625,14 @@
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
       event.preventDefault();
       deleteObject(selectedId);
+      return;
+    }
+    // Bracket keys restack the selection: one step per press, or all the way
+    // to the front / back with Shift, mirroring the arrange buttons.
+    if ((event.key === '[' || event.key === ']') && selectedId) {
+      event.preventDefault();
+      if (event.shiftKey) reorderEnd(selectedId, event.key === ']' ? 'front' : 'back');
+      else reorder(selectedId, event.key === ']' ? 1 : -1);
       return;
     }
     const mod = event.ctrlKey || event.metaKey;
@@ -938,7 +958,7 @@
                   class="layer-move"
                   data-testid="plots-forward"
                   aria-label="Bring forward"
-                  title="Bring forward"
+                  title="Bring forward ( ] )"
                   disabled={isFront(o.id)}
                   onclick={() => reorder(o.id, 1)}
                 >
@@ -948,7 +968,7 @@
                   type="button"
                   class="layer-move"
                   aria-label="Send backward"
-                  title="Send backward"
+                  title="Send backward ( [ )"
                   disabled={isBack(o.id)}
                   onclick={() => reorder(o.id, -1)}
                 >
