@@ -23,6 +23,7 @@
   } from '@phonia/ui';
   import { invoke } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+  import { openUrl } from '@tauri-apps/plugin-opener';
   import { TauriCoreClient } from '$lib/core/TauriCoreClient';
   import type { Playback } from '$lib/playback/Playback';
   import { NativePlayback } from '$lib/playback/NativePlayback';
@@ -150,10 +151,23 @@
     frame = requestAnimationFrame(tick);
     saveTimer = setInterval(() => void autosaveTick(), 500);
 
+    // Open http(s) links in the user's real browser rather than navigating the
+    // app's own webview (which would replace the app with a 404).
+    const onLinkClick = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement | null)?.closest?.('a');
+      const href = anchor?.getAttribute('href');
+      if (href && /^https?:\/\//i.test(href)) {
+        event.preventDefault();
+        void openUrl(href);
+      }
+    };
+    document.addEventListener('click', onLinkClick);
+
     return () => {
       cancelAnimationFrame(frame);
       if (saveTimer) clearInterval(saveTimer);
       filesOpenedUnlisten?.();
+      document.removeEventListener('click', onLinkClick);
       client?.destroy();
       playback?.close();
     };
@@ -630,6 +644,7 @@
     {busy}
     {busyLabel}
     {theme}
+    desktop
     onImportFiles={importToNewProject}
     onNewProject={createEmptyProject}
     onOpenProject={requestOpen}

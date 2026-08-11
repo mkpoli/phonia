@@ -39,6 +39,9 @@ pub fn run() {
             let _ = app.emit(FILES_OPENED_EVENT, ());
         }))
         .plugin(tauri_plugin_dialog::init())
+        // Opens external links (the About page, GitHub, etc.) in the user's
+        // real browser instead of navigating the app's own webview.
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let root = app
                 .path()
