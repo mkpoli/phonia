@@ -10,6 +10,12 @@
   import IconRedo from '~icons/lucide/redo-2';
   import IconChevronUp from '~icons/lucide/chevron-up';
   import IconChevronDown from '~icons/lucide/chevron-down';
+  import IconAlignLeft from '~icons/lucide/align-start-vertical';
+  import IconAlignCenterX from '~icons/lucide/align-center-vertical';
+  import IconAlignRight from '~icons/lucide/align-end-vertical';
+  import IconAlignTop from '~icons/lucide/align-start-horizontal';
+  import IconAlignMiddle from '~icons/lucide/align-center-horizontal';
+  import IconAlignBottom from '~icons/lucide/align-end-horizontal';
   import ColourField from './ColourField.svelte';
   import { untrack } from 'svelte';
   import {
@@ -321,6 +327,27 @@
     if (!selectedId) return;
     pushHistory();
     objects = objects.map((o) => (o.id === selectedId ? { ...o, ...patch } : o));
+  }
+
+  type Align = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+
+  // Snaps the selected object's box to a paper edge or centre line.
+  function alignSelected(where: Align) {
+    if (!selected) return;
+    const o = selected;
+    const patch: Partial<PlotObject> =
+      where === 'left'
+        ? { x: 0 }
+        : where === 'center'
+          ? { x: Math.round((paperW - o.w) / 2) }
+          : where === 'right'
+            ? { x: paperW - o.w }
+            : where === 'top'
+              ? { y: 0 }
+              : where === 'middle'
+                ? { y: Math.round((paperH - o.h) / 2) }
+                : { y: paperH - o.h };
+    patchSelected(patch);
   }
 
   // Applies a change without touching history — the colour popover snapshots
@@ -1182,6 +1209,29 @@
                 oninput={(e) => patchSelected({ h: Math.max(80, Number(e.currentTarget.value)) })}
               />
             </label>
+          </div>
+        </div>
+        <div class="align" role="group" aria-label="Align to paper">
+          <span class="frame-h">Align</span>
+          <div class="align-grid">
+            <button type="button" data-testid="plots-align-left" title="Align left" onclick={() => alignSelected('left')}>
+              <IconAlignLeft aria-hidden="true" />
+            </button>
+            <button type="button" data-testid="plots-align-center" title="Centre horizontally" onclick={() => alignSelected('center')}>
+              <IconAlignCenterX aria-hidden="true" />
+            </button>
+            <button type="button" data-testid="plots-align-right" title="Align right" onclick={() => alignSelected('right')}>
+              <IconAlignRight aria-hidden="true" />
+            </button>
+            <button type="button" data-testid="plots-align-top" title="Align top" onclick={() => alignSelected('top')}>
+              <IconAlignTop aria-hidden="true" />
+            </button>
+            <button type="button" data-testid="plots-align-middle" title="Centre vertically" onclick={() => alignSelected('middle')}>
+              <IconAlignMiddle aria-hidden="true" />
+            </button>
+            <button type="button" data-testid="plots-align-bottom" title="Align bottom" onclick={() => alignSelected('bottom')}>
+              <IconAlignBottom aria-hidden="true" />
+            </button>
           </div>
         </div>
         {#if selected.kind === 'text'}
@@ -2158,6 +2208,34 @@
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr;
     gap: 0.3rem;
+  }
+
+  .align-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.3rem;
+  }
+
+  .align-grid button {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .align-grid button:hover {
+    background: var(--panel);
+    color: var(--text);
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--chrome-strong));
+  }
+
+  .align-grid :global(svg) {
+    width: 1rem;
+    height: 1rem;
   }
 
   .field.mini {

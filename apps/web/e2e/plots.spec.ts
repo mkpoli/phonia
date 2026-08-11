@@ -147,6 +147,25 @@ test('plots: dragging the paper corner resizes the artboard', async ({ page }) =
   expect((await artboard.boundingBox())!.width).toBeLessThan(w1 - 100);
 });
 
+test('plots: align buttons snap the object to the paper edges', async ({ page }) => {
+  await openPlots(page);
+  await addLayer(page, 'waveform');
+
+  const frameX = page.getByTestId('plots-frame-x');
+  // Align left pins the box to x = 0.
+  await page.getByTestId('plots-align-left').click();
+  await expect(frameX).toHaveValue('0');
+
+  // Centre horizontally puts x at (paperW - w) / 2; for a fresh 760-wide paper
+  // and a 420-wide object that is 170.
+  await page.getByTestId('plots-align-center').click();
+  await expect(frameX).toHaveValue('170');
+
+  // One undo reverts the last align.
+  await page.getByTestId('plots-undo').click();
+  await expect(frameX).toHaveValue('0');
+});
+
 test('plots: a text label renders on the canvas and into the export', async ({ page }) => {
   await openPlots(page);
   await addLayer(page, 'text');
