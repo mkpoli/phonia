@@ -14,9 +14,8 @@ use std::collections::BTreeMap;
 use phx_figure::{
     Axis, CodeExport, CodeLang, Figure, FigureBuilder, LayerKind, LengthUnit, LineStyle, Panel,
     PitchUnit, ProvenanceRecord, RgbaColor, SizeSpec, SpeckleStyle, TextExport, TierStyle,
-    formant_layer,
-    intensity_layer, pitch_layer, spectrogram_layer, tiers_layer, to_code, to_graphml, to_svg,
-    to_tikz, to_typst, to_vega, waveform_layer, waveform_minmax,
+    formant_layer, intensity_layer, pitch_layer, spectrogram_layer, tiers_layer, to_code,
+    to_graphml, to_svg, to_tikz, to_typst, to_vega, waveform_layer, waveform_minmax,
 };
 use phx_pitch::TimeSpan;
 use phx_render::{Colormap, DisplayMapping, Theme};
@@ -316,7 +315,11 @@ impl Engine {
             let envelope = waveform_minmax(&mono, buckets);
             let span = TimeSpan::new(start as f64 / sample_rate, end as f64 / sample_rate);
             panels.push(Panel {
-                layers: vec![waveform_layer(envelope, span, line_style(req.waveform_color))],
+                layers: vec![waveform_layer(
+                    envelope,
+                    span,
+                    line_style(req.waveform_color),
+                )],
                 time_axis: time_axis(),
                 value_axis: Axis::linear(-1.0, 1.0, Some("Amplitude"), None),
                 height_share: 0.20,
