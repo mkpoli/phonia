@@ -1446,8 +1446,8 @@ impl WasmEngine {
     /// # Errors
     /// Rejects when `id` names no live buffer, or when `at` is not finite.
     #[wasm_bindgen(js_name = spectrumSlice)]
-    pub fn spectrum_slice(&self, id: u64, at: f64) -> Result<String, JsError> {
-        let (freqs, db) = self.inner.spectrum_slice(AudioId::from_u64(id), at)?;
+    pub fn spectrum_slice(&self, id: u64, t0: f64, t1: f64) -> Result<String, JsError> {
+        let (freqs, db) = self.inner.spectrum_slice(AudioId::from_u64(id), t0, t1)?;
         let value = serde_json::json!({ "freqs": freqs, "db": db });
         serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
     }

@@ -493,8 +493,8 @@ export interface CoreClientLike extends AnnotationClientLike {
   ): Promise<VoiceReportData>;
   /** Glottal pulse instants across the whole signal, in seconds. */
   pulseTimes(id: AudioId, floorHz: number, ceilingHz: number): Promise<Float64Array>;
-  /** The spectral slice at time `at`: parallel frequency (Hz) and dB arrays. */
-  spectrumSlice(id: AudioId, at: number): Promise<SpectrumSliceData>;
+  /** The spectrum of `[t0, t1]`: parallel frequency (Hz) and dB arrays. */
+  spectrumSlice(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData>;
   /** Sounding/silent segmentation from the intensity contour. */
   silenceIntervals(
     id: AudioId,

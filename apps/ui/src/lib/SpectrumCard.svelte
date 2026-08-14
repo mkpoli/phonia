@@ -6,12 +6,13 @@
   interface Props {
     client: CoreClientLike | null;
     audio: AudioInfo | null;
-    /** Time in seconds to take the spectral slice at (the selection midpoint). */
-    at: number;
+    /** Selection span in seconds to take the spectrum over. */
+    t0: number;
+    t1: number;
     onClose: () => void;
   }
 
-  let { client, audio, at, onClose }: Props = $props();
+  let { client, audio, t0, t1, onClose }: Props = $props();
 
   let data = $state<SpectrumSliceData | null>(null);
   let loading = $state(true);
@@ -32,7 +33,7 @@
     let cancelled = false;
     loading = true;
     client
-      .spectrumSlice(audio.id, at)
+      .spectrumSlice(audio.id, t0, t1)
       .then((result) => {
         if (!cancelled) {
           data = result;
@@ -153,7 +154,7 @@
   <div class="card" role="dialog" aria-modal="true" aria-label="Spectrum">
     <header>
       <h2><IconAudioWaveform aria-hidden="true" />Spectrum</h2>
-      <span class="span">at {at.toFixed(3)} s</span>
+      <span class="span">{t0.toFixed(3)}–{t1.toFixed(3)} s</span>
       <span class="readout" data-testid="spectrum-readout">
         {#if hover}{Math.round(hover.hz)} Hz · {hover.db.toFixed(1)} dB{:else}hover to read{/if}
       </span>

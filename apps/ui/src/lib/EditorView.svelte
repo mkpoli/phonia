@@ -316,11 +316,11 @@
   let voiceReportLoading = $state(false);
   let measureOpen = $state(false);
   let spectrumOpen = $state(false);
-  let spectrumAt = $state(0);
+  let spectrumSpan = $state<{ t0: number; t1: number }>({ t0: 0, t1: 0 });
 
   function openSpectrum() {
     if (!selection) return;
-    spectrumAt = 0.5 * (selection.t0 + selection.t1);
+    spectrumSpan = { t0: selection.t0, t1: selection.t1 };
     spectrumOpen = true;
   }
 
@@ -1264,7 +1264,13 @@
     />
   {/if}
   {#if spectrumOpen}
-    <SpectrumCard {client} {audio} at={spectrumAt} onClose={() => (spectrumOpen = false)} />
+    <SpectrumCard
+      {client}
+      {audio}
+      t0={spectrumSpan.t0}
+      t1={spectrumSpan.t1}
+      onClose={() => (spectrumOpen = false)}
+    />
   {/if}
   {#if sweepOpen}
     <FormantSweepCard

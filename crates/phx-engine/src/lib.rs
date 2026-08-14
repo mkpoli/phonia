@@ -906,23 +906,53 @@ impl Engine {
         Ok(windowed_span_moments(mono.as_ref(), sr, power))
     }
 
-    /// The spectral slice at time `at`: parallel `(frequencies_hz, db)` vectors
-    /// for a dB-vs-Hz view of the spectrum under the cursor or selection.
+    /// The spectrum of the selection `[t0, t1]` as parallel `(frequencies_hz,
+    /// db)` vectors — one Hann-windowed FFT over the whole span, the way Praat's
+    /// `Spectrum` object takes it, for a dB-vs-Hz view. Longer selections give
+    /// finer frequency resolution.
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when `at` is not finite.
-    pub fn spectrum_slice(&self, id: AudioId, at: f64) -> Result<(Vec<f64>, Vec<f32>), EngineError> {
-        if !at.is_finite() {
+    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
+    /// finite.
+    pub fn spectrum_slice(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+    ) -> Result<(Vec<f64>, Vec<f32>), EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
             return Err(EngineError::InvalidRequest {
-                reason: "spectrum_slice time must be finite".to_string(),
+                reason: "spectrum_slice bounds must be finite".to_string(),
             });
         }
         let access = self.store.whole(id)?;
         let audio = access.audio();
-        let view = audio.slice_samples(0..audio.frames());
-        let slice = phx_spectrogram::spectral_slice(view, at, &SpectrogramParams::default());
-        Ok((slice.f_axis, slice.db))
+        let duration = audio.duration();
+        let (lo, hi) = ordered_clamped(t0, t1, 0.0, duration);
+        let sr = audio.sample_rate();
+        let start = (lo * sr).floor().max(0.0) as usize;
+        let end = ((hi * sr).ceil() as usize).min(audio.frames());
+        if end < start + 4 {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let mono = audio.slice_samples(start..end).mono_mix();
+        let n = mono.len();
+        let window = window_samples(Window::Hanning, n);
+        let mut buffer: Vec<f64> = mono
+            .iter()
+            .zip(&window)
+            .map(|(&s, &w)| f64::from(s) * w)
+            .collect();
+        let mut plan = RealFftPlan::new();
+        let spectrum = plan.rfft(&mut buffer);
+        let mut frequencies_hz = Vec::with_capacity(spectrum.len());
+        let mut db = Vec::with_capacity(spectrum.len());
+        for (k, bin) in spectrum.iter().enumerate() {
+            frequencies_hz.push(k as f64 * sr / n as f64);
+            db.push((20.0 * bin.norm().max(1e-12).log10()) as f32);
+        }
+        Ok((frequencies_hz, db))
     }
 
     /// Segments the recording into sounding and silent intervals by thresholding

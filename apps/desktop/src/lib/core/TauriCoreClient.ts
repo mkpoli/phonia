@@ -245,8 +245,8 @@ export class TauriCoreClient implements CoreClientLike {
     );
   }
 
-  spectrumSlice(id: AudioId, at: number): Promise<SpectrumSliceData> {
-    return invoke('spectrum_slice', { id: num(id), at });
+  spectrumSlice(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData> {
+    return invoke('spectrum_slice', { id: num(id), t0, t1 });
   }
 
   silenceIntervals(
