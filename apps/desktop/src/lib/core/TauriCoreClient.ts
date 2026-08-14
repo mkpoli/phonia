@@ -22,6 +22,7 @@ import type {
   SaveProjectSpec,
   SelectionReadout,
   SpectrumSliceData,
+  SilenceInterval,
   SpectrogramTileRequest,
   TierId,
   TierInfo,
@@ -246,6 +247,15 @@ export class TauriCoreClient implements CoreClientLike {
 
   spectrumSlice(id: AudioId, at: number): Promise<SpectrumSliceData> {
     return invoke('spectrum_slice', { id: num(id), at });
+  }
+
+  silenceIntervals(
+    id: AudioId,
+    thresholdDb: number,
+    minSilentS: number,
+    minSoundingS: number
+  ): Promise<SilenceInterval[]> {
+    return invoke('silence_intervals', { id: num(id), thresholdDb, minSilentS, minSoundingS });
   }
 
   async createAnnotation(audioId: AudioId, xmin: number, xmax: number): Promise<AnnotationId> {

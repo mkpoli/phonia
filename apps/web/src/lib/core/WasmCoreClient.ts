@@ -21,6 +21,7 @@ import type {
   SaveProjectSpec,
   SelectionReadout,
   SpectrumSliceData,
+  SilenceInterval,
   SpectrogramTileRequest,
   TierId,
   TierInfo,
@@ -291,6 +292,21 @@ export class WasmCoreClient implements CoreClient {
 
   spectrumSlice(id: AudioId, at: number): Promise<SpectrumSliceData> {
     return this.#call({ method: 'spectrumSlice', audioId: id, at });
+  }
+
+  silenceIntervals(
+    id: AudioId,
+    thresholdDb: number,
+    minSilentS: number,
+    minSoundingS: number
+  ): Promise<SilenceInterval[]> {
+    return this.#call({
+      method: 'silenceIntervals',
+      audioId: id,
+      thresholdDb,
+      minSilentS,
+      minSoundingS
+    });
   }
 
   createAnnotation(audioId: AudioId, xmin: number, xmax: number): Promise<AnnotationId> {

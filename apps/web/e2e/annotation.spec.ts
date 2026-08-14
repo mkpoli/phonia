@@ -295,3 +295,22 @@ test('measurement table harvests labelled intervals and exports CSV', async ({ p
   expect(csv.split('\n')[0]).toContain('F1 (Hz)');
   expect(csv).toContain('CoG (Hz)');
 });
+
+test('annotate by silences lays down a labelled speech/silence tier', async ({ page }) => {
+  await loadFixture(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('annotate by silences');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="annotateBySilences"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await expect(cmd).toHaveAttribute('data-selected', 'true');
+  await page.keyboard.press('Enter');
+
+  // A new interval tier named "silences" appears with at least one sounding run.
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '1', { timeout: 20_000 });
+  await expect(page.getByTestId('tier-lane').first()).toHaveAttribute('data-tier-name', 'silences');
+  await expect(
+    page.getByTestId('interval').filter({ hasText: 'sounding' }).first()
+  ).toBeVisible({ timeout: 20_000 });
+});

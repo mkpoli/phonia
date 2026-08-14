@@ -936,6 +936,81 @@ impl Engine {
         Ok((slice.f_axis, slice.db))
     }
 
+    /// Segments the recording into sounding and silent intervals by thresholding
+    /// the intensity contour at `threshold_db` below its peak, then removing
+    /// silent runs shorter than `min_silent_s` and sounding runs shorter than
+    /// `min_sounding_s`. Returns `(t0, t1, is_sounding)` triples partitioning
+    /// `[0, duration]`, for a first-pass "annotate by silences" TextGrid tier.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
+    /// store entry, and [`EngineError::InvalidRequest`] when a parameter is not
+    /// finite.
+    pub fn silence_intervals(
+        &self,
+        id: AudioId,
+        threshold_db: f64,
+        min_silent_s: f64,
+        min_sounding_s: f64,
+    ) -> Result<Vec<(f64, f64, bool)>, EngineError> {
+        if ![threshold_db, min_silent_s, min_sounding_s]
+            .iter()
+            .all(|v| v.is_finite())
+        {
+            return Err(EngineError::InvalidRequest {
+                reason: "silence_intervals parameters must be finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let duration = audio.duration();
+        let view = audio.slice_samples(0..audio.frames());
+        let intensity = phx_intensity::intensity_track(view, &IntensityParams::default());
+        let frames: Vec<(f64, f64)> = intensity.iter().collect();
+        let whole = vec![(0.0, duration, true)];
+        if frames.is_empty() {
+            return Ok(whole);
+        }
+        let peak = frames.iter().map(|&(_, db)| db).fold(f64::NEG_INFINITY, f64::max);
+        if !peak.is_finite() {
+            return Ok(whole);
+        }
+        let cutoff = peak + threshold_db;
+
+        // Runs of like-classified frames become segments; each boundary sits at
+        // the frame where the classification flips.
+        let mut segs: Vec<(f64, f64, bool)> = Vec::new();
+        let mut seg_start = 0.0;
+        let mut current = frames[0].1 >= cutoff;
+        for pair in frames.windows(2) {
+            let sounding = pair[1].1 >= cutoff;
+            if sounding != current {
+                segs.push((seg_start, pair[1].0, current));
+                seg_start = pair[1].0;
+                current = sounding;
+            }
+        }
+        segs.push((seg_start, duration, current));
+        segs = coalesce_segments(segs);
+
+        // Remove too-short runs by flipping them into their neighbours; each
+        // flip strictly reduces the segment count once coalesced, so this ends.
+        loop {
+            let short = segs.iter().position(|&(a, b, sounding)| {
+                let min = if sounding { min_sounding_s } else { min_silent_s };
+                (b - a) < min
+            });
+            match short {
+                Some(i) if segs.len() > 1 => {
+                    segs[i].2 = !segs[i].2;
+                    segs = coalesce_segments(segs);
+                }
+                _ => break,
+            }
+        }
+        Ok(segs)
+    }
+
     /// Computes the aggregate voice report over a selection span.
     ///
     /// Wraps [`phx_voice::voice_report`]: it tracks pitch, extracts pulses, and
@@ -1846,6 +1921,18 @@ fn span_frames(sample_rate: f64, duration: f64, t0: f64, t1: f64) -> (usize, usi
 }
 
 /// Mean of the values whose time falls inside `span`, or `None` when none do.
+/// Merges adjacent segments of the same class, so a run stays one interval.
+fn coalesce_segments(segs: Vec<(f64, f64, bool)>) -> Vec<(f64, f64, bool)> {
+    let mut out: Vec<(f64, f64, bool)> = Vec::new();
+    for (a, b, sounding) in segs {
+        match out.last_mut() {
+            Some(last) if last.2 == sounding => last.1 = b,
+            _ => out.push((a, b, sounding)),
+        }
+    }
+    out
+}
+
 fn mean_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Option<f64> {
     let mut sum = 0.0;
     let mut count = 0usize;

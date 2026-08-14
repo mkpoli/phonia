@@ -1452,6 +1452,32 @@ impl WasmEngine {
         serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
     }
 
+    /// Sounding/silent segmentation as a JSON array of `{ t0, t1, sounding }`,
+    /// for annotating a recording by its silences.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, or a parameter is not finite.
+    #[wasm_bindgen(js_name = silenceIntervals)]
+    pub fn silence_intervals(
+        &self,
+        id: u64,
+        threshold_db: f64,
+        min_silent_s: f64,
+        min_sounding_s: f64,
+    ) -> Result<String, JsError> {
+        let segs = self.inner.silence_intervals(
+            AudioId::from_u64(id),
+            threshold_db,
+            min_silent_s,
+            min_sounding_s,
+        )?;
+        let value: Vec<_> = segs
+            .into_iter()
+            .map(|(t0, t1, sounding)| serde_json::json!({ "t0": t0, "t1": t1, "sounding": sounding }))
+            .collect();
+        serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
+    }
+
     /// Computes the aggregate voice report over a selection span as a JSON string.
     ///
     /// The object carries the pitch summary, jitter and shimmer families, mean

@@ -323,6 +323,35 @@
     spectrumOpen = true;
   }
 
+  // Bumped after a direct annotation mutation so the tier pane refetches.
+  let tierRevision = $state(0);
+
+  // First-pass segmentation: threshold the intensity contour into sounding and
+  // silent runs (Praat defaults: −25 dB, 0.1 s minima) and lay them onto a new
+  // interval tier through the ordinary journaled commands.
+  async function annotateBySilences() {
+    if (!client || !audio || annotationId === null) return;
+    try {
+      const segments = await client.silenceIntervals(audio.id, -25, 0.1, 0.1);
+      const tierId = await client.addIntervalTier(annotationId, 'silences');
+      for (let i = 1; i < segments.length; i += 1) {
+        await client.insertBoundary(annotationId, tierId, segments[i].t0);
+      }
+      const intervals = await client.intervalsInRange(annotationId, tierId, -1, 1e12);
+      for (let i = 0; i < intervals.length && i < segments.length; i += 1) {
+        await client.setIntervalLabel(
+          annotationId,
+          tierId,
+          intervals[i].id,
+          segments[i].sounding ? 'sounding' : 'silent'
+        );
+      }
+      tierRevision += 1;
+    } catch (caught) {
+      console.error('annotate by silences failed', caught);
+    }
+  }
+
   $effect(() => {
     const duration = audio?.duration ?? 1;
     viewport = defaultViewport(duration);
@@ -819,6 +848,15 @@
       }
     },
     {
+      id: 'annotateBySilences',
+      title: 'Annotate by silences',
+      group: 'Annotation',
+      api: ['silenceIntervals'],
+      keywords: ['silence', 'segment', 'vad', 'speech', 'textgrid', 'chunk', 'auto'],
+      enabled: () => annotationId !== null,
+      run: () => void annotateBySilences()
+    },
+    {
       id: 'playSelection',
       title: 'Play selection',
       group: 'Selection',
@@ -1108,6 +1146,7 @@
         sampleRate={audio?.sampleRate ?? 0}
         {viewport}
         {cursorTime}
+        revision={tierRevision}
         onSeek={(time) => onCursorChange?.(time)}
         {onAnnotationChange}
         onIntervalActivate={handleTierInterval}

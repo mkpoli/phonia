@@ -360,6 +360,25 @@ pub fn spectrum_slice(state: State<AppState>, id: u64, at: f64) -> Result<serde_
 }
 
 #[tauri::command]
+pub fn silence_intervals(
+    state: State<AppState>,
+    id: u64,
+    threshold_db: f64,
+    min_silent_s: f64,
+    min_sounding_s: f64,
+) -> Result<serde_json::Value, String> {
+    let engine = lock(&state)?;
+    let segs = engine
+        .silence_intervals(AudioId::from_u64(id), threshold_db, min_silent_s, min_sounding_s)
+        .map_err(err)?;
+    let value: Vec<_> = segs
+        .into_iter()
+        .map(|(t0, t1, sounding)| serde_json::json!({ "t0": t0, "t1": t1, "sounding": sounding }))
+        .collect();
+    Ok(serde_json::Value::Array(value))
+}
+
+#[tauri::command]
 pub fn voice_report(
     state: State<AppState>,
     id: u64,

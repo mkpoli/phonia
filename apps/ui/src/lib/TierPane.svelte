@@ -35,6 +35,9 @@
     viewport: ViewportState;
     cursorTime: number;
     onSeek?: (time: number) => void;
+    /** Bump to force a refetch after the host mutates the annotation directly
+     * (e.g. annotate-by-silences), which leaves `annotationId` unchanged. */
+    revision?: number;
     /** Fires when the pane repoints to a different document, including the
      * no-annotation state (`null`) reached by undoing an import or attach. */
     onAnnotationChange?: (id: bigint | null) => void;
@@ -55,6 +58,7 @@
     viewport,
     cursorTime,
     onSeek,
+    revision = 0,
     onAnnotationChange,
     onIntervalActivate
   }: Props = $props();
@@ -106,8 +110,10 @@
   });
 
   $effect(() => {
-    // Refetch whenever the document identity changes.
+    // Refetch whenever the document identity changes, or the host signals a
+    // direct mutation via `revision`.
     annotationId;
+    revision;
     void refresh();
   });
 
