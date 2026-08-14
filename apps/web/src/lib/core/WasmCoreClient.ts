@@ -614,6 +614,11 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'concatWav', ids: ids.map(Number), bits });
   }
 
+  /** Encodes `idA` and `idB` as the two channels of one stereo WAV at `bits`. */
+  combineStereoWav(idA: AudioId, idB: AudioId, bits: WavBitDepth): Promise<Uint8Array> {
+    return this.#call({ method: 'combineStereoWav', idA, idB, bits });
+  }
+
   /** Encodes the band-filtered `[t0, t1]` of `id` as mono WAV bytes at `bits`. */
   exportBandFilteredSpanWav(
     id: AudioId,

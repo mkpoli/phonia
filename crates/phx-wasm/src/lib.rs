@@ -2234,6 +2234,27 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes `id_a` and `id_b` as the left and right channels of one stereo WAV
+    /// at `bits` — the "combine two recordings to stereo" path.
+    ///
+    /// # Errors
+    /// Rejects when either id names no live store entry, or when the result
+    /// cannot be encoded.
+    #[wasm_bindgen(js_name = combineStereoWav)]
+    pub fn combine_stereo_wav(
+        &self,
+        id_a: u64,
+        id_b: u64,
+        bits: WasmBitDepth,
+    ) -> Result<Uint8Array, JsError> {
+        let wav = self.inner.combine_stereo_wav(
+            AudioId::from_u64(id_a),
+            AudioId::from_u64(id_b),
+            bits.into(),
+        )?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits` — the "save selection as audio" path for a filtered selection.
     ///

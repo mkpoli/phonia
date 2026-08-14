@@ -1815,6 +1815,43 @@ impl Engine {
         Ok(Audio::new(vec![samples], target_hz)?.to_wav_bytes(bits)?)
     }
 
+    /// Encodes `id_a` and `id_b` as the left and right channels of one stereo WAV
+    /// at `bits` — Praat's Sound "Combine to stereo". Each source is mixed to
+    /// mono first, `id_b` is resampled to `id_a`'s rate when they differ, and the
+    /// shorter channel is zero-padded to the longer so nothing is truncated.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when either id names no live store
+    /// entry, and [`EngineError::Audio`] when the result cannot be encoded.
+    pub fn combine_stereo_wav(
+        &self,
+        id_a: AudioId,
+        id_b: AudioId,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        let rate = self.store.info(id_a)?.sample_rate;
+        let mut left: Vec<f32> = {
+            let access = self.store.whole(id_a)?;
+            access.audio().mono_mix().to_vec()
+        };
+        let mut right: Vec<f32> = {
+            let access = self.store.whole(id_b)?;
+            let audio = access.audio();
+            if audio.sample_rate() == rate {
+                audio.mono_mix().to_vec()
+            } else {
+                audio
+                    .resampled(rate, ResampleQuality::Best)?
+                    .mono_mix()
+                    .to_vec()
+            }
+        };
+        let len = left.len().max(right.len());
+        left.resize(len, 0.0);
+        right.resize(len, 0.0);
+        Ok(Audio::new(vec![left, right], rate)?.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits`.
     ///
@@ -4118,6 +4155,26 @@ mod tests {
             "duration {}",
             decoded.duration()
         );
+    }
+
+    #[test]
+    fn combine_stereo_wav_lays_sources_on_two_channels() {
+        let sr = 8_000.0;
+        let left: Vec<f32> = (0..4_000).map(|i| 0.5 * (i as f32 * 0.01).sin()).collect();
+        let right: Vec<f32> = (0..4_000).map(|i| -0.3 * (i as f32 * 0.02).cos()).collect();
+        let mut engine = Engine::new();
+        let a = engine
+            .store
+            .insert(Audio::new(vec![left.clone()], sr).unwrap());
+        let b = engine
+            .store
+            .insert(Audio::new(vec![right.clone()], sr).unwrap());
+
+        let wav = engine.combine_stereo_wav(a, b, BitDepth::Float32).unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+        assert_eq!(decoded.channel_count(), 2);
+        assert_eq!(decoded.channel(0), left.as_slice());
+        assert_eq!(decoded.channel(1), right.as_slice());
     }
 
     #[test]

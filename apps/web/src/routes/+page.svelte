@@ -1319,6 +1319,23 @@
     }
   }
 
+  // Combines the current recording with the next other project recording into a
+  // new stereo recording (left = current, right = the other).
+  async function combineToStereo() {
+    if (!client || !project || !audio) return;
+    const currentId = audio.id;
+    const other = project.recordings.find(
+      (entry) => entry.audioId !== null && entry.audioId !== currentId
+    )?.audioId;
+    if (other === undefined || other === null) return;
+    try {
+      const wav = await client.combineStereoWav(currentId, other, 'Float32');
+      await persistWavAsRecording(wav, `${recording?.name ?? project.name ?? 'project'} [stereo]`);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Copies the editor's time selection into a new library recording, encoded to
   // a lossless float WAV so the extract is sample-exact.
   async function extractSelection(t0: number, t1: number) {
@@ -1764,6 +1781,7 @@
       onExtractChannels={extractChannels}
       onConvertToMono={convertToMono}
       onConcatenate={concatenateProject}
+      onCombineToStereo={combineToStereo}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

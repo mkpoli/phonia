@@ -156,6 +156,9 @@
     onLpcEnvelope?: (t0: number, t1: number) => Promise<SpectrumSliceData>;
     /** Joins the project's recordings into one new recording; absent hides it. */
     onConcatenate?: () => Promise<void>;
+    /** Combines the current recording with another into a new stereo recording;
+     *  absent, or with fewer than two recordings, hides it. */
+    onCombineToStereo?: () => Promise<void>;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -219,6 +222,7 @@
     onConvertToMono,
     onLpcEnvelope,
     onConcatenate,
+    onCombineToStereo,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -1000,6 +1004,16 @@
     }
   }
 
+  async function combineStereo() {
+    if (!onCombineToStereo) return;
+    try {
+      await onCombineToStereo();
+      flashToast('Combined to stereo');
+    } catch {
+      flashToast('Could not combine to stereo');
+    }
+  }
+
   async function extractChannelsAll() {
     if (!onExtractChannels) return;
     // Snapshot the count now: extracting opens a mono channel, so reading it
@@ -1630,6 +1644,15 @@
       keywords: ['concatenate', 'join', 'merge', 'combine', 'append', 'new sound'],
       enabled: () => (recordings?.length ?? 0) >= 2 && onConcatenate !== undefined,
       run: () => void concatenateAll()
+    },
+    {
+      id: 'combineToStereo',
+      title: 'Combine to stereo (new recording)',
+      group: 'Project',
+      api: ['combineStereoWav', 'importAudio'],
+      keywords: ['stereo', 'combine', 'two channel', 'left right', 'pair', 'new sound'],
+      enabled: () => (recordings?.length ?? 0) >= 2 && onCombineToStereo !== undefined,
+      run: () => void combineStereo()
     },
     {
       id: 'extractChannels',
