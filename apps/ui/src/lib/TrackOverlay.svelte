@@ -11,6 +11,7 @@
     ViewportState
   } from './types';
   import { resizeCanvas } from './rendering';
+  import { convertPitch, pitchUnitSuffix } from './pitch-units';
   import type { OverlayTracks } from './tracks';
 
   interface Props {
@@ -191,6 +192,8 @@
     formant;
     intensity;
     params.pitch.ceilingHz;
+    params.pitch.floorHz;
+    params.pitch.unit;
     params.formant.mark;
     scheduleDraw();
   });
@@ -378,11 +381,26 @@
     }
   }
 
+  // The pitch scale's vertical fraction (0 at the bottom, 1 at the top) for a
+  // frequency, in the chosen display unit. Hertz keeps the linear 0→ceiling
+  // scale; semitone, mel and ERB map the floor→ceiling band through their own
+  // curve so the contour's shape matches how the pitch is heard.
+  function pitchFraction(hz: number): number {
+    const ceiling = Math.max(1, params.pitch.ceilingHz);
+    const unit = params.pitch.unit;
+    if (unit === 'hertz') return hz / ceiling;
+    const floor = Math.max(1, Math.min(params.pitch.floorHz, ceiling - 1));
+    const lo = convertPitch(floor, unit);
+    const hi = convertPitch(ceiling, unit);
+    const v = convertPitch(hz, unit);
+    if (lo === null || hi === null || v === null || hi <= lo) return hz / ceiling;
+    return (v - lo) / (hi - lo);
+  }
+
   function drawPitch(ctx: CanvasRenderingContext2D, width: number, height: number) {
     const times = pitch!.times;
     const f0 = pitch!.f0;
-    const ceiling = Math.max(1, params.pitch.ceilingHz);
-    const yFor = (hz: number) => height * (1 - hz / ceiling);
+    const yFor = (hz: number) => height * (1 - pitchFraction(hz));
 
     const stroke = (color: string, lineWidth: number) => {
       ctx.strokeStyle = color;
@@ -420,16 +438,27 @@
 
   function drawPitchAxis(ctx: CanvasRenderingContext2D, width: number, height: number) {
     const ceiling = Math.max(1, params.pitch.ceilingHz);
-    const ticks = [0, ceiling / 2, ceiling];
+    const unit = params.pitch.unit;
     ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    // The unit is stated once by the frequency ruler's corner chip; the pitch
-    // scale shows numbers only, so its ceiling label no longer collides with a
-    // second "Hz" marker.
+    // Hertz spans 0→ceiling; a perceptual unit spans its floor→ceiling band, so
+    // its bottom tick sits on the floor and a geometric midpoint reads evenly on
+    // the log-like scales. The ceiling tick carries the unit suffix (in hertz the
+    // ruler's corner chip already names it), so no label is ambiguous.
+    let ticks: number[];
+    if (unit === 'hertz') {
+      ticks = [0, ceiling / 2, ceiling];
+    } else {
+      const floor = Math.max(1, Math.min(params.pitch.floorHz, ceiling - 1));
+      ticks = [floor, Math.sqrt(floor * ceiling), ceiling];
+    }
     for (const hz of ticks) {
-      const y = Math.min(height - 7, Math.max(CORNER_CHIP_PX, height * (1 - hz / ceiling)));
-      const label = `${Math.round(hz)}`;
+      const y = Math.min(height - 7, Math.max(CORNER_CHIP_PX, height * (1 - pitchFraction(hz))));
+      const shown = unit === 'hertz' ? hz : (convertPitch(hz, unit) ?? 0);
+      const isTop = hz === ticks[ticks.length - 1];
+      const label =
+        unit === 'hertz' || !isTop ? `${Math.round(shown)}` : `${Math.round(shown)} ${pitchUnitSuffix(unit)}`;
       ctx.lineWidth = 3;
       ctx.strokeStyle = HALO;
       ctx.strokeText(label, width - 4, y);
