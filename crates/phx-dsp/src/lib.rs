@@ -12,6 +12,7 @@ mod fft;
 mod filter;
 mod frame_grid;
 mod interpolate;
+mod offset;
 mod preemphasis;
 mod window;
 
@@ -21,6 +22,7 @@ pub use filter::{
 };
 pub use frame_grid::FrameGrid;
 pub use interpolate::sinc_interpolate_max;
+pub use offset::subtract_mean_in_place;
 pub use preemphasis::preemphasis_in_place;
 pub use window::{Window, window_samples};
 

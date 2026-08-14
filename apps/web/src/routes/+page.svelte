@@ -1452,6 +1452,18 @@
     }
   }
 
+  // Removes the selection's DC offset (mean) into a new library recording.
+  async function subtractMeanSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
+    const label = `${recording.name} [DC removed]`;
+    try {
+      const wav = await client.subtractMeanWav(audio.id, t0, t1, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Writes each channel of a multichannel recording as its own mono recording,
   // in channel order, then opens the first so the split is visible.
   async function extractChannels() {
@@ -1739,6 +1751,7 @@
       onFilterSelection={filterSelection}
       onNotchSelection={notchSelection}
       onPreemphasisSelection={preemphasisSelection}
+      onSubtractMeanSelection={subtractMeanSelection}
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
       onScalePeakSelection={scalePeakSelection}

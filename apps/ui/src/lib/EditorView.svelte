@@ -115,6 +115,9 @@
     /** Pre-emphasizes a span into a new library recording; absent hides the
      *  pre-emphasis affordance. */
     onPreemphasisSelection?: (t0: number, t1: number) => void;
+    /** Removes a span's DC offset into a new library recording; absent hides the
+     *  affordance. */
+    onSubtractMeanSelection?: (t0: number, t1: number) => void;
     /** Reverses a span in time into a new library recording; absent hides the
      *  reverse affordance. */
     onReverseSelection?: (t0: number, t1: number) => void;
@@ -203,6 +206,7 @@
     onFilterSelection,
     onNotchSelection,
     onPreemphasisSelection,
+    onSubtractMeanSelection,
     onReverseSelection,
     onScaleSelection,
     onScalePeakSelection,
@@ -754,6 +758,11 @@
   // operation, so a box's frequency bounds are ignored).
   function preemphasizeCurrentSelection() {
     if (selection) onPreemphasisSelection?.(selection.t0, selection.t1);
+  }
+
+  // Removes the selection's DC offset into a new recording.
+  function subtractMeanCurrentSelection() {
+    if (selection) onSubtractMeanSelection?.(selection.t0, selection.t1);
   }
 
   // Filters a box selection's time span to its frequency band and stores the
@@ -1567,6 +1576,15 @@
       keywords: ['pre-emphasis', 'preemphasis', 'high pass', 'tilt', 'formant', 'new sound'],
       enabled: () => hasSelection() && onPreemphasisSelection !== undefined,
       run: preemphasizeCurrentSelection
+    },
+    {
+      id: 'subtractMeanSelection',
+      title: 'Subtract mean (remove DC offset)',
+      group: 'Selection',
+      api: ['subtractMeanWav', 'importAudio'],
+      keywords: ['dc', 'offset', 'subtract mean', 'centre', 'bias', 'new sound'],
+      enabled: () => hasSelection() && onSubtractMeanSelection !== undefined,
+      run: subtractMeanCurrentSelection
     },
     {
       id: 'reverseSelection',

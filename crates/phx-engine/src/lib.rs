@@ -1640,6 +1640,42 @@ impl Engine {
         Ok(Audio::new(vec![mono], sample_rate)?.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the time span `[t0, t1]` of `id` with its DC offset removed as
+    /// mono WAV bytes at `bits` — Praat's Sound "Subtract mean", centring the
+    /// span on zero so a constant bias no longer skews intensity or spectral
+    /// measurements, saved as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite or the
+    /// span is empty, and [`EngineError::Audio`] when the span cannot be encoded.
+    pub fn subtract_mean_span_wav(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "subtract_mean_span_wav bounds must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let (start, end) = span_frames(info.sample_rate, info.duration, t0, t1);
+        if end <= start {
+            return Err(EngineError::InvalidRequest {
+                reason: "subtract_mean_span_wav span is empty".to_string(),
+            });
+        }
+        let audio = self.store.range_owned(id, start, end)?;
+        let sample_rate = audio.sample_rate();
+        let mut samples: Vec<f64> = audio.mono_mix().iter().map(|&s| f64::from(s)).collect();
+        phx_dsp::subtract_mean_in_place(&mut samples);
+        let mono: Vec<f32> = samples.iter().map(|&s| s as f32).collect();
+        Ok(Audio::new(vec![mono], sample_rate)?.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the time span `[t0, t1]` of `id` scaled to an average intensity of
     /// `target_db` as WAV bytes at `bits` — Praat's Sound "Scale intensity" over
     /// a selection, as a new take.
@@ -4177,6 +4213,30 @@ mod tests {
             post_ratio > raw_ratio * 2.0,
             "high/low ratio {post_ratio} should rise well above raw {raw_ratio}"
         );
+    }
+
+    #[test]
+    fn subtract_mean_centres_a_biased_span() {
+        // A 200 Hz sine lifted by a +0.3 DC bias: the output mean drops to ~0.
+        let sr = 16_000.0;
+        let frames = (0.5 * sr) as usize;
+        let samples: Vec<f32> = (0..frames)
+            .map(|i| (0.3 + 0.4 * (TAU * 200.0 * i as f64 / sr).sin()) as f32)
+            .collect();
+        let mut engine = Engine::new();
+        let id = engine.store.insert(Audio::new(vec![samples], sr).unwrap());
+
+        let wav = engine
+            .subtract_mean_span_wav(id, 0.0, 0.5, BitDepth::Float32)
+            .unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+        let mean = decoded
+            .channel(0)
+            .iter()
+            .map(|&s| f64::from(s))
+            .sum::<f64>()
+            / decoded.channel(0).len() as f64;
+        assert!(mean.abs() < 1e-3, "residual DC {mean}");
     }
 
     #[test]

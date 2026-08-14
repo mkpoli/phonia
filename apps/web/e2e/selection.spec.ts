@@ -564,6 +564,22 @@ test('pre-emphasis stores a high-passed copy as a new recording', async ({ page 
   ).toHaveCount(2);
 });
 
+test('subtract mean stores a DC-removed copy as a new recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('subtract mean');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="subtractMeanSelection"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[DC removed]', {
+    timeout: 20_000
+  });
+});
+
 test('extract channels: the command is hidden for a mono recording', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await page.keyboard.press('Control+k');
