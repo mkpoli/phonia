@@ -145,6 +145,9 @@
     /** Writes each channel of a multichannel recording as its own mono
      *  recording; absent, or on a mono take, hides the affordance. */
     onExtractChannels?: () => Promise<void>;
+    /** Mixes a multichannel recording down to one channel as a new recording;
+     *  absent, or on a mono take, hides the affordance. */
+    onConvertToMono?: () => Promise<void>;
     /** Resolves the LPC-smoothed spectral envelope over a span, for the
      *  spectrum card's formant-tracing overlay; absent hides it. */
     onLpcEnvelope?: (t0: number, t1: number) => Promise<SpectrumSliceData>;
@@ -209,6 +212,7 @@
     onCppTrack,
     onExtractIntervals,
     onExtractChannels,
+    onConvertToMono,
     onLpcEnvelope,
     onConcatenate,
     onStartRecording,
@@ -877,6 +881,16 @@
     }
   }
 
+  async function convertToMonoAll() {
+    if (!onConvertToMono) return;
+    try {
+      await onConvertToMono();
+      flashToast('Converted to mono');
+    } catch {
+      flashToast('Could not convert to mono');
+    }
+  }
+
   // Transport Play / Space plays what the user is looking at, in priority order:
   // an active selection's time span, else the visible viewport when zoomed in,
   // else the whole file from the cursor. A box selection plays its time span
@@ -1475,6 +1489,15 @@
       keywords: ['extract', 'channel', 'stereo', 'left', 'right', 'split', 'mono', 'deinterleave'],
       enabled: () => (audio?.channels ?? 1) > 1 && onExtractChannels !== undefined,
       run: () => void extractChannelsAll()
+    },
+    {
+      id: 'convertToMono',
+      title: 'Convert to mono (new recording)',
+      group: 'Project',
+      api: ['convertToMono', 'importAudio'],
+      keywords: ['mono', 'downmix', 'mixdown', 'stereo', 'channels', 'average', 'new sound'],
+      enabled: () => (audio?.channels ?? 1) > 1 && onConvertToMono !== undefined,
+      run: () => void convertToMonoAll()
     },
     {
       id: 'snapSelectionZero',

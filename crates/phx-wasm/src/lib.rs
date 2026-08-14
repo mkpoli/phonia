@@ -2171,6 +2171,20 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes the whole of `id` mixed down to a single channel as WAV bytes at
+    /// `bits` — the "convert to mono, as a new take" path.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live store entry, or when the mix cannot be
+    /// encoded.
+    #[wasm_bindgen(js_name = convertToMono)]
+    pub fn convert_to_mono(&self, id: u64, bits: WasmBitDepth) -> Result<Uint8Array, JsError> {
+        let wav = self
+            .inner
+            .export_mono_wav(AudioId::from_u64(id), bits.into())?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Joins the given ids end to end into one mono WAV at `bits`. Ids arrive as
     /// a float array (session counters, exact well below 2^53).
     ///

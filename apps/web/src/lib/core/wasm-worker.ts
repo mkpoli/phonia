@@ -237,6 +237,7 @@ type RequestMessage =
       bits: WavBitDepth;
     }
   | { id: number; method: 'resampleWav'; audioId: AudioId; targetHz: number; bits: WavBitDepth }
+  | { id: number; method: 'convertToMono'; audioId: AudioId; bits: WavBitDepth }
   | { id: number; method: 'concatWav'; ids: number[]; bits: WavBitDepth }
   | {
       id: number;
@@ -1107,6 +1108,13 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'resampleWav': {
         const bytes = wasm.resampleWav(message.audioId, message.targetHz, WasmBitDepth[message.bits]);
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'convertToMono': {
+        const bytes = wasm.convertToMono(message.audioId, WasmBitDepth[message.bits]);
         const copy = new Uint8Array(bytes.length);
         copy.set(bytes);
         postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });

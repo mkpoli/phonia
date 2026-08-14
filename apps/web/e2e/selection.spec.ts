@@ -556,6 +556,30 @@ test('extract channels: a stereo take splits into per-channel recordings', async
   ).toHaveCount(3);
 });
 
+test('convert to mono: a stereo take mixes down to a new recording', async ({ page }) => {
+  await openEditorWithFixture(page, stereoFixture);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('convert to mono');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="convertToMono"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[mono]', {
+    timeout: 20_000
+  });
+});
+
+test('convert to mono: the command is hidden for a mono recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('convert to mono');
+  await expect(
+    page.locator('[data-testid="command-item"][data-command-id="convertToMono"]')
+  ).toHaveCount(0);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

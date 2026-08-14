@@ -1472,6 +1472,18 @@
     }
   }
 
+  // Mixes a multichannel recording down to one channel as a new library recording.
+  async function convertToMono() {
+    if (!client || !audio || !recording || audio.channels < 2) return;
+    const label = `${recording.name} [mono]`;
+    try {
+      const wav = await client.convertToMono(audio.id, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   async function cancelRecording() {
     if (!recorder || !capturing) return;
     const recId = recordingId;
@@ -1737,6 +1749,7 @@
       onLpcEnvelope={lpcEnvelope}
       onExtractIntervals={extractIntervals}
       onExtractChannels={extractChannels}
+      onConvertToMono={convertToMono}
       onConcatenate={concatenateProject}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}

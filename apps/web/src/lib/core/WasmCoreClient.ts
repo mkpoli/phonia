@@ -582,6 +582,11 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'resampleWav', audioId: id, targetHz, bits });
   }
 
+  /** Encodes the whole of `id` mixed down to one channel as WAV bytes at `bits`. */
+  convertToMono(id: AudioId, bits: WavBitDepth): Promise<Uint8Array> {
+    return this.#call({ method: 'convertToMono', audioId: id, bits });
+  }
+
   /** Joins the given recordings end to end into one mono WAV at `bits`. */
   concatWav(ids: AudioId[], bits: WavBitDepth): Promise<Uint8Array> {
     return this.#call({ method: 'concatWav', ids: ids.map(Number), bits });

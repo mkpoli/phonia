@@ -1633,6 +1633,20 @@ impl Engine {
             .to_wav_bytes(bits)?)
     }
 
+    /// Encodes the whole of `id` mixed down to a single channel as WAV bytes at
+    /// `bits` — Praat's Sound "Convert to mono", the arithmetic mean of the
+    /// channels, as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry and [`EngineError::Audio`] when the mix cannot be encoded.
+    pub fn export_mono_wav(&self, id: AudioId, bits: BitDepth) -> Result<Vec<u8>, EngineError> {
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let mono = audio.mono_mix().into_owned();
+        Ok(Audio::new(vec![mono], audio.sample_rate())?.to_wav_bytes(bits)?)
+    }
+
     /// Joins `ids` end to end into one mono WAV at `bits` — Praat's Sound
     /// "Concatenate". The first source sets the sample rate; any source at a
     /// different rate is resampled to it first, and every source is mixed to
@@ -4085,6 +4099,27 @@ mod tests {
             engine.export_channel_wav(audio, 2, BitDepth::Float32),
             Err(EngineError::InvalidRequest { .. })
         ));
+    }
+
+    #[test]
+    fn export_mono_wav_averages_the_channels() {
+        let sr = 8_000.0;
+        let left: Vec<f32> = (0..400).map(|i| 0.4 * (i as f32 * 0.03).sin()).collect();
+        let right: Vec<f32> = (0..400).map(|i| -0.2 * (i as f32 * 0.05).cos()).collect();
+        let mut engine = Engine::new();
+        let audio = engine
+            .store
+            .insert(Audio::new(vec![left.clone(), right.clone()], sr).unwrap());
+
+        let mono =
+            Audio::from_wav_bytes(&engine.export_mono_wav(audio, BitDepth::Float32).unwrap())
+                .unwrap();
+        assert_eq!(mono.channel_count(), 1);
+        assert_eq!(mono.channel(0).len(), left.len());
+        for (i, &m) in mono.channel(0).iter().enumerate() {
+            let expected = 0.5 * (left[i] + right[i]);
+            assert!((m - expected).abs() < 1e-6, "sample {i}: {m} vs {expected}");
+        }
     }
 
     #[test]
