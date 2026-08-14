@@ -157,6 +157,22 @@ test('extract selection copies the span into a new library recording and opens i
   ).toHaveCount(2);
 });
 
+test('filter box selection stores a band-passed copy as a new recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  // The Filter action appears only for a box selection (it needs a frequency band).
+  await page.getByTestId('selection-filter').click();
+
+  const name = page.getByTestId('recording-switcher-name');
+  await expect(name).toContainText('Hz]', { timeout: 20_000 });
+
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(2);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

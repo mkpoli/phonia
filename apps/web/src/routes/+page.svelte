@@ -1257,31 +1257,50 @@
     }
   }
 
-  // Copies the editor's time selection into a new library recording. The span
-  // is encoded to a lossless float WAV and re-imported, so the extract persists
-  // to OPFS and opens exactly as an imported or mic-recorded take does.
-  async function extractSelection(t0: number, t1: number) {
-    if (!client || !store || !project || !audio || !recording) return;
-    if (!(t1 > t0)) return;
+  // Registers WAV bytes as a new library recording and opens it. The bytes are
+  // re-imported so the take persists to OPFS and switches in exactly as an
+  // imported or mic-recorded one does.
+  async function persistWavAsRecording(wav: Uint8Array, label: string) {
+    if (!client || !store || !project) return;
     const current = project;
+    const file = new File([new Uint8Array(wav)], `${label}.wav`, { type: 'audio/wav' });
+    const info = await client.importAudio(file);
+    const finished = {
+      audioId: info.id,
+      duration: info.duration,
+      sampleRate: info.sampleRate,
+      channels: info.channels,
+      hash: info.hash ?? (await client.contentHash(wav)),
+      wav
+    };
+    const entry = await store.addRecording(current, label, finished);
+    project = { ...current };
+    resetAutosaveBaseline();
+    await refreshProjects();
+    await openRecording(entry);
+  }
+
+  // Copies the editor's time selection into a new library recording, encoded to
+  // a lossless float WAV so the extract is sample-exact.
+  async function extractSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
     const label = `${recording.name} [${t0.toFixed(2)}–${t1.toFixed(2)} s]`;
     try {
       const wav = await client.exportSpanWav(audio.id, t0, t1, 'Float32');
-      const file = new File([new Uint8Array(wav)], `${label}.wav`, { type: 'audio/wav' });
-      const info = await client.importAudio(file);
-      const finished = {
-        audioId: info.id,
-        duration: info.duration,
-        sampleRate: info.sampleRate,
-        channels: info.channels,
-        hash: info.hash ?? (await client.contentHash(wav)),
-        wav
-      };
-      const entry = await store.addRecording(current, label, finished);
-      project = { ...current };
-      resetAutosaveBaseline();
-      await refreshProjects();
-      await openRecording(entry);
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
+  // Passes the box selection's time span through the engine's Hann band filter
+  // and stores the mono result as a new library recording.
+  async function filterSelection(t0: number, t1: number, f0: number, f1: number) {
+    if (!client || !audio || !recording || !(t1 > t0) || !(f1 > f0)) return;
+    const label = `${recording.name} [${Math.round(f0)}–${Math.round(f1)} Hz]`;
+    try {
+      const wav = await client.exportBandFilteredSpanWav(audio.id, t0, t1, f0, f1, 'Float32');
+      await persistWavAsRecording(wav, label);
     } catch (caught) {
       report(caught);
     }
@@ -1539,6 +1558,7 @@
       }}
       onExportAudio={exportEditorAudio}
       onExtractSelection={extractSelection}
+      onFilterSelection={filterSelection}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

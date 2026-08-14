@@ -25,6 +25,9 @@
     /** Copies the selection's time span into a new library recording; absent
      *  hides the extract button. */
     onExtract?: () => void;
+    /** Filters a box selection to its frequency band into a new recording;
+     *  absent, or on a time selection, hides the filter button. */
+    onFilter?: () => void;
     onClear: () => void;
   }
 
@@ -40,6 +43,7 @@
     onVoiceReport,
     onSpectrum,
     onExtract,
+    onFilter,
     onClear
   }: Props = $props();
 
@@ -157,6 +161,11 @@
     <button type="button" data-testid="selection-voice-report" onclick={onVoiceReport}>
       <IconActivity aria-hidden="true" /><span>Voice report</span>
     </button>
+    {#if onFilter && banded}
+      <button type="button" data-testid="selection-filter" onclick={onFilter}>
+        <IconFilter aria-hidden="true" /><span>Filter</span>
+      </button>
+    {/if}
     {#if onExtract}
       <button type="button" data-testid="selection-extract" onclick={onExtract}>
         <IconScissors aria-hidden="true" /><span>Extract</span>

@@ -105,6 +105,9 @@
     /** Copies the time selection into a new recording in the library and opens
      *  it; absent hides the extract affordances. */
     onExtractSelection?: (t0: number, t1: number) => void;
+    /** Passes a box selection through the engine's Hann band filter into a new
+     *  library recording; absent hides the filter affordance. */
+    onFilterSelection?: (t0: number, t1: number, f0: number, f1: number) => void;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -152,6 +155,7 @@
     onPlayFilteredSelection,
     onExportAudio,
     onExtractSelection,
+    onFilterSelection,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -504,6 +508,14 @@
   // frequency bounds are ignored — extraction is a time operation).
   function extractCurrentSelection() {
     if (selection) onExtractSelection?.(selection.t0, selection.t1);
+  }
+
+  // Filters a box selection's time span to its frequency band and stores the
+  // result as a new recording. A time selection has no band, so it is ignored.
+  function filterCurrentSelection() {
+    if (selection?.mode === 'box') {
+      onFilterSelection?.(selection.t0, selection.t1, selection.f0, selection.f1);
+    }
   }
 
   // Transport Play / Space plays what the user is looking at, in priority order:
@@ -951,6 +963,15 @@
       run: extractCurrentSelection
     },
     {
+      id: 'filterSelection',
+      title: 'Filter selection (pass Hann band)',
+      group: 'Selection',
+      api: ['exportBandFilteredSpanWav', 'importAudio'],
+      keywords: ['filter', 'band pass', 'hann', 'frequency', 'new sound', 'bandpass'],
+      enabled: () => selection?.mode === 'box' && onFilterSelection !== undefined,
+      run: filterCurrentSelection
+    },
+    {
       id: 'exportFigure',
       title: 'Export figure',
       group: 'Figures',
@@ -1146,6 +1167,7 @@
       onVoiceReport={openVoiceReport}
       onSpectrum={openSpectrum}
       onExtract={onExtractSelection ? extractCurrentSelection : undefined}
+      onFilter={onFilterSelection ? filterCurrentSelection : undefined}
       onClear={clearSelection}
     />
   {/if}
