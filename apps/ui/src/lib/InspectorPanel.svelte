@@ -6,6 +6,7 @@
   import IconX from '~icons/lucide/x';
   import type { OverlayParams, OverlayStats, SelectionReadout } from './types';
   import type { TrackSample } from './tracks';
+  import { formatPitch, PITCH_UNITS } from './pitch-units';
 
   interface Props {
     params: OverlayParams;
@@ -114,7 +115,7 @@
         <span class="chev" class:open={expanded.pitch}><IconChevronRight aria-hidden="true" /></span>
         Pitch
       </button>
-      <span class="live-value">{hz(readout ? readout.f0MeanHz : cursor?.f0Hz, 1)}</span>
+      <span class="live-value">{formatPitch(readout ? readout.f0MeanHz : cursor?.f0Hz, params.pitch.unit)}</span>
     </div>
     {#if expanded.pitch}
       <div class="params">
@@ -150,6 +151,15 @@
             bind:value={params.pitch.ceilingHz}
           />
           <p class="note">Default 600 Hz — Praat. Lower toward 300 Hz for male speech.</p>
+        </div>
+        <div class="field">
+          <div class="label-row"><span>Unit</span></div>
+          <select data-testid="pitch-unit" bind:value={params.pitch.unit}>
+            {#each PITCH_UNITS as u (u.value)}
+              <option value={u.value}>{u.label}</option>
+            {/each}
+          </select>
+          <p class="note">Display unit for F0 readouts. Semitones are re 100 Hz, Praat's default.</p>
         </div>
         <div class="field">
           <label class="toggle inline">

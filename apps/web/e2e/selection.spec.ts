@@ -74,6 +74,19 @@ test('spectrogram box selection: readout values are present and finite', async (
   await expect(page.getByTestId('readout-duration')).toContainText('s');
 });
 
+test('the pitch unit selector converts the F0 readout to semitones', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  const f0 = page.getByTestId('readout-f0-mean');
+  await expect(f0).toContainText('Hz');
+
+  // Switching the pitch unit reformats every F0 statistic in the readout.
+  await page.getByTestId('pitch-unit').selectOption('semitones');
+  await expect(f0).toContainText('st');
+  await expect(page.getByTestId('readout-f0-range')).toContainText('st');
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

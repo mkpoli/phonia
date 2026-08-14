@@ -1,3 +1,5 @@
+import type { PitchUnit } from './pitch-units';
+
 export type AudioId = bigint;
 
 export interface AudioInfo {
@@ -611,7 +613,7 @@ export type FormantMark = 'speckle' | 'track';
 
 /** Per-track visibility and analysis parameters edited in the inspector. */
 export interface OverlayParams {
-  pitch: { show: boolean; floorHz: number; ceilingHz: number };
+  pitch: { show: boolean; floorHz: number; ceilingHz: number; unit: PitchUnit };
   formant: {
     show: boolean;
     ceilingHz: number;
@@ -632,7 +634,7 @@ export interface OverlayStats {
 
 export function defaultOverlayParams(): OverlayParams {
   return {
-    pitch: { show: true, floorHz: 75, ceilingHz: 600 },
+    pitch: { show: true, floorHz: 75, ceilingHz: 600, unit: 'hertz' },
     formant: { show: true, ceilingHz: 5500, maxFormants: 5, smoothed: false, mark: 'speckle' },
     intensity: { show: true, floorHz: 100 },
     pulses: { show: false }

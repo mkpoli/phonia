@@ -5,12 +5,15 @@
   import IconFilter from '~icons/lucide/filter';
   import IconX from '~icons/lucide/x';
   import { formatTime, type Selection, type SelectionReadout } from './types';
+  import { formatPitch, type PitchUnit } from './pitch-units';
 
   interface Props {
     selection: Selection;
     readout: SelectionReadout | null;
     formantMeans: number[] | null;
     showFormants: boolean;
+    /** Display unit for the F0 statistics. */
+    pitchUnit?: PitchUnit;
     /** A band-filtered preview of the box selection is sounding right now. */
     filteredPlaying?: boolean;
     onPlay: () => void;
@@ -24,6 +27,7 @@
     readout,
     formantMeans,
     showFormants,
+    pitchUnit = 'hertz',
     filteredPlaying = false,
     onPlay,
     onZoom,
@@ -85,10 +89,10 @@
       </span>
     </span>
     <span class="field" data-testid="readout-f0-mean" data-value={readout?.f0MeanHz ?? ''}>
-      <span class="k">F0 mean</span><span class="v">{hz(readout?.f0MeanHz, 1)}</span>
+      <span class="k">F0 mean</span><span class="v">{formatPitch(readout?.f0MeanHz, pitchUnit)}</span>
     </span>
     <span class="field" data-testid="readout-f0-range">
-      <span class="k">F0 min/max</span><span class="v">{hz(readout?.f0MinHz, 1)} / {hz(readout?.f0MaxHz, 1)}</span>
+      <span class="k">F0 min/max</span><span class="v">{formatPitch(readout?.f0MinHz, pitchUnit)} / {formatPitch(readout?.f0MaxHz, pitchUnit)}</span>
     </span>
     <span class="field" data-testid="readout-band-energy" data-value={readout?.bandEnergyDb ?? ''}>
       <span class="k">Band energy</span><span class="v">{db(readout?.bandEnergyDb)}</span>

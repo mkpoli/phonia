@@ -990,6 +990,7 @@
       {readout}
       {formantMeans}
       showFormants={overlayParams.formant.smoothed}
+      pitchUnit={overlayParams.pitch.unit}
       {filteredPlaying}
       onPlay={playSelection}
       onZoom={zoomToSelection}
