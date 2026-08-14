@@ -6,6 +6,7 @@
   import IconFileDown from '~icons/lucide/file-down';
   import IconChevronUp from '~icons/lucide/chevron-up';
   import IconChevronDown from '~icons/lucide/chevron-down';
+  import IconCopy from '~icons/lucide/copy';
   import IconX from '~icons/lucide/x';
   import InlineRename from './InlineRename.svelte';
   import SearchBar from './SearchBar.svelte';
@@ -390,6 +391,17 @@
     try {
       await client.removeTier(annotationId, tierId);
       if (activeTierId === tierId) activeTierId = null;
+      await refresh();
+    } catch (error) {
+      status = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  // Copies a tier and its contents into a new tier directly below it.
+  async function duplicateTier(tierId: bigint) {
+    if (!client || annotationId === null) return;
+    try {
+      await client.duplicateTier(annotationId, tierId);
       await refresh();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
@@ -861,6 +873,15 @@
             onclick={() => moveTier(tier.id, 1)}
           >
             <IconChevronDown aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="tier-move"
+            aria-label={`Duplicate ${tier.name}`}
+            data-testid="duplicate-tier"
+            onclick={() => duplicateTier(tier.id)}
+          >
+            <IconCopy aria-hidden="true" />
           </button>
           <button type="button" class="tier-remove" aria-label={`Remove ${tier.name}`} data-testid="remove-tier" onclick={() => removeTier(tier.id)}>
             <IconX aria-hidden="true" />

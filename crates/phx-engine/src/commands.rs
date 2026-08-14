@@ -95,6 +95,13 @@ pub enum Command {
         /// Tier to remove.
         tier: TierId,
     },
+    /// Duplicate a tier, copying its contents into a new tier below it.
+    DuplicateTier {
+        /// Target document.
+        annotation: AnnotationId,
+        /// Tier to copy.
+        tier: TierId,
+    },
     /// Split an interval by inserting a boundary at `at` seconds.
     InsertBoundary {
         /// Target document.

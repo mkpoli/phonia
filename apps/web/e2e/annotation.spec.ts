@@ -207,6 +207,19 @@ test('reorder tier moves it up or down in the stack', async ({ page }) => {
   await expect.poll(order).toEqual(['interval 2', 'interval 1']);
 });
 
+test('duplicate tier copies it below with a " copy" name', async ({ page }) => {
+  await openEditorWithFixture(page, wavFixture);
+  const lanes = page.getByTestId('tier-lane');
+  await page.getByTestId('add-interval-tier').click();
+  await expect(lanes).toHaveCount(1);
+
+  await page.getByTestId('duplicate-tier').first().click();
+  await expect(lanes).toHaveCount(2);
+  const names = async () =>
+    Promise.all((await lanes.all()).map((lane) => lane.getAttribute('data-tier-name')));
+  expect(await names()).toEqual(['interval 1', 'interval 1 copy']);
+});
+
 test('undoing a textgrid import repoints the pane instead of going blank', async ({ page }) => {
   await loadFixture(page);
   // Loading already journaled the audio import and an empty document (undo

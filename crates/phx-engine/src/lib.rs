@@ -1925,6 +1925,31 @@ impl Engine {
                     },
                 ))
             }
+            Command::DuplicateTier { annotation, tier } => {
+                let document = self.documents.get_mut(annotation)?;
+                let copy = document.annotation.duplicate_tier(tier)?;
+                // Redo restores the exact copy — id, contents, and position — so
+                // an undo/redo cycle keeps every stable identifier, exactly as a
+                // fresh add does.
+                let (index, slot) = captured_tier(&document.annotation, copy)?;
+                Ok((
+                    Applied::TierAdded {
+                        annotation,
+                        tier: copy,
+                    },
+                    Transition {
+                        undo: Reverse::RemoveTier {
+                            doc: annotation,
+                            tier: copy,
+                        },
+                        redo: Reverse::InsertTier {
+                            doc: annotation,
+                            index,
+                            slot: Box::new(slot),
+                        },
+                    },
+                ))
+            }
             Command::InsertBoundary {
                 annotation,
                 tier,
@@ -3842,6 +3867,50 @@ mod tests {
         assert_eq!(engine.state_hash(), added);
         engine.undo().unwrap(); // undo the addition
         assert_eq!(engine.state_hash(), before);
+    }
+
+    #[test]
+    fn duplicate_tier_copies_and_undo_redo_restores_it() {
+        let (mut engine, _audio, doc) = base_engine();
+        let source = match engine
+            .apply(Command::AddPointTier {
+                annotation: doc,
+                name: "tones".to_string(),
+                points: vec![(0.5, "H".to_string()), (1.5, "L".to_string())],
+                relation: TierRelation::Independent,
+            })
+            .unwrap()
+        {
+            Applied::TierAdded { tier, .. } => tier,
+            other => panic!("expected TierAdded, got {other:?}"),
+        };
+        let before_dup = engine.state_hash();
+        let tiers_before = engine.annotation(doc).unwrap().tiers().len();
+
+        let copy = match engine
+            .apply(Command::DuplicateTier {
+                annotation: doc,
+                tier: source,
+            })
+            .unwrap()
+        {
+            Applied::TierAdded { tier, .. } => tier,
+            other => panic!("expected TierAdded, got {other:?}"),
+        };
+        assert_ne!(copy, source);
+        let after_dup = engine.state_hash();
+        assert_eq!(
+            engine.annotation(doc).unwrap().tiers().len(),
+            tiers_before + 1
+        );
+
+        // Undo drops the copy; redo restores it byte-for-byte, same id included.
+        engine.undo().unwrap();
+        assert_eq!(engine.state_hash(), before_dup);
+        assert_eq!(engine.annotation(doc).unwrap().tiers().len(), tiers_before);
+        engine.redo().unwrap();
+        assert_eq!(engine.state_hash(), after_dup);
+        assert!(engine.annotation(doc).unwrap().tier(copy).is_some());
     }
 
     #[test]

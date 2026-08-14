@@ -173,6 +173,7 @@ export interface AnnotationClientLike {
   renameTier(annotationId: AnnotationId, tierId: TierId, name: string): Promise<AppliedChange>;
   removeTier(annotationId: AnnotationId, tierId: TierId): Promise<AppliedChange>;
   reorderTier(annotationId: AnnotationId, tierId: TierId, toIndex: number): Promise<AppliedChange>;
+  duplicateTier(annotationId: AnnotationId, tierId: TierId): Promise<AppliedChange>;
   insertBoundary(annotationId: AnnotationId, tierId: TierId, at: number): Promise<BoundaryId>;
   moveBoundary(
     annotationId: AnnotationId,

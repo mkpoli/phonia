@@ -647,6 +647,23 @@ pub fn reorder_tier(
 }
 
 #[tauri::command]
+pub fn duplicate_tier(
+    state: State<AppState>,
+    annotation_id: u64,
+    tier_id: u64,
+) -> Result<AppliedDto, String> {
+    let mut engine = lock(&state)?;
+    Ok(apply(
+        &mut engine,
+        Command::DuplicateTier {
+            annotation: AnnotationId::from_u64(annotation_id),
+            tier: TierId::new(tier_id),
+        },
+    )?
+    .into())
+}
+
+#[tauri::command]
 pub fn insert_boundary(
     state: State<AppState>,
     annotation_id: u64,

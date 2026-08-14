@@ -314,6 +314,12 @@ export class TauriCoreClient implements CoreClientLike {
     ) as AppliedChange;
   }
 
+  async duplicateTier(annotationId: AnnotationId, tierId: TierId): Promise<AppliedChange> {
+    return appliedFrom(
+      await invoke('duplicate_tier', { annotationId: num(annotationId), tierId: num(tierId) })
+    ) as AppliedChange;
+  }
+
   async insertBoundary(annotationId: AnnotationId, tierId: TierId, at: number): Promise<BoundaryId> {
     return big(
       await invoke<number>('insert_boundary', {

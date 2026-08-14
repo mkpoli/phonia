@@ -454,6 +454,79 @@ impl Annotation {
         Ok(TierRemoval { index, slot })
     }
 
+    /// Duplicates a tier, copying its intervals or points and their labels into
+    /// a new tier of the same kind placed directly below the source. The copy
+    /// gets fresh identifiers and no cross-tier relation, so it always
+    /// validates; its name is the source name followed by ` copy`.
+    ///
+    /// # Errors
+    /// Returns [`AnnotationError::UnknownTier`] when `tier` names no live tier,
+    /// and the id-exhaustion or integrity variants [`Annotation`] raises on any
+    /// structural change.
+    pub fn duplicate_tier(&mut self, tier: TierId) -> Result<TierId, AnnotationError> {
+        let index = self.tier_index(tier)?;
+        let mut candidate = self.clone();
+        let source = candidate.tiers[index].tier.clone();
+        let new_id = candidate.alloc_tier_id()?;
+        let copied = match source {
+            Tier::Interval(source) => {
+                let mut intervals = Vec::with_capacity(source.intervals.len());
+                // Consecutive intervals share a boundary, so the previous end
+                // becomes the next start; only genuinely new boundaries allocate.
+                let mut prev_end: Option<BoundaryId> = None;
+                for interval in &source.intervals {
+                    let start = match prev_end {
+                        Some(boundary) => boundary,
+                        None => candidate.alloc_boundary_id()?,
+                    };
+                    let end = candidate.alloc_boundary_id()?;
+                    prev_end = Some(end);
+                    intervals.push(Interval {
+                        id: candidate.alloc_interval_id()?,
+                        start_boundary: start,
+                        end_boundary: end,
+                        xmin: interval.xmin,
+                        xmax: interval.xmax,
+                        label: interval.label.clone(),
+                    });
+                }
+                Tier::Interval(IntervalTier {
+                    name: format!("{} copy", source.name),
+                    xmin: source.xmin,
+                    xmax: source.xmax,
+                    intervals,
+                })
+            }
+            Tier::Point(source) => {
+                let mut points = Vec::with_capacity(source.points.len());
+                for point in &source.points {
+                    points.push(Point {
+                        id: candidate.alloc_point_id()?,
+                        time: point.time,
+                        label: point.label.clone(),
+                    });
+                }
+                Tier::Point(PointTier {
+                    name: format!("{} copy", source.name),
+                    xmin: source.xmin,
+                    xmax: source.xmax,
+                    points,
+                })
+            }
+        };
+        candidate.tiers.insert(
+            index + 1,
+            TierSlot {
+                id: new_id,
+                relation: TierRelation::Independent,
+                tier: copied,
+            },
+        );
+        candidate.commit_if_valid()?;
+        *self = candidate;
+        Ok(new_id)
+    }
+
     /// Replaces a tier's name after rejecting C0 control characters and `DEL`.
     ///
     /// # Errors
@@ -3371,6 +3444,40 @@ mod tests {
         };
         assert_eq!(interval_tier.xmin, 0.0);
         assert_eq!(interval_tier.xmax, 2.0);
+    }
+
+    #[test]
+    fn duplicate_tier_copies_contents_into_a_fresh_independent_tier() {
+        let mut doc = Annotation::new(0.0, 2.0).unwrap();
+        let source = doc
+            .add_point_tier(
+                "marks",
+                vec![(0.5, "a".to_string()), (1.5, "b".to_string())],
+                TierRelation::Independent,
+            )
+            .unwrap();
+
+        let copy = doc.duplicate_tier(source).unwrap();
+        assert_ne!(copy, source);
+        assert_eq!(doc.tiers().len(), 2);
+
+        let slot = doc.tier(copy).unwrap();
+        assert!(matches!(slot.relation, TierRelation::Independent));
+        let Tier::Point(copied) = &slot.tier else {
+            panic!("expected a point tier");
+        };
+        assert_eq!(copied.name, "marks copy");
+        let labels: Vec<&str> = copied
+            .points
+            .iter()
+            .map(|point| point.label.as_str())
+            .collect();
+        assert_eq!(labels, ["a", "b"]);
+
+        let Tier::Point(original) = &doc.tier(source).unwrap().tier else {
+            panic!("expected a point tier");
+        };
+        assert_ne!(copied.points[0].id, original.points[0].id);
     }
 
     #[test]

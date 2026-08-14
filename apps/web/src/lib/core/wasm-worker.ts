@@ -142,6 +142,7 @@ type RequestMessage =
       tierId: TierId;
       toIndex: number;
     }
+  | { id: number; method: 'duplicateTier'; annotationId: AnnotationId; tierId: TierId }
   | { id: number; method: 'insertBoundary'; annotationId: AnnotationId; tierId: TierId; at: number }
   | {
       id: number;
@@ -836,6 +837,11 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
         const result = appliedToPlain(
           wasm.reorderTier(message.annotationId, message.tierId, message.toIndex)
         );
+        postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
+        return;
+      }
+      case 'duplicateTier': {
+        const result = appliedToPlain(wasm.duplicateTier(message.annotationId, message.tierId));
         postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
         return;
       }

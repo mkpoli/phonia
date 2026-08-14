@@ -350,6 +350,10 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'reorderTier', annotationId, tierId, toIndex });
   }
 
+  duplicateTier(annotationId: AnnotationId, tierId: TierId): Promise<AppliedChange> {
+    return this.#call({ method: 'duplicateTier', annotationId, tierId });
+  }
+
   insertBoundary(annotationId: AnnotationId, tierId: TierId, at: number): Promise<BoundaryId> {
     return this.#call({ method: 'insertBoundary', annotationId, tierId, at });
   }

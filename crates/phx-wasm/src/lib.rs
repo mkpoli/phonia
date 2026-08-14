@@ -1933,6 +1933,23 @@ impl WasmEngine {
         Ok(applied.into())
     }
 
+    /// Duplicates a tier, copying its contents into a new tier below it.
+    ///
+    /// # Errors
+    /// Rejects when the document or tier is unknown, or on an integrity fault.
+    #[wasm_bindgen(js_name = duplicateTier)]
+    pub fn duplicate_tier(
+        &mut self,
+        annotation_id: u64,
+        tier_id: u64,
+    ) -> Result<WasmApplied, JsError> {
+        let applied = self.inner.apply(Command::DuplicateTier {
+            annotation: AnnotationId::from_u64(annotation_id),
+            tier: TierId::new(tier_id),
+        })?;
+        Ok(applied.into())
+    }
+
     /// Renames a stored audio buffer. Undo restores the prior name.
     ///
     /// # Errors
