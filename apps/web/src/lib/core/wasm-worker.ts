@@ -58,6 +58,15 @@ type RequestMessage =
     }
   | {
       id: number;
+      method: 'voicingIntervals';
+      audioId: AudioId;
+      pitchFloorHz: number;
+      pitchCeilingHz: number;
+      minVoicedS: number;
+      minUnvoicedS: number;
+    }
+  | {
+      id: number;
       method: 'pitchTrackSpan';
       audioId: AudioId;
       floorHz: number;
@@ -834,6 +843,17 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           message.thresholdDb,
           message.minSilentS,
           message.minSoundingS
+        );
+        postMessage({ id: message.id, ok: true, result: JSON.parse(json) });
+        return;
+      }
+      case 'voicingIntervals': {
+        const json = wasm.voicingIntervals(
+          message.audioId,
+          message.pitchFloorHz,
+          message.pitchCeilingHz,
+          message.minVoicedS,
+          message.minUnvoicedS
         );
         postMessage({ id: message.id, ok: true, result: JSON.parse(json) });
         return;

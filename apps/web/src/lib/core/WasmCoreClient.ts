@@ -24,6 +24,7 @@ import type {
   SelectionReadout,
   SpectrumSliceData,
   SilenceInterval,
+  VoicingInterval,
   SpectrogramTileRequest,
   TierId,
   TierInfo,
@@ -335,6 +336,23 @@ export class WasmCoreClient implements CoreClient {
       thresholdDb,
       minSilentS,
       minSoundingS
+    });
+  }
+
+  voicingIntervals(
+    id: AudioId,
+    pitchFloorHz: number,
+    pitchCeilingHz: number,
+    minVoicedS: number,
+    minUnvoicedS: number
+  ): Promise<VoicingInterval[]> {
+    return this.#call({
+      method: 'voicingIntervals',
+      audioId: id,
+      pitchFloorHz,
+      pitchCeilingHz,
+      minVoicedS,
+      minUnvoicedS
     });
   }
 

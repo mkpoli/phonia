@@ -477,6 +477,13 @@ export interface SilenceInterval {
   sounding: boolean;
 }
 
+/** One voiced-or-unvoiced segment from `voicingIntervals`. */
+export interface VoicingInterval {
+  t0: number;
+  t1: number;
+  voiced: boolean;
+}
+
 export interface CoreClientLike extends AnnotationClientLike {
   bandEnergy(id: AudioId, t0: number, t1: number, f0: number, f1: number): Promise<number>;
   /**
@@ -529,6 +536,13 @@ export interface CoreClientLike extends AnnotationClientLike {
     minSilentS: number,
     minSoundingS: number
   ): Promise<SilenceInterval[]>;
+  voicingIntervals(
+    id: AudioId,
+    pitchFloorHz: number,
+    pitchCeilingHz: number,
+    minVoicedS: number,
+    minUnvoicedS: number
+  ): Promise<VoicingInterval[]>;
   annotationJson(annotationId: AnnotationId): Promise<string>;
   attachAnnotationJson(audioId: AudioId, json: string): Promise<AnnotationId>;
   saveProjectContainer(spec: SaveProjectSpec): Promise<Uint8Array>;

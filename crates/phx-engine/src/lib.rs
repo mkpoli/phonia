@@ -1242,6 +1242,83 @@ impl Engine {
         Ok(segs)
     }
 
+    /// Segments the whole signal into voiced and unvoiced runs as `(t0, t1,
+    /// voiced)` tuples — Praat's Pitch → "To TextGrid (vuv)", classifying each
+    /// pitch frame as voiced when it carries an F0 candidate, then coalescing
+    /// runs shorter than the minimum voiced/unvoiced durations into their
+    /// neighbours.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, and [`EngineError::InvalidRequest`] when a parameter is not finite.
+    pub fn voicing_intervals(
+        &self,
+        id: AudioId,
+        pitch_floor_hz: f64,
+        pitch_ceiling_hz: f64,
+        min_voiced_s: f64,
+        min_unvoiced_s: f64,
+    ) -> Result<Vec<(f64, f64, bool)>, EngineError> {
+        if ![
+            pitch_floor_hz,
+            pitch_ceiling_hz,
+            min_voiced_s,
+            min_unvoiced_s,
+        ]
+        .iter()
+        .all(|v| v.is_finite())
+        {
+            return Err(EngineError::InvalidRequest {
+                reason: "voicing_intervals parameters must be finite".to_string(),
+            });
+        }
+        let duration = self.store.info(id)?.duration;
+        let params = PitchParams {
+            floor_hz: pitch_floor_hz,
+            ceiling_hz: pitch_ceiling_hz,
+            ..PitchParams::default()
+        };
+        let track = self.pitch_track(id, &params)?;
+        let frames = track.frames();
+        let whole = vec![(0.0, duration, false)];
+        if frames.is_empty() {
+            return Ok(whole);
+        }
+
+        // Runs of like-voicing frames become segments; each boundary sits at the
+        // frame where the classification flips.
+        let mut segs: Vec<(f64, f64, bool)> = Vec::new();
+        let mut seg_start = 0.0;
+        let mut current = frames[0].f0.is_some();
+        for pair in frames.windows(2) {
+            let voiced = pair[1].f0.is_some();
+            if voiced != current {
+                segs.push((seg_start, pair[1].time, current));
+                seg_start = pair[1].time;
+                current = voiced;
+            }
+        }
+        segs.push((seg_start, duration, current));
+        segs = coalesce_segments(segs);
+
+        // Fold too-short runs into their neighbours until every run clears its
+        // minimum; each flip strictly reduces the count once coalesced.
+        loop {
+            let short = segs.iter().position(|&(a, b, voiced)| {
+                let min = if voiced { min_voiced_s } else { min_unvoiced_s };
+                (b - a) < min
+            });
+            match short {
+                Some(i) if segs.len() > 1 => {
+                    segs[i].2 = !segs[i].2;
+                    segs = coalesce_segments(segs);
+                }
+                _ => break,
+            }
+        }
+        Ok(segs)
+    }
+
     /// Computes the aggregate voice report over a selection span.
     ///
     /// Wraps [`phx_voice::voice_report`]: it tracks pitch, extracts pulses, and
@@ -4153,6 +4230,40 @@ mod tests {
         for (i, &m) in mono.channel(0).iter().enumerate() {
             let expected = 0.5 * (left[i] + right[i]);
             assert!((m - expected).abs() < 1e-6, "sample {i}: {m} vs {expected}");
+        }
+    }
+
+    #[test]
+    fn voicing_intervals_marks_the_voiced_middle() {
+        // Silence, a 150 Hz sine, then silence: the middle reads voiced, the
+        // edges unvoiced.
+        let sr = 16_000.0;
+        let quiet = (0.2 * sr) as usize;
+        let tone = (0.4 * sr) as usize;
+        let mut samples = vec![0.0_f32; quiet];
+        for i in 0..tone {
+            samples.push(0.5 * (TAU * 150.0 * i as f64 / sr).sin() as f32);
+        }
+        samples.extend(std::iter::repeat_n(0.0_f32, quiet));
+        let mut engine = Engine::new();
+        let id = engine.store.insert(Audio::new(vec![samples], sr).unwrap());
+
+        let segs = engine
+            .voicing_intervals(id, 75.0, 600.0, 0.02, 0.02)
+            .unwrap();
+        let voiced_at = |t: f64| {
+            segs.iter()
+                .find(|&&(a, b, _)| t >= a && t < b)
+                .map(|&(_, _, v)| v)
+        };
+        assert_eq!(voiced_at(0.4), Some(true), "the sine's midpoint is voiced");
+        assert!(
+            segs.iter().any(|&(_, _, voiced)| !voiced),
+            "the silent edges leave at least one unvoiced run"
+        );
+        // The runs tile the whole signal without gaps.
+        for pair in segs.windows(2) {
+            assert!((pair[1].0 - pair[0].1).abs() < 1e-9, "runs are contiguous");
         }
     }
 

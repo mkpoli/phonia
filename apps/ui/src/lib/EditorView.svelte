@@ -463,6 +463,29 @@
     }
   }
 
+  async function annotateByVoicing() {
+    if (!client || !audio || annotationId === null) return;
+    try {
+      const segments = await client.voicingIntervals(audio.id, 75, 600, 0.02, 0.02);
+      const tierId = await client.addIntervalTier(annotationId, 'voicing');
+      for (let i = 1; i < segments.length; i += 1) {
+        await client.insertBoundary(annotationId, tierId, segments[i].t0);
+      }
+      const intervals = await client.intervalsInRange(annotationId, tierId, -1, 1e12);
+      for (let i = 0; i < intervals.length && i < segments.length; i += 1) {
+        await client.setIntervalLabel(
+          annotationId,
+          tierId,
+          intervals[i].id,
+          segments[i].voiced ? 'V' : 'U'
+        );
+      }
+      tierRevision += 1;
+    } catch (caught) {
+      console.error('annotate by voicing failed', caught);
+    }
+  }
+
   $effect(() => {
     const duration = audio?.duration ?? 1;
     viewport = defaultViewport(duration);
@@ -1484,6 +1507,15 @@
       keywords: ['silence', 'segment', 'vad', 'speech', 'textgrid', 'chunk', 'auto'],
       enabled: () => annotationId !== null,
       run: () => void annotateBySilences()
+    },
+    {
+      id: 'annotateByVoicing',
+      title: 'Annotate by voicing (V/U)',
+      group: 'Annotation',
+      api: ['voicingIntervals'],
+      keywords: ['voicing', 'voiced', 'unvoiced', 'vuv', 'pitch', 'segment', 'textgrid', 'auto'],
+      enabled: () => annotationId !== null,
+      run: () => void annotateByVoicing()
     },
     {
       id: 'playSelection',

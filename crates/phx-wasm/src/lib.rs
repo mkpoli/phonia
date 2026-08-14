@@ -1599,6 +1599,34 @@ impl WasmEngine {
         serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
     }
 
+    /// Voiced/unvoiced segmentation as a JSON array of `{ t0, t1, voiced }`, for
+    /// annotating a recording by its voicing.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, or a parameter is not finite.
+    #[wasm_bindgen(js_name = voicingIntervals)]
+    pub fn voicing_intervals(
+        &self,
+        id: u64,
+        pitch_floor_hz: f64,
+        pitch_ceiling_hz: f64,
+        min_voiced_s: f64,
+        min_unvoiced_s: f64,
+    ) -> Result<String, JsError> {
+        let segs = self.inner.voicing_intervals(
+            AudioId::from_u64(id),
+            pitch_floor_hz,
+            pitch_ceiling_hz,
+            min_voiced_s,
+            min_unvoiced_s,
+        )?;
+        let value: Vec<_> = segs
+            .into_iter()
+            .map(|(t0, t1, voiced)| serde_json::json!({ "t0": t0, "t1": t1, "voiced": voiced }))
+            .collect();
+        serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
+    }
+
     /// Computes the aggregate voice report over a selection span as a JSON string.
     ///
     /// The object carries the pitch summary, jitter and shimmer families, mean

@@ -435,6 +435,24 @@ test('annotate by silences lays down a labelled speech/silence tier', async ({ p
   ).toBeVisible({ timeout: 20_000 });
 });
 
+test('annotate by voicing lays down a V/U tier', async ({ page }) => {
+  await loadFixture(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('annotate by voicing');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="annotateByVoicing"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  // A new interval tier named "voicing" appears with at least one voiced (V) run.
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '1', { timeout: 20_000 });
+  await expect(page.getByTestId('tier-lane').first()).toHaveAttribute('data-tier-name', 'voicing');
+  await expect(
+    page.getByTestId('interval').filter({ hasText: 'V' }).first()
+  ).toBeVisible({ timeout: 20_000 });
+});
+
 test('the vowel chart plots F1-F2 for labelled intervals', async ({ page }) => {
   await loadFixture(page);
   await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);

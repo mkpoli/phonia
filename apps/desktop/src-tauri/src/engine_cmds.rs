@@ -438,6 +438,32 @@ pub fn silence_intervals(
 }
 
 #[tauri::command]
+pub fn voicing_intervals(
+    state: State<AppState>,
+    id: u64,
+    pitch_floor_hz: f64,
+    pitch_ceiling_hz: f64,
+    min_voiced_s: f64,
+    min_unvoiced_s: f64,
+) -> Result<serde_json::Value, String> {
+    let engine = lock(&state)?;
+    let segs = engine
+        .voicing_intervals(
+            AudioId::from_u64(id),
+            pitch_floor_hz,
+            pitch_ceiling_hz,
+            min_voiced_s,
+            min_unvoiced_s,
+        )
+        .map_err(err)?;
+    let value: Vec<_> = segs
+        .into_iter()
+        .map(|(t0, t1, voiced)| serde_json::json!({ "t0": t0, "t1": t1, "voiced": voiced }))
+        .collect();
+    Ok(serde_json::Value::Array(value))
+}
+
+#[tauri::command]
 pub fn voice_report(
     state: State<AppState>,
     id: u64,

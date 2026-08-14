@@ -85,6 +85,7 @@ pub fn run() {
             engine_cmds::spectrum_slice,
             engine_cmds::ltas,
             engine_cmds::silence_intervals,
+            engine_cmds::voicing_intervals,
             engine_cmds::create_annotation,
             engine_cmds::add_interval_tier,
             engine_cmds::add_point_tier,
