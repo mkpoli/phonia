@@ -454,6 +454,29 @@ impl Annotation {
         Ok(TierRemoval { index, slot })
     }
 
+    /// Replaces a tier's name after rejecting C0 control characters and `DEL`.
+    ///
+    /// # Errors
+    /// Returns [`AnnotationError::UnknownTier`] when `tier` does not name a
+    /// live tier, and [`AnnotationError::InvalidLabelControl`] when `name`
+    /// carries a control character.
+    pub fn rename_tier(&mut self, tier: TierId, name: &str) -> Result<TierRename, AnnotationError> {
+        reject_control_label(name)?;
+        let index = self.tier_index(tier)?;
+        let mut candidate = self.clone();
+        let old_name = match &mut candidate.tiers[index].tier {
+            Tier::Interval(t) => std::mem::replace(&mut t.name, name.to_owned()),
+            Tier::Point(t) => std::mem::replace(&mut t.name, name.to_owned()),
+        };
+        candidate.commit_if_valid()?;
+        *self = candidate;
+        Ok(TierRename {
+            tier,
+            old_name,
+            new_name: name.to_owned(),
+        })
+    }
+
     /// Reports all integrity issues that can be found without panicking.
     pub fn validate(&self) -> Vec<IntegrityIssue> {
         let mut issues = Vec::new();
@@ -789,6 +812,9 @@ impl Annotation {
             }
             InverseMutation::ReorderTier { tier, to_index } => {
                 self.reorder_tier(*tier, *to_index)?;
+            }
+            InverseMutation::RenameTier { tier, name } => {
+                self.rename_tier(*tier, name)?;
             }
             InverseMutation::RemoveTier { tier } => {
                 self.remove_tier(*tier)?;
@@ -2001,6 +2027,29 @@ impl TierReorder {
     }
 }
 
+/// Successful tier rename payload.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TierRename {
+    /// Tier that was renamed.
+    pub tier: TierId,
+    /// Name the tier carried before the call.
+    pub old_name: String,
+    /// Name the tier carries after the call.
+    pub new_name: String,
+}
+
+impl TierRename {
+    /// Builds the inverse operation for a successful `Annotation::rename_tier` call.
+    ///
+    /// Applying the inverse writes the previous name back.
+    pub fn inverse(&self) -> InverseMutation {
+        InverseMutation::RenameTier {
+            tier: self.tier,
+            name: self.old_name.clone(),
+        }
+    }
+}
+
 /// Successful tier removal payload.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TierRemoval {
@@ -2041,6 +2090,13 @@ pub enum InverseMutation {
     RestoreMergedBoundary {
         /// Merge payload returned by `Annotation::remove_boundary`.
         merged: Merged,
+    },
+    /// Undo a tier rename by writing the previous tier name.
+    RenameTier {
+        /// Tier to rename back.
+        tier: TierId,
+        /// Name to restore.
+        name: String,
     },
     /// Undo a label replacement by writing the previous label text.
     SetLabel {

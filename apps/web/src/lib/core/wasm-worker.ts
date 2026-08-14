@@ -114,6 +114,13 @@ type RequestMessage =
   | { id: number; method: 'createAnnotation'; audioId: AudioId; xmin: number; xmax: number }
   | { id: number; method: 'addIntervalTier'; annotationId: AnnotationId; name: string }
   | { id: number; method: 'addPointTier'; annotationId: AnnotationId; name: string }
+  | {
+      id: number;
+      method: 'renameTier';
+      annotationId: AnnotationId;
+      tierId: TierId;
+      name: string;
+    }
   | { id: number; method: 'removeTier'; annotationId: AnnotationId; tierId: TierId }
   | { id: number; method: 'insertBoundary'; annotationId: AnnotationId; tierId: TierId; at: number }
   | {
@@ -728,6 +735,13 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'addPointTier': {
         const result = wasm.addPointTier(message.annotationId, message.name);
+        postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
+        return;
+      }
+      case 'renameTier': {
+        const result = appliedToPlain(
+          wasm.renameTier(message.annotationId, message.tierId, message.name)
+        );
         postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
         return;
       }

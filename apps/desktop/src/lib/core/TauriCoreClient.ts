@@ -249,6 +249,16 @@ export class TauriCoreClient implements CoreClientLike {
     return big(await invoke<number>('add_point_tier', { annotationId: num(annotationId), name }));
   }
 
+  async renameTier(
+    annotationId: AnnotationId,
+    tierId: TierId,
+    name: string
+  ): Promise<AppliedChange> {
+    return appliedFrom(
+      await invoke('rename_tier', { annotationId: num(annotationId), tierId: num(tierId), name })
+    ) as AppliedChange;
+  }
+
   async removeTier(annotationId: AnnotationId, tierId: TierId): Promise<AppliedChange> {
     return appliedFrom(
       await invoke('remove_tier', { annotationId: num(annotationId), tierId: num(tierId) })

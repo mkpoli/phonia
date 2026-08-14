@@ -267,6 +267,11 @@ fn applied_for_content(doc: AnnotationId, mutation: &InverseMutation) -> Applied
             tier: *tier,
             to_index: *to_index,
         },
+        InverseMutation::RenameTier { tier, name } => Applied::TierRenamed {
+            annotation: doc,
+            tier: *tier,
+            name: name.clone(),
+        },
         // The engine journals tier add/remove through its own `Reverse::InsertTier`
         // and `Reverse::RemoveTier` (object lifecycle, not a content edit; see
         // this module's top comment), so a command applied through this crate

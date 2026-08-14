@@ -162,6 +162,7 @@ export interface AnnotationClientLike {
   createAnnotation(audioId: AudioId, xmin: number, xmax: number): Promise<AnnotationId>;
   addIntervalTier(annotationId: AnnotationId, name: string): Promise<TierId>;
   addPointTier(annotationId: AnnotationId, name: string): Promise<TierId>;
+  renameTier(annotationId: AnnotationId, tierId: TierId, name: string): Promise<AppliedChange>;
   removeTier(annotationId: AnnotationId, tierId: TierId): Promise<AppliedChange>;
   insertBoundary(annotationId: AnnotationId, tierId: TierId, at: number): Promise<BoundaryId>;
   moveBoundary(

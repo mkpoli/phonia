@@ -505,6 +505,25 @@ pub fn detach_audio(state: State<AppState>, audio_id: u64) -> Result<AppliedDto,
 }
 
 #[tauri::command]
+pub fn rename_tier(
+    state: State<AppState>,
+    annotation_id: u64,
+    tier_id: u64,
+    name: String,
+) -> Result<AppliedDto, String> {
+    let mut engine = lock(&state)?;
+    Ok(apply(
+        &mut engine,
+        Command::RenameTier {
+            annotation: AnnotationId::from_u64(annotation_id),
+            tier: TierId::new(tier_id),
+            name,
+        },
+    )?
+    .into())
+}
+
+#[tauri::command]
 pub fn remove_tier(
     state: State<AppState>,
     annotation_id: u64,

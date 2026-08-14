@@ -395,6 +395,21 @@ impl From<Applied> for WasmApplied {
             Applied::TierAdded { annotation, tier } => {
                 ("tierAdded", Some(annotation), None, Some(tier), None, None)
             }
+            Applied::TierRenamed {
+                annotation,
+                tier,
+                name: n,
+            } => {
+                name = Some(n);
+                (
+                    "tierRenamed",
+                    Some(annotation),
+                    None,
+                    Some(tier),
+                    None,
+                    None,
+                )
+            }
             Applied::TierRemoved { annotation, tier } => (
                 "tierRemoved",
                 Some(annotation),
@@ -1547,6 +1562,26 @@ impl WasmEngine {
             relation: TierRelation::Independent,
         })?;
         tier_id_of(applied)
+    }
+
+    /// Renames a tier.
+    ///
+    /// # Errors
+    /// Rejects when the document or tier is unknown, or when the name carries
+    /// a control character.
+    #[wasm_bindgen(js_name = renameTier)]
+    pub fn rename_tier(
+        &mut self,
+        annotation_id: u64,
+        tier_id: u64,
+        name: String,
+    ) -> Result<WasmApplied, JsError> {
+        let applied = self.inner.apply(Command::RenameTier {
+            annotation: AnnotationId::from_u64(annotation_id),
+            tier: TierId::new(tier_id),
+            name,
+        })?;
+        Ok(applied.into())
     }
 
     /// Removes a tier and everything it holds.

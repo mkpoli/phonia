@@ -79,6 +79,15 @@ pub enum Command {
         /// Relation to another tier.
         relation: TierRelation,
     },
+    /// Rename a tier. The inverse restores the prior name.
+    RenameTier {
+        /// Target document.
+        annotation: AnnotationId,
+        /// Tier to rename.
+        tier: TierId,
+        /// New tier name.
+        name: String,
+    },
     /// Remove a tier and everything it holds.
     RemoveTier {
         /// Target document.
@@ -216,6 +225,15 @@ pub enum Applied {
         annotation: AnnotationId,
         /// New tier id.
         tier: TierId,
+    },
+    /// A tier was renamed.
+    TierRenamed {
+        /// Owning document.
+        annotation: AnnotationId,
+        /// Renamed tier id.
+        tier: TierId,
+        /// Name now in place.
+        name: String,
     },
     /// A tier left a document.
     TierRemoved {

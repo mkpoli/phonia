@@ -296,6 +296,10 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'addPointTier', annotationId, name });
   }
 
+  renameTier(annotationId: AnnotationId, tierId: TierId, name: string): Promise<AppliedChange> {
+    return this.#call({ method: 'renameTier', annotationId, tierId, name });
+  }
+
   removeTier(annotationId: AnnotationId, tierId: TierId): Promise<AppliedChange> {
     return this.#call({ method: 'removeTier', annotationId, tierId });
   }

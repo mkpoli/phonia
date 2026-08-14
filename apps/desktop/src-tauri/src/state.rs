@@ -201,6 +201,13 @@ impl From<Applied> for AppliedDto {
                 dto.annotation = Some(a(annotation));
                 dto.tier = Some(t(tier));
             }
+            Applied::TierRenamed {
+                annotation, tier, ..
+            } => {
+                dto.kind = "tierRenamed".into();
+                dto.annotation = Some(a(annotation));
+                dto.tier = Some(t(tier));
+            }
             Applied::TierRemoved { annotation, tier } => {
                 dto.kind = "tierRemoved".into();
                 dto.annotation = Some(a(annotation));

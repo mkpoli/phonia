@@ -1393,6 +1393,37 @@ impl Engine {
                     },
                 ))
             }
+            Command::RenameTier {
+                annotation,
+                tier,
+                name,
+            } => {
+                let document = self.documents.get_mut(annotation)?;
+                let change = document.annotation.rename_tier(tier, &name)?;
+                Ok((
+                    Applied::TierRenamed {
+                        annotation,
+                        tier,
+                        name: change.new_name.clone(),
+                    },
+                    Transition {
+                        undo: Reverse::Content {
+                            doc: annotation,
+                            mutation: InverseMutation::RenameTier {
+                                tier,
+                                name: change.old_name,
+                            },
+                        },
+                        redo: Reverse::Content {
+                            doc: annotation,
+                            mutation: InverseMutation::RenameTier {
+                                tier,
+                                name: change.new_name,
+                            },
+                        },
+                    },
+                ))
+            }
             Command::RemoveTier { annotation, tier } => {
                 let document = self.documents.get_mut(annotation)?;
                 let (index, slot) = captured_tier(&document.annotation, tier)?;
@@ -2613,6 +2644,59 @@ mod tests {
             Some("renamed")
         );
         assert_eq!(engine.state_hash(), renamed_hash);
+    }
+
+    fn tier_name(engine: &Engine, doc: AnnotationId, tier: TierId) -> String {
+        match &engine.annotation(doc).unwrap().tier(tier).unwrap().tier {
+            Tier::Interval(t) => t.name.clone(),
+            Tier::Point(t) => t.name.clone(),
+        }
+    }
+
+    #[test]
+    fn rename_tier_reports_and_reads_back_and_undo_redo_is_hash_stable() {
+        let (mut engine, _audio, doc) = base_engine();
+        let tier = interval_tiers(engine.annotation(doc).unwrap())[0].0;
+        let before = engine.state_hash();
+        assert_eq!(tier_name(&engine, doc, tier), "phones");
+
+        let applied = engine
+            .apply(Command::RenameTier {
+                annotation: doc,
+                tier,
+                name: "segments".to_string(),
+            })
+            .unwrap();
+        assert!(matches!(
+            applied,
+            Applied::TierRenamed { annotation, tier: t, ref name }
+                if annotation == doc && t == tier && name == "segments"
+        ));
+        assert_eq!(tier_name(&engine, doc, tier), "segments");
+        let renamed_hash = engine.state_hash();
+        assert_ne!(renamed_hash, before, "rename must shift the state hash");
+
+        engine.undo().unwrap();
+        assert_eq!(tier_name(&engine, doc, tier), "phones");
+        assert_eq!(engine.state_hash(), before);
+
+        engine.redo().unwrap();
+        assert_eq!(tier_name(&engine, doc, tier), "segments");
+        assert_eq!(engine.state_hash(), renamed_hash);
+    }
+
+    #[test]
+    fn rename_unknown_tier_rejects() {
+        let (mut engine, _audio, doc) = base_engine();
+        assert!(
+            engine
+                .apply(Command::RenameTier {
+                    annotation: doc,
+                    tier: TierId::new(9_999),
+                    name: "x".to_string(),
+                })
+                .is_err()
+        );
     }
 
     #[test]
