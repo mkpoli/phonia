@@ -727,6 +727,28 @@
     }
   }
 
+  // Copies the averaged spectrum over the selection as CSV, one `freq_hz,db`
+  // row per frequency bin.
+  async function copySpectrum() {
+    const sel = selection;
+    if (!client || !audio || !sel || !(sel.t1 > sel.t0)) return;
+    try {
+      const data = await client.spectrumSlice(audio.id, sel.t0, sel.t1);
+      const rows = ['freq_hz,db'];
+      for (let i = 0; i < data.freqs.length; i += 1) {
+        const freq = data.freqs[i];
+        const level = data.db[i];
+        if (Number.isFinite(freq) && Number.isFinite(level)) {
+          rows.push(`${freq.toFixed(2)},${level.toFixed(2)}`);
+        }
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`Spectrum copied · ${rows.length - 1} bins`);
+    } catch {
+      flashToast('Could not copy the spectrum');
+    }
+  }
+
   // Transport Play / Space plays what the user is looking at, in priority order:
   // an active selection's time span, else the visible viewport when zoomed in,
   // else the whole file from the cursor. A box selection plays its time span
@@ -1085,6 +1107,15 @@
       keywords: ['formant', 'f1', 'f2', 'contour', 'csv', 'export', 'copy', 'list', 'vowel'],
       enabled: hasAudio,
       run: () => void copyFormantContour()
+    },
+    {
+      id: 'copySpectrum',
+      title: 'Copy spectrum (CSV)',
+      group: 'Analysis',
+      api: ['spectrumSlice'],
+      keywords: ['spectrum', 'fft', 'frequency', 'db', 'csv', 'export', 'copy', 'slice'],
+      enabled: hasSelection,
+      run: () => void copySpectrum()
     },
     {
       id: 'toggleFormantTrack',

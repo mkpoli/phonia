@@ -364,6 +364,30 @@ test('intensity extrema show the max and min over the selection', async ({ page 
   expect(maxDb).toBeGreaterThanOrEqual(minDb);
 });
 
+test('copy spectrum writes CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('copy spectrum');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copySpectrum"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('Spectrum copied', {
+    timeout: 20_000
+  });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('freq_hz,db')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const [f, d] = lines[1].split(',').map(Number);
+  expect(f).toBeGreaterThanOrEqual(0);
+  expect(Number.isFinite(d)).toBe(true);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);
