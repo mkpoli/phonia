@@ -331,3 +331,26 @@ test('the vowel chart plots F1-F2 for labelled intervals', async ({ page }) => {
   await expect(page.getByTestId('vowel-chart-canvas')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('vowel-chart-count')).toContainText('vowel');
 });
+
+test('the IPA pad inserts glyphs into the label editor without committing', async ({ page }) => {
+  await loadFixture(page);
+  await page.getByTestId('add-interval-tier').click();
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
+
+  // Open the pad, then open the label editor on the interval.
+  await page.getByTestId('ipa-toggle').click();
+  await expect(page.getByTestId('ipa-pad')).toBeVisible();
+  await page.getByTestId('interval').first().dblclick();
+  const editor = page.getByTestId('label-editor');
+  await expect(editor).toBeFocused();
+
+  // Tapping a key inserts at the caret and never blurs (would commit) the field.
+  await page.locator('[data-testid="ipa-key"][data-glyph="ʃ"]').click();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveValue('ʃ');
+
+  // Switching to the sinological tab keeps the editor open too.
+  await page.getByTestId('ipa-tab-sino').click();
+  await page.locator('[data-testid="ipa-key"][data-glyph="ɿ"]').first().click();
+  await expect(editor).toHaveValue('ʃɿ');
+});

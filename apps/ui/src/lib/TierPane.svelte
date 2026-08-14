@@ -2,11 +2,13 @@
   import IconListTree from '~icons/lucide/list-tree';
   import IconMapPin from '~icons/lucide/map-pin';
   import IconFileUp from '~icons/lucide/file-up';
+  import IconKeyboard from '~icons/lucide/keyboard';
   import IconFileDown from '~icons/lucide/file-down';
   import IconX from '~icons/lucide/x';
   import InlineRename from './InlineRename.svelte';
   import SearchBar from './SearchBar.svelte';
   import TierLane from './TierLane.svelte';
+  import IpaPad from './IpaPad.svelte';
   import { getCommandRegistry, registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
   import type {
@@ -74,6 +76,7 @@
   let activeTierId = $state<bigint | null>(null);
   let activeIndex = $state(0);
   let editing = $state<EditingState | null>(null);
+  let ipaPadOpen = $state(false);
   let undoDepth = $state(0);
   let redoDepth = $state(0);
   let stateHash = $state<bigint>(0n);
@@ -753,6 +756,16 @@
     <button type="button" data-testid="export-textgrid" disabled={annotationId === null} onclick={exportTextGrid}>
       <IconFileDown aria-hidden="true" /><span>Export TextGrid</span>
     </button>
+    <button
+      type="button"
+      data-testid="ipa-toggle"
+      class:on={ipaPadOpen}
+      aria-pressed={ipaPadOpen}
+      title="IPA input pad"
+      onclick={() => (ipaPadOpen = !ipaPadOpen)}
+    >
+      <IconKeyboard aria-hidden="true" /><span>IPA</span>
+    </button>
     <input
       bind:this={fileInput}
       class="hidden-input"
@@ -822,6 +835,9 @@
 
   {#if status}
     <div class="status" role="status" data-testid="tier-status">{status}</div>
+  {/if}
+  {#if ipaPadOpen}
+    <IpaPad onClose={() => (ipaPadOpen = false)} />
   {/if}
 </div>
 
