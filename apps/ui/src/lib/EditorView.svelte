@@ -6,6 +6,7 @@
   import AudioExportDialog from './AudioExportDialog.svelte';
   import ExportDialog from './ExportDialog.svelte';
   import RecordingSwitcher from './RecordingSwitcher.svelte';
+  import InlineRename from './InlineRename.svelte';
   import RecordingsRail from './RecordingsRail.svelte';
   import InspectorPanel from './InspectorPanel.svelte';
   import LevelMeter from './LevelMeter.svelte';
@@ -88,6 +89,8 @@
     currentRecordingId?: number | null;
     onSwitchRecording?: (mediaId: number) => void;
     onRenameRecording?: (mediaId: number, name: string) => void;
+    /** Renames the open project from the breadcrumb; absent leaves it read-only. */
+    onRenameProject?: (name: string) => void;
     onPlaySelection?: (t0: number, t1: number) => void;
     /** Plays a box selection through the engine's band filter; resolves when the
      *  rendered preview finishes sounding. */
@@ -137,6 +140,7 @@
     currentRecordingId,
     onSwitchRecording,
     onRenameRecording,
+    onRenameProject,
     onPlaySelection,
     onPlayFilteredSelection,
     onExportAudio,
@@ -162,6 +166,15 @@
   function takeFileList(files: FileList | null) {
     const file = files?.item(0);
     if (file) onFile(file);
+  }
+
+  function handleBackKeydown(event: KeyboardEvent) {
+    // The crumb carries a rename field, which claims its own keys.
+    if (event.target !== event.currentTarget) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onExit?.();
+    }
   }
 
   // Innermost library group holding the current recording, for the breadcrumb.
@@ -836,10 +849,28 @@
         <span class="crumb-sep" aria-hidden="true">›</span>
       {/if}
       {#if onExit}
-        <button type="button" class="crumb-back" data-testid="back-corpus" title="Back to the project" onclick={() => onExit?.()}>
+        <span
+          class="crumb-back"
+          role="button"
+          tabindex="0"
+          data-testid="back-corpus"
+          title="Back to the project"
+          onclick={() => onExit?.()}
+          onkeydown={handleBackKeydown}
+        >
           <IconArrowLeft aria-hidden="true" />
-          <span>{projectName ?? 'Project'}</span>
-        </button>
+          {#if onRenameProject}
+            <InlineRename
+              name={projectName ?? 'Project'}
+              class="crumb-back-name"
+              label="Rename project"
+              testId="rename-editor-project"
+              onRename={(next) => onRenameProject?.(next)}
+            />
+          {:else}
+            <span>{projectName ?? 'Project'}</span>
+          {/if}
+        </span>
         <span class="crumb-sep" aria-hidden="true">›</span>
       {/if}
       {#if recordingGroupName}
@@ -894,6 +925,7 @@
         onToggleInvert={onPaletteInvertToggle}
         onNewRamp={openNewRamp}
         onEditRamp={openEditRamp}
+        onRenameRamp={(ramp, name) => onSaveRamp({ ...ramp, name })}
       />
 
       <button
@@ -959,6 +991,7 @@
         onToggle={() => (railOpen = !railOpen)}
         onSwitch={(mediaId) => onSwitchRecording?.(mediaId)}
         onImport={() => fileInput?.click()}
+        onRename={onRenameRecording}
       />
     {/if}
 
@@ -1159,12 +1192,18 @@
     color: var(--text);
     min-height: 1.6rem;
     padding: 0.2rem 0.55rem;
+    cursor: pointer;
     transition:
       background var(--t-fast),
       border-color var(--t-fast);
   }
 
-  .crumb-back :global(svg) {
+  .crumb-back:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .crumb-back > :global(svg) {
     font-size: 0.95rem;
   }
 

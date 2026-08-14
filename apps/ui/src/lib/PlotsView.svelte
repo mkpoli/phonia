@@ -17,6 +17,7 @@
   import IconAlignMiddle from '~icons/lucide/align-center-horizontal';
   import IconAlignBottom from '~icons/lucide/align-end-horizontal';
   import ColourField from './ColourField.svelte';
+  import InlineRename from './InlineRename.svelte';
   import { untrack } from 'svelte';
   import {
     makePlotObject,
@@ -49,10 +50,30 @@
      *  be scoped to the span picked in Analyse. Null when nothing is selected. */
     selection?: { t0: number; t1: number } | null;
     projectName?: string;
+    /** Renames the open project from the breadcrumb; absent leaves it read-only. */
+    onRenameProject?: (name: string) => void;
     onExit?: () => void;
   }
 
-  let { client, audio, annotationId, theme, selection = null, projectName, onExit }: Props = $props();
+  let {
+    client,
+    audio,
+    annotationId,
+    theme,
+    selection = null,
+    projectName,
+    onRenameProject,
+    onExit,
+  }: Props = $props();
+
+  function handleBackKeydown(event: KeyboardEvent) {
+    // The crumb carries a rename field, which claims its own keys.
+    if (event.target !== event.currentTarget) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onExit?.();
+    }
+  }
 
   const COLORMAPS: FigureColormapName[] = [
     'viridis',
@@ -327,6 +348,11 @@
     if (!selectedId) return;
     pushHistory();
     objects = objects.map((o) => (o.id === selectedId ? { ...o, ...patch } : o));
+  }
+
+  function renameObject(id: string, name: string) {
+    pushHistory();
+    objects = objects.map((o) => (o.id === id ? { ...o, name } : o));
   }
 
   type Align = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
@@ -899,10 +925,27 @@
   <header class="bar">
     <nav class="crumb" aria-label="Location">
       {#if onExit}
-        <button type="button" class="crumb-back" data-testid="plots-back" onclick={() => onExit?.()}>
+        <span
+          class="crumb-back"
+          role="button"
+          tabindex="0"
+          data-testid="plots-back"
+          onclick={() => onExit?.()}
+          onkeydown={handleBackKeydown}
+        >
           <IconArrowLeft aria-hidden="true" />
-          <span>{projectName ?? 'Project'}</span>
-        </button>
+          {#if onRenameProject}
+            <InlineRename
+              name={projectName ?? 'Project'}
+              class="crumb-back-name"
+              label="Rename project"
+              testId="rename-plots-project"
+              onRename={(next) => onRenameProject?.(next)}
+            />
+          {:else}
+            <span>{projectName ?? 'Project'}</span>
+          {/if}
+        </span>
         <span class="crumb-sep" aria-hidden="true">›</span>
       {/if}
       <span class="crumb-current">Figure — {audio?.name ?? ''}</span>
@@ -1012,12 +1055,14 @@
                 >
                   {#if o.visible}<IconEye aria-hidden="true" />{:else}<IconEyeOff aria-hidden="true" />{/if}
                 </button>
-                <button
-                  type="button"
+                <InlineRename
+                  name={o.name}
                   class="layer-name"
-                  data-testid="plots-layer-item"
-                  onclick={() => (selectedId = o.id)}>{o.name}</button
-                >
+                  label="Rename plot object"
+                  testId="plots-layer-item"
+                  onActivate={() => (selectedId = o.id)}
+                  onRename={(next) => renameObject(o.id, next)}
+                />
                 <button
                   type="button"
                   class="layer-move"
@@ -1537,6 +1582,12 @@
     border-radius: var(--radius-sm);
     background: var(--panel-soft);
     color: var(--text);
+    cursor: pointer;
+  }
+
+  .crumb-back:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .crumb-back:hover {
@@ -1840,22 +1891,24 @@
     font-size: 0.85rem;
   }
 
-  .layer-name {
+  .layer :global(.inline-rename) {
     flex: 1;
+    min-width: 0;
+  }
+
+  .layer :global(.layer-name) {
     min-width: 0;
     text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border: none;
-    background: transparent;
     color: var(--text);
     font: inherit;
     font-size: 0.8rem;
     padding: 0.25rem 0.2rem;
   }
 
-  .layer.sel .layer-name {
+  .layer.sel :global(.layer-name) {
     color: var(--accent-strong);
     font-weight: 600;
   }

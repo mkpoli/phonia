@@ -1,5 +1,6 @@
 <script lang="ts">
   import IconX from '~icons/lucide/x';
+  import InlineRename from './InlineRename.svelte';
 
   interface Metadata {
     description: string;
@@ -16,10 +17,12 @@
     authors: string[];
     tags: string[];
     onSave: (metadata: Metadata) => void;
+    /** Renames the subject from the heading; absent leaves the title read-only. */
+    onRename?: (name: string) => void;
     onClose: () => void;
   }
 
-  let { scope, title, description, authors, tags, onSave, onClose }: Props = $props();
+  let { scope, title, description, authors, tags, onSave, onRename, onClose }: Props = $props();
 
   // Local drafts, seeded from props. The parent remounts the panel per subject
   // (keyed on the target), so these initialize fresh each time it opens.
@@ -78,7 +81,19 @@
   <header>
     <div class="heading">
       <span class="eyebrow">{scope === 'project' ? 'Project' : 'Recording'}</span>
-      <h2 title={title}>{title}</h2>
+      {#if onRename}
+        <h2>
+          <InlineRename
+            name={title}
+            class="subject-name"
+            label={scope === 'project' ? 'Rename project' : 'Rename recording'}
+            testId="rename-details"
+            onRename={(next) => onRename?.(next)}
+          />
+        </h2>
+      {:else}
+        <h2 title={title}>{title}</h2>
+      {/if}
     </div>
     <button type="button" class="close" aria-label="Close details" data-testid="metadata-close" onclick={onClose}>
       <IconX aria-hidden="true" />

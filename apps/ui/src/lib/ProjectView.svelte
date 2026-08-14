@@ -10,6 +10,7 @@
   import IconSearch from '~icons/lucide/search';
   import IconRotateCcw from '~icons/lucide/rotate-ccw';
   import IconPackage from '~icons/lucide/package';
+  import InlineRename from './InlineRename.svelte';
   import LibraryTree from './LibraryTree.svelte';
   import MetadataPanel from './MetadataPanel.svelte';
   import ProjectExportDialog from './ProjectExportDialog.svelte';
@@ -58,6 +59,8 @@
     collapsed?: number[];
     onToggleCollapse?: (groupId: number) => void;
     onCreateGroup?: () => void;
+    /** Renames the open project; absent leaves the header name read-only. */
+    onRenameProject?: (name: string) => void;
     onRenameGroup?: (groupId: number, name: string) => void;
     onDissolveGroup?: (groupId: number) => void;
     onMoveNode?: (key: string, targetGroupId: number | null, index: number) => void;
@@ -104,6 +107,7 @@
     collapsed = [],
     onToggleCollapse,
     onCreateGroup,
+    onRenameProject,
     onRenameGroup,
     onDissolveGroup,
     onMoveNode,
@@ -221,6 +225,17 @@
     details = { scope: 'recording', mediaId };
   }
 
+  /** Whether the shell wired a rename for whatever the details panel shows. */
+  const detailsRenamable = $derived(
+    details?.scope === 'project' ? Boolean(onRenameProject) : Boolean(onRenameRecording)
+  );
+
+  /** Renames whichever subject the details panel is showing. */
+  function renameDetailsSubject(name: string) {
+    if (details?.scope === 'project') onRenameProject?.(name);
+    else if (details) onRenameRecording?.(details.mediaId, name);
+  }
+
   function saveDetails(metadata: Metadata) {
     if (!details) return;
     if (details.scope === 'project') onUpdateProjectMetadata?.(metadata);
@@ -315,7 +330,17 @@
         <IconArrowLeft aria-hidden="true" />
         <span>Projects</span>
       </button>
-      <span class="name">{projectName}</span>
+      {#if onRenameProject}
+        <InlineRename
+          name={projectName}
+          class="project-name"
+          label="Rename project"
+          testId="rename-project"
+          onRename={(next) => onRenameProject?.(next)}
+        />
+      {:else}
+        <span class="name">{projectName}</span>
+      {/if}
     </div>
     <div class="right">
       <span class="dirty" data-testid="dirty-state" data-dirty={dirty}>
@@ -470,6 +495,7 @@
           authors={detailsSubject.authors}
           tags={detailsSubject.tags}
           onSave={saveDetails}
+          onRename={detailsRenamable ? renameDetailsSubject : undefined}
           onClose={() => (details = null)}
         />
       {/key}
@@ -549,7 +575,8 @@
     gap: 0.7rem;
   }
 
-  .name {
+  .name,
+  .left :global(.project-name) {
     font-weight: 600;
   }
 

@@ -1437,6 +1437,9 @@
       collapsed={collapsedOf(project)}
       onToggleCollapse={toggleCollapse}
       onCreateGroup={createGroup}
+      onRenameProject={(name) => {
+        if (project) void renameProject(project.id, name);
+      }}
       onRenameGroup={renameGroup}
       onDissolveGroup={dissolveGroup}
       onMoveNode={moveNode}
@@ -1488,6 +1491,9 @@
       currentRecordingId={recording?.mediaId ?? null}
       onSwitchRecording={switchRecording}
       onRenameRecording={renameRecording}
+      onRenameProject={(name) => {
+        if (project) void renameProject(project.id, name);
+      }}
       onPlaySelection={(t0, t1) => {
         cursorTime = t0;
         void playback?.playRange(t0, t1);
@@ -1523,6 +1529,9 @@
         {theme}
         selection={editorSelection}
         projectName={project?.name}
+        onRenameProject={(name) => {
+          if (project) void renameProject(project.id, name);
+        }}
         onExit={backToProject}
       />
     </div>

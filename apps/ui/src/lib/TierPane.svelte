@@ -4,6 +4,7 @@
   import IconFileUp from '~icons/lucide/file-up';
   import IconFileDown from '~icons/lucide/file-down';
   import IconX from '~icons/lucide/x';
+  import InlineRename from './InlineRename.svelte';
   import SearchBar from './SearchBar.svelte';
   import TierLane from './TierLane.svelte';
   import { getCommandRegistry, registerCommands } from './commands.svelte';
@@ -358,6 +359,16 @@
         : await client.addPointTier(annotationId, name);
       await refresh();
       activateTier(id, 0);
+    } catch (error) {
+      status = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async function renameTier(tierId: bigint, name: string) {
+    if (!client || annotationId === null) return;
+    try {
+      await client.renameTier(annotationId, tierId, name);
+      await refresh();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
     }
@@ -784,9 +795,17 @@
           onEditCancel={cancelEdit}
         />
         <div class="tier-chip">
-          <button type="button" class="tier-name" data-testid="tier-name" onclick={() => activateTier(tier.id)}>
-            <span class="tier-digit">{tierIndex + 1}</span>{tier.name}
-          </button>
+          <span class="tier-name">
+            <span class="tier-digit">{tierIndex + 1}</span>
+            <InlineRename
+              name={tier.name}
+              class="tier-label"
+              label="Rename tier"
+              testId="tier-name"
+              onActivate={() => activateTier(tier.id)}
+              onRename={(next) => void renameTier(tier.id, next)}
+            />
+          </span>
           <button type="button" class="tier-remove" aria-label={`Remove ${tier.name}`} data-testid="remove-tier" onclick={() => removeTier(tier.id)}>
             <IconX aria-hidden="true" />
           </button>
@@ -891,6 +910,10 @@
     color: var(--chip-fg);
     padding: 0.1rem 0.4rem;
     font-size: 0.72rem;
+  }
+
+  .tier-name :global(.tier-label) {
+    color: var(--chip-fg);
   }
 
   .tier-digit {

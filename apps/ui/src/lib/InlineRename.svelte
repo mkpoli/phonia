@@ -4,22 +4,104 @@
   interface Props {
     name: string;
     onRename: (next: string) => void;
+    /**
+     * Given when the name doubles as the control that opens or selects its
+     * object. A plain click, Enter or Space then acts on the object and the
+     * rename gestures still reach the field underneath.
+     */
+    onActivate?: () => void;
     /** Rendered class for the display span, so callers can match surrounding typography. */
     class?: string;
     /** aria-label for the edit affordance, e.g. "Rename project" / "Rename recording". */
     label: string;
+    /**
+     * Whether to render the pencil. Rows that already carry their own edit
+     * control pass false, so the name keeps its gestures without a second
+     * pencil beside the first.
+     */
+    pencil?: boolean;
     testId?: string;
   }
 
-  let { name, onRename, class: className = '', label, testId = 'inline-rename' }: Props = $props();
+  let {
+    name,
+    onRename,
+    onActivate,
+    class: className = '',
+    label,
+    pencil = true,
+    testId = 'inline-rename',
+  }: Props = $props();
+
+  const LONG_PRESS_MS = 500;
+  /** Movement past this many pixels reads as a scroll or drag, never as a press. */
+  const LONG_PRESS_SLOP = 10;
 
   let editing = $state(false);
   let draft = $state('');
   let inputEl = $state<HTMLInputElement | null>(null);
 
+  let pressTimer: ReturnType<typeof setTimeout> | null = null;
+  let pressOrigin: { x: number; y: number } | null = null;
+  /** A finished long press must not also activate through the click the platform sends after it. */
+  let swallowClick = false;
+
   function startEdit() {
     draft = name;
     editing = true;
+  }
+
+  function cancelPress() {
+    if (pressTimer !== null) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+    pressOrigin = null;
+  }
+
+  function handlePointerDown(event: PointerEvent) {
+    // A stale swallow flag would eat an unrelated click, so every press clears it.
+    swallowClick = false;
+    if (editing || event.pointerType === 'mouse') return;
+    pressOrigin = { x: event.clientX, y: event.clientY };
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      swallowClick = true;
+      startEdit();
+    }, LONG_PRESS_MS);
+  }
+
+  function handlePointerMove(event: PointerEvent) {
+    if (pressTimer === null || !pressOrigin) return;
+    const dx = event.clientX - pressOrigin.x;
+    const dy = event.clientY - pressOrigin.y;
+    if (Math.hypot(dx, dy) > LONG_PRESS_SLOP) cancelPress();
+  }
+
+  function handleClick(event: MouseEvent) {
+    if (swallowClick) {
+      swallowClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    onActivate?.();
+  }
+
+  /**
+   * Pointer work inside the field belongs to the field. Rows, crumbs and chips
+   * that open or navigate on click surround it, and placing a caret must not
+   * reach them.
+   */
+  function stopEvent(event: Event) {
+    event.stopPropagation();
+  }
+
+  function handleContextMenu(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    cancelPress();
+    startEdit();
   }
 
   /** Enters edit mode from an owning widget (a treegrid row's F2, say). */
@@ -44,7 +126,8 @@
     // affordance claims them while focused so a row does not also act on them.
     event.preventDefault();
     event.stopPropagation();
-    startEdit();
+    if (event.key !== 'F2' && onActivate) onActivate();
+    else startEdit();
   }
 
   function handleInputKeydown(event: KeyboardEvent) {
@@ -65,6 +148,8 @@
       inputEl.select();
     }
   });
+
+  $effect(() => cancelPress);
 </script>
 
 <span class="inline-rename" data-testid={testId}>
@@ -79,6 +164,9 @@
       data-testid="{testId}-input"
       onkeydown={handleInputKeydown}
       onblur={commit}
+      onclick={stopEvent}
+      ondblclick={stopEvent}
+      onpointerdown={stopEvent}
     />
   {:else}
     <span
@@ -86,22 +174,36 @@
       data-testid="{testId}-name"
       role="button"
       tabindex="0"
-      aria-label={`${label}: ${name}`}
+      aria-label={onActivate ? name : `${label}: ${name}`}
       ondblclick={startEdit}
+      oncontextmenu={handleContextMenu}
+      onpointerdown={handlePointerDown}
+      onpointermove={handlePointerMove}
+      onpointerup={cancelPress}
+      onpointercancel={cancelPress}
+      onpointerleave={cancelPress}
+      onclick={handleClick}
       onkeydown={handleDisplayKeydown}
     >
       {name}
     </span>
-    <button
-      type="button"
-      class="edit"
-      aria-label={label}
-      title={label}
-      data-testid="{testId}-edit"
-      onclick={startEdit}
-    >
-      <IconPencil aria-hidden="true" />
-    </button>
+    {#if pencil}
+      <button
+        type="button"
+        class="edit"
+        aria-label={label}
+        title={label}
+        data-testid="{testId}-edit"
+        onclick={(event) => {
+          // The pencil sits inside rows and crumbs that open or navigate on
+          // click; reaching for it must not also trigger them.
+          event.stopPropagation();
+          startEdit();
+        }}
+      >
+        <IconPencil aria-hidden="true" />
+      </button>
+    {/if}
   {/if}
 </span>
 
@@ -116,6 +218,12 @@
   .display {
     min-width: 0;
     border-radius: var(--radius-sm);
+    cursor: pointer;
+    /* A long press must reach the rename gesture rather than raise the
+       platform's own text selection handles or callout menu. */
+    -webkit-touch-callout: none;
+    user-select: none;
+    touch-action: manipulation;
   }
 
   .display:focus-visible {
@@ -169,6 +277,9 @@
     border-radius: var(--radius-sm);
     padding: 0.05rem 0.35rem;
     min-width: 0;
+    /* `size` sets the natural width; a narrow rail or column caps it here so
+       the field never overflows the row it sits in. */
+    max-width: 100%;
   }
 
   input:focus {

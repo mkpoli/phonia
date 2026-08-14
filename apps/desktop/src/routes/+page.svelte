@@ -552,12 +552,11 @@
     }
   }
 
-  async function renameProject(id: string, currentName: string) {
+  async function renameProject(id: string, name: string) {
     if (!store) return;
-    const next = window.prompt('Rename project', currentName);
-    if (next === null) return;
     try {
-      await store.rename(id, next);
+      await store.rename(id, name);
+      if (project?.id === id) project = { ...project, name: name.trim() || project.name };
       await refreshProjects();
     } catch (caught) {
       report(caught);
@@ -670,6 +669,9 @@
     onBack={backToHome}
     onSave={saveProject}
     onThemeChange={handleThemeChange}
+    onRenameProject={(name) => {
+      if (project) void renameProject(project.id, name);
+    }}
   />
 {:else if route === 'editor'}
   <EditorView
@@ -701,6 +703,9 @@
     groups={project?.groups}
     currentRecordingId={recording?.mediaId ?? null}
     onSwitchRecording={switchRecording}
+    onRenameProject={(name) => {
+      if (project) void renameProject(project.id, name);
+    }}
     onPlaySelection={(t0, t1) => {
       cursorTime = t0;
       void playback?.playRange(t0, t1);
@@ -719,6 +724,9 @@
         {theme}
         selection={editorSelection}
         projectName={project?.name}
+        onRenameProject={(name) => {
+          if (project) void renameProject(project.id, name);
+        }}
         onExit={backToProject}
       />
     </div>

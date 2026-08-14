@@ -4,6 +4,7 @@
   import IconFlipHorizontal2 from '~icons/lucide/flip-horizontal-2';
   import IconPencil from '~icons/lucide/pencil';
   import IconPlus from '~icons/lucide/plus';
+  import InlineRename from './InlineRename.svelte';
   import {
     BUILTIN_PALETTES,
     builtinGradientCss,
@@ -24,10 +25,20 @@
     onToggleInvert: () => void;
     onNewRamp: () => void;
     onEditRamp: (ramp: CustomRamp) => void;
+    /** Renames a saved ramp in place; absent leaves the listed names read-only. */
+    onRenameRamp?: (ramp: CustomRamp, name: string) => void;
   }
 
-  let { palette, invert, customRamps, onSelect, onToggleInvert, onNewRamp, onEditRamp }: Props =
-    $props();
+  let {
+    palette,
+    invert,
+    customRamps,
+    onSelect,
+    onToggleInvert,
+    onNewRamp,
+    onEditRamp,
+    onRenameRamp,
+  }: Props = $props();
 
   type Row =
     | { kind: 'builtin'; sel: PaletteSelection; label: string; gradient: string; note?: string }
@@ -224,7 +235,18 @@
               }}
             >
               <span class="strip" style="background: {row.gradient}"></span>
-              <span class="opt-name">{row.kind === 'builtin' ? row.label : row.ramp.name}</span>
+              {#if row.kind === 'custom' && onRenameRamp}
+                <InlineRename
+                  name={row.ramp.name}
+                  class="opt-name"
+                  label="Rename palette"
+                  testId="rename-ramp"
+                  pencil={false}
+                  onRename={(next) => onRenameRamp?.(row.ramp, next)}
+                />
+              {:else}
+                <span class="opt-name">{row.kind === 'builtin' ? row.label : row.ramp.name}</span>
+              {/if}
               {#if row.kind === 'builtin' && row.note}
                 <span class="note">{row.note}</span>
               {/if}
@@ -361,17 +383,23 @@
     box-shadow: inset 2px 0 0 var(--accent);
   }
 
-  .option.current .opt-name {
+  .option.current .opt-name,
+  .option.current :global(.opt-name) {
     font-weight: 600;
   }
 
-  .opt-name {
+  .opt-name,
+  .option :global(.opt-name) {
     min-width: 0;
-    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.85rem;
+  }
+
+  .opt-name,
+  .option :global(.inline-rename) {
+    flex: 1;
   }
 
   .note {

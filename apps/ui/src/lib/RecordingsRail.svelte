@@ -5,6 +5,7 @@
   import IconPanelLeftClose from '~icons/lucide/panel-left-close';
   import IconPanelLeftOpen from '~icons/lucide/panel-left-open';
   import IconSearch from '~icons/lucide/search';
+  import InlineRename from './InlineRename.svelte';
   import WaveThumb from './WaveThumb.svelte';
   import { formatSampleRate, formatTime, type AudioId, type CoreClientLike } from './types';
 
@@ -26,10 +27,29 @@
     onSwitch: (mediaId: number) => void;
     /** Opens the host's audio file picker; absent hides the Import button. */
     onImport?: () => void;
+    /** Renames a recording in place; absent leaves the rail names read-only. */
+    onRename?: (mediaId: number, name: string) => void;
   }
 
-  let { client, theme, recordings, currentRecordingId, open, onToggle, onSwitch, onImport }: Props =
-    $props();
+  let {
+    client,
+    theme,
+    recordings,
+    currentRecordingId,
+    open,
+    onToggle,
+    onSwitch,
+    onImport,
+    onRename,
+  }: Props = $props();
+
+  function handleOpenKeydown(event: KeyboardEvent, mediaId: number) {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSwitch(mediaId);
+    }
+  }
 
   let query = $state('');
 
@@ -116,20 +136,32 @@
             >
               {#if marked}<IconCheck aria-hidden="true" />{/if}
             </button>
-            <button
-              type="button"
+            <div
               class="open-row"
+              role="button"
+              tabindex="0"
               data-testid="recordings-rail-open"
               onclick={() => onSwitch(rec.mediaId)}
+              onkeydown={(event) => handleOpenKeydown(event, rec.mediaId)}
             >
               <span class="thumb">
                 <WaveThumb {client} audioId={rec.audioId} duration={rec.duration} {theme} width={68} height={18} />
               </span>
               <span class="meta">
-                <span class="name">{rec.name}</span>
+                {#if onRename}
+                  <InlineRename
+                    name={rec.name}
+                    class="rail-name"
+                    label="Rename recording"
+                    testId="rename-rail-recording"
+                    onRename={(next) => onRename?.(rec.mediaId, next)}
+                  />
+                {:else}
+                  <span class="name">{rec.name}</span>
+                {/if}
                 <span class="sub">{formatTime(rec.duration)} · {formatSampleRate(rec.sampleRate)}</span>
               </span>
-            </button>
+            </div>
           </div>
         </li>
       {/each}
@@ -402,6 +434,13 @@
     background: transparent;
     color: inherit;
     text-align: left;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+  }
+
+  .open-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
 
   .thumb {
@@ -420,7 +459,12 @@
     gap: 0.05rem;
   }
 
-  .name {
+  .meta :global(.inline-rename) {
+    width: 100%;
+  }
+
+  .name,
+  .meta :global(.rail-name) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -429,7 +473,8 @@
     font-weight: 500;
   }
 
-  .row.active .name {
+  .row.active .name,
+  .row.active .meta :global(.rail-name) {
     color: var(--accent-strong);
     font-weight: 600;
   }
