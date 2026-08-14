@@ -1439,6 +1439,19 @@
     }
   }
 
+  // Pre-emphasizes the selection into a new library recording — Praat's +6 dB/
+  // octave high-pass with its corner at 50 Hz.
+  async function preemphasisSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
+    const label = `${recording.name} [pre-emphasis]`;
+    try {
+      const wav = await client.applyPreemphasisWav(audio.id, t0, t1, 50, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Writes each channel of a multichannel recording as its own mono recording,
   // in channel order, then opens the first so the split is visible.
   async function extractChannels() {
@@ -1713,6 +1726,7 @@
       onExtractSelection={extractSelection}
       onFilterSelection={filterSelection}
       onNotchSelection={notchSelection}
+      onPreemphasisSelection={preemphasisSelection}
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
       onScalePeakSelection={scalePeakSelection}

@@ -623,6 +623,17 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'exportChannelWav', audioId: id, channel, bits });
   }
 
+  /** Encodes the pre-emphasized `[t0, t1]` of `id` as mono WAV bytes at `bits`. */
+  applyPreemphasisWav(
+    id: AudioId,
+    t0: number,
+    t1: number,
+    fromHz: number,
+    bits: WavBitDepth
+  ): Promise<Uint8Array> {
+    return this.#call({ method: 'applyPreemphasisWav', audioId: id, t0, t1, fromHz, bits });
+  }
+
   buildFigure(spec: FigureSpec): Promise<string> {
     return this.#call({ method: 'buildFigure', spec });
   }

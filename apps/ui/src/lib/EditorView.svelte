@@ -112,6 +112,9 @@
     /** Attenuates a box selection's band (notch) into a new library recording;
      *  absent hides the notch affordance. */
     onNotchSelection?: (t0: number, t1: number, f0: number, f1: number) => void;
+    /** Pre-emphasizes a span into a new library recording; absent hides the
+     *  pre-emphasis affordance. */
+    onPreemphasisSelection?: (t0: number, t1: number) => void;
     /** Reverses a span in time into a new library recording; absent hides the
      *  reverse affordance. */
     onReverseSelection?: (t0: number, t1: number) => void;
@@ -196,6 +199,7 @@
     onExtractSelection,
     onFilterSelection,
     onNotchSelection,
+    onPreemphasisSelection,
     onReverseSelection,
     onScaleSelection,
     onScalePeakSelection,
@@ -617,6 +621,12 @@
   // frequency bounds are ignored — extraction is a time operation).
   function extractCurrentSelection() {
     if (selection) onExtractSelection?.(selection.t0, selection.t1);
+  }
+
+  // Pre-emphasizes the selection's time span into a new recording (a time
+  // operation, so a box's frequency bounds are ignored).
+  function preemphasizeCurrentSelection() {
+    if (selection) onPreemphasisSelection?.(selection.t0, selection.t1);
   }
 
   // Filters a box selection's time span to its frequency band and stores the
@@ -1402,6 +1412,15 @@
       keywords: ['filter', 'notch', 'band stop', 'reject', 'hum', 'hann', 'new sound'],
       enabled: () => selection?.mode === 'box' && onNotchSelection !== undefined,
       run: notchCurrentSelection
+    },
+    {
+      id: 'preemphasisSelection',
+      title: 'Pre-emphasize selection (new recording)',
+      group: 'Selection',
+      api: ['applyPreemphasisWav', 'importAudio'],
+      keywords: ['pre-emphasis', 'preemphasis', 'high pass', 'tilt', 'formant', 'new sound'],
+      enabled: () => hasSelection() && onPreemphasisSelection !== undefined,
+      run: preemphasizeCurrentSelection
     },
     {
       id: 'reverseSelection',

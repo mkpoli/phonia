@@ -1511,6 +1511,43 @@ impl Engine {
         Ok(audio.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the pre-emphasized time span `[t0, t1]` of `id` as mono WAV bytes
+    /// at `bits` — Praat's Sound "Filter (pre-emphasis)", the `+6` dB/octave
+    /// first-difference high-pass with its `+3` dB corner at `from_hz` that lifts
+    /// the higher formants before analysis, saved as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite or the
+    /// span is empty, and [`EngineError::Audio`] when the span cannot be encoded.
+    pub fn apply_preemphasis_wav(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        from_hz: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() || !from_hz.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "apply_preemphasis_wav bounds must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let (start, end) = span_frames(info.sample_rate, info.duration, t0, t1);
+        if end <= start {
+            return Err(EngineError::InvalidRequest {
+                reason: "apply_preemphasis_wav span is empty".to_string(),
+            });
+        }
+        let audio = self.store.range_owned(id, start, end)?;
+        let sample_rate = audio.sample_rate();
+        let mut samples: Vec<f64> = audio.mono_mix().iter().map(|&s| f64::from(s)).collect();
+        phx_dsp::preemphasis_in_place(&mut samples, from_hz, sample_rate);
+        let mono: Vec<f32> = samples.iter().map(|&s| s as f32).collect();
+        Ok(Audio::new(vec![mono], sample_rate)?.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the time span `[t0, t1]` of `id` scaled to an average intensity of
     /// `target_db` as WAV bytes at `bits` — Praat's Sound "Scale intensity" over
     /// a selection, as a new take.
@@ -3973,6 +4010,48 @@ mod tests {
             .map(|&s| f64::from(s) * f64::from(s))
             .sum();
         assert!(notched < 0.7 * raw, "notched {notched} vs raw {raw}");
+    }
+
+    #[test]
+    fn preemphasis_lifts_the_high_tone_over_the_low_tone() {
+        // A 200 Hz + 3000 Hz two-tone; pre-emphasis is a +6 dB/octave high-pass,
+        // so the high tone's amplitude grows relative to the low one.
+        let sr = 16_000.0;
+        let seconds = 0.5;
+        let frames = (sr * seconds) as usize;
+        let low = 200.0;
+        let high = 3000.0;
+        let raw: Vec<f32> = (0..frames)
+            .map(|i| {
+                let t = i as f64 / sr;
+                (0.4 * (TAU * low * t).sin() + 0.4 * (TAU * high * t).sin()) as f32
+            })
+            .collect();
+        let mut engine = Engine::new();
+        let audio = engine
+            .store
+            .insert(Audio::new(vec![raw.clone()], sr).unwrap());
+
+        let wav = engine
+            .apply_preemphasis_wav(audio, 0.0, seconds, 50.0, BitDepth::Float32)
+            .unwrap();
+        let emphasized = Audio::from_wav_bytes(&wav).unwrap();
+
+        let mag = |samples: &[f32], freq: f64| {
+            let (mut re, mut im) = (0.0_f64, 0.0_f64);
+            for (i, &s) in samples.iter().enumerate() {
+                let w = TAU * freq * i as f64 / sr;
+                re += f64::from(s) * w.cos();
+                im += f64::from(s) * w.sin();
+            }
+            re.hypot(im)
+        };
+        let raw_ratio = mag(&raw, high) / mag(&raw, low);
+        let post_ratio = mag(emphasized.channel(0), high) / mag(emphasized.channel(0), low);
+        assert!(
+            post_ratio > raw_ratio * 2.0,
+            "high/low ratio {post_ratio} should rise well above raw {raw_ratio}"
+        );
     }
 
     #[test]
