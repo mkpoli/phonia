@@ -561,6 +561,11 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'resampleWav', audioId: id, targetHz, bits });
   }
 
+  /** Joins the given recordings end to end into one mono WAV at `bits`. */
+  concatWav(ids: AudioId[], bits: WavBitDepth): Promise<Uint8Array> {
+    return this.#call({ method: 'concatWav', ids: ids.map(Number), bits });
+  }
+
   /** Encodes the band-filtered `[t0, t1]` of `id` as mono WAV bytes at `bits`. */
   exportBandFilteredSpanWav(
     id: AudioId,

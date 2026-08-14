@@ -132,6 +132,8 @@
     /** Saves each labelled interval of a tier as its own library recording;
      *  absent hides the affordance. */
     onExtractIntervals?: (spans: { t0: number; t1: number; label: string }[]) => Promise<void>;
+    /** Joins the project's recordings into one new recording; absent hides it. */
+    onConcatenate?: () => Promise<void>;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -187,6 +189,7 @@
     onNearestZero,
     onHarmonicityTrack,
     onExtractIntervals,
+    onConcatenate,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -798,6 +801,16 @@
     }
   }
 
+  async function concatenateAll() {
+    if (!onConcatenate) return;
+    try {
+      await onConcatenate();
+      flashToast(`Concatenated ${recordings?.length ?? 0} recordings`);
+    } catch {
+      flashToast('Could not concatenate the recordings');
+    }
+  }
+
   // Transport Play / Space plays what the user is looking at, in priority order:
   // an active selection's time span, else the visible viewport when zoomed in,
   // else the whole file from the cursor. A box selection plays its time span
@@ -1341,6 +1354,15 @@
       keywords: ['resample', 'downsample', 'sample rate', '16000', 'convert', 'new sound'],
       enabled: () => hasAudio() && onResample16k !== undefined,
       run: () => onResample16k?.()
+    },
+    {
+      id: 'concatenateRecordings',
+      title: 'Concatenate all recordings (new recording)',
+      group: 'Project',
+      api: ['concatWav', 'importAudio'],
+      keywords: ['concatenate', 'join', 'merge', 'combine', 'append', 'new sound'],
+      enabled: () => (recordings?.length ?? 0) >= 2 && onConcatenate !== undefined,
+      run: () => void concatenateAll()
     },
     {
       id: 'snapSelectionZero',

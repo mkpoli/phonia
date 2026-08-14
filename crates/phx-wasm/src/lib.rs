@@ -2119,6 +2119,23 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Joins the given ids end to end into one mono WAV at `bits`. Ids arrive as
+    /// a float array (session counters, exact well below 2^53).
+    ///
+    /// # Errors
+    /// Rejects when `ids` is empty, when one names no live buffer, or when the
+    /// result cannot be resampled or encoded.
+    #[wasm_bindgen(js_name = concatWav)]
+    pub fn concat_wav(&self, ids: Float64Array, bits: WasmBitDepth) -> Result<Uint8Array, JsError> {
+        let ids: Vec<AudioId> = ids
+            .to_vec()
+            .into_iter()
+            .map(|value| AudioId::from_u64(value as u64))
+            .collect();
+        let wav = self.inner.concat_wav(&ids, bits.into())?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits` — the "save selection as audio" path for a filtered selection.
     ///

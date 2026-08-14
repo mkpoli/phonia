@@ -421,6 +421,31 @@ test('harmonicity overlay: the layer toggles on', async ({ page }) => {
   await expect(page.getByTestId('inspector-harmonicity')).not.toHaveClass(/\boff\b/);
 });
 
+test('concatenate joins the project recordings into a new one', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  // A second recording, so concatenate has something to join.
+  await dragSpectrogramBox(page);
+  await page.getByTestId('selection-extract').click();
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[', { timeout: 20_000 });
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('concatenate');
+  const cmd = page.locator(
+    '[data-testid="command-item"][data-command-id="concatenateRecordings"]'
+  );
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('concatenated', {
+    timeout: 30_000
+  });
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(3);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

@@ -1303,6 +1303,22 @@
     await refreshProjects();
   }
 
+  // Joins every loaded recording in the project, in library order, into one new
+  // recording and opens it.
+  async function concatenateProject() {
+    if (!client || !project) return;
+    const ids = project.recordings.flatMap((entry) =>
+      entry.audioId !== null ? [entry.audioId] : []
+    );
+    if (ids.length < 2) return;
+    try {
+      const wav = await client.concatWav(ids, 'Float32');
+      await persistWavAsRecording(wav, `${project.name ?? 'project'} concatenated`);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Copies the editor's time selection into a new library recording, encoded to
   // a lossless float WAV so the extract is sample-exact.
   async function extractSelection(t0: number, t1: number) {
@@ -1655,6 +1671,7 @@
       onNearestZero={nearestZero}
       onHarmonicityTrack={harmonicityTrack}
       onExtractIntervals={extractIntervals}
+      onConcatenate={concatenateProject}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

@@ -1501,6 +1501,37 @@ impl Engine {
             .to_wav_bytes(bits)?)
     }
 
+    /// Joins `ids` end to end into one mono WAV at `bits` — Praat's Sound
+    /// "Concatenate". The first source sets the sample rate; any source at a
+    /// different rate is resampled to it first, and every source is mixed to
+    /// mono before the runs are laid end to end.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::InvalidRequest`] when `ids` is empty,
+    /// [`EngineError::UnknownAudioId`] when one names no live entry, and
+    /// [`EngineError::Audio`] when a source cannot be resampled or the result
+    /// cannot be encoded.
+    pub fn concat_wav(&self, ids: &[AudioId], bits: BitDepth) -> Result<Vec<u8>, EngineError> {
+        let Some((&first, _)) = ids.split_first() else {
+            return Err(EngineError::InvalidRequest {
+                reason: "concat_wav needs at least one recording".to_string(),
+            });
+        };
+        let target_hz = self.store.info(first)?.sample_rate;
+        let mut samples: Vec<f32> = Vec::new();
+        for &id in ids {
+            let access = self.store.whole(id)?;
+            let audio = access.audio();
+            if audio.sample_rate() == target_hz {
+                samples.extend_from_slice(&audio.mono_mix());
+            } else {
+                let resampled = audio.resampled(target_hz, ResampleQuality::Best)?;
+                samples.extend_from_slice(&resampled.mono_mix());
+            }
+        }
+        Ok(Audio::new(vec![samples], target_hz)?.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits`.
     ///
@@ -3639,6 +3670,47 @@ mod tests {
         // A clean sine is near-perfectly periodic, so its HNR runs very high.
         let peak = voiced.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         assert!(peak > 20.0, "peak HNR {peak} dB too low for a clean sine");
+    }
+
+    #[test]
+    fn concat_wav_lays_sources_end_to_end() {
+        let mut engine = Engine::new();
+        let a = engine
+            .import_audio_bytes(&sine_wav_bytes(8_000, 0.5, 220.0))
+            .unwrap();
+        let b = engine
+            .import_audio_bytes(&sine_wav_bytes(8_000, 0.5, 330.0))
+            .unwrap();
+
+        let wav = engine.concat_wav(&[a, b], BitDepth::Float32).unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+        assert_eq!(decoded.sample_rate(), 8_000.0);
+        assert!(
+            (decoded.duration() - 1.0).abs() < 0.01,
+            "duration {}",
+            decoded.duration()
+        );
+    }
+
+    #[test]
+    fn concat_wav_resamples_mismatched_rates_to_the_first() {
+        let mut engine = Engine::new();
+        let a = engine
+            .import_audio_bytes(&sine_wav_bytes(8_000, 0.5, 220.0))
+            .unwrap();
+        let b = engine
+            .import_audio_bytes(&sine_wav_bytes(16_000, 0.5, 220.0))
+            .unwrap();
+
+        let wav = engine.concat_wav(&[a, b], BitDepth::Float32).unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+        // The first source (8 kHz) sets the rate; the total stays the sum.
+        assert_eq!(decoded.sample_rate(), 8_000.0);
+        assert!(
+            (decoded.duration() - 1.0).abs() < 0.01,
+            "duration {}",
+            decoded.duration()
+        );
     }
 
     #[test]
