@@ -586,6 +586,26 @@ export class WasmCoreClient implements CoreClient {
     });
   }
 
+  /** Encodes the notch-filtered `[t0, t1]` of `id` as mono WAV bytes at `bits`. */
+  exportNotchFilteredSpanWav(
+    id: AudioId,
+    t0: number,
+    t1: number,
+    fLow: number,
+    fHigh: number,
+    bits: WavBitDepth
+  ): Promise<Uint8Array> {
+    return this.#call({
+      method: 'exportNotchFilteredSpanWav',
+      audioId: id,
+      t0,
+      t1,
+      fLow,
+      fHigh,
+      bits
+    });
+  }
+
   buildFigure(spec: FigureSpec): Promise<string> {
     return this.#call({ method: 'buildFigure', spec });
   }

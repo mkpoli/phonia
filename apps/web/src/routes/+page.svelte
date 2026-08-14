@@ -1411,6 +1411,19 @@
     }
   }
 
+  // Attenuates the box selection's frequency band and stores the notch-filtered
+  // result as a new recording.
+  async function notchSelection(t0: number, t1: number, f0: number, f1: number) {
+    if (!client || !audio || !recording || !(t1 > t0) || !(f1 > f0)) return;
+    const label = `${recording.name} [notch ${Math.round(f0)}–${Math.round(f1)} Hz]`;
+    try {
+      const wav = await client.exportNotchFilteredSpanWav(audio.id, t0, t1, f0, f1, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   async function cancelRecording() {
     if (!recorder || !capturing) return;
     const recId = recordingId;
@@ -1664,6 +1677,7 @@
       onExportAudio={exportEditorAudio}
       onExtractSelection={extractSelection}
       onFilterSelection={filterSelection}
+      onNotchSelection={notchSelection}
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
       onScalePeakSelection={scalePeakSelection}

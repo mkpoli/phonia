@@ -2163,6 +2163,33 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes the band-attenuated (notch) time span `[t0, t1]` of `id` as mono
+    /// WAV bytes at `bits` — the "save a notch-filtered selection" path.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live store entry, when a bound is not finite,
+    /// or when the span cannot be decoded or encoded.
+    #[wasm_bindgen(js_name = exportNotchFilteredSpanWav)]
+    pub fn export_notch_filtered_span_wav(
+        &mut self,
+        id: u64,
+        t0: f64,
+        t1: f64,
+        f_low: f64,
+        f_high: f64,
+        bits: WasmBitDepth,
+    ) -> Result<Uint8Array, JsError> {
+        let wav = self.inner.export_notch_filtered_span_wav(
+            AudioId::from_u64(id),
+            t0,
+            t1,
+            f_low,
+            f_high,
+            bits.into(),
+        )?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Undoes the most recent command. Returns `undefined` when nothing is left
     /// to undo.
     ///

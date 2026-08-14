@@ -446,6 +446,26 @@ test('concatenate joins the project recordings into a new one', async ({ page })
   ).toHaveCount(3);
 });
 
+test('notch filter stores a band-stopped copy as a new recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('stop Hann band');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="notchSelection"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[notch', {
+    timeout: 20_000
+  });
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(2);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

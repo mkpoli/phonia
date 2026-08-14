@@ -238,6 +238,16 @@ type RequestMessage =
       fHigh: number;
       bits: WavBitDepth;
     }
+  | {
+      id: number;
+      method: 'exportNotchFilteredSpanWav';
+      audioId: AudioId;
+      t0: number;
+      t1: number;
+      fLow: number;
+      fHigh: number;
+      bits: WavBitDepth;
+    }
   | { id: number; method: 'buildFigure'; spec: FigureSpec }
   | { id: number; method: 'renderFigureSvg'; figureJson: string }
   | { id: number; method: 'exportFigure'; figureJson: string; format: FigureExportFormat };
@@ -1066,6 +1076,20 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'exportBandFilteredSpanWav': {
         const bytes = wasm.exportBandFilteredSpanWav(
+          message.audioId,
+          message.t0,
+          message.t1,
+          message.fLow,
+          message.fHigh,
+          WasmBitDepth[message.bits]
+        );
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'exportNotchFilteredSpanWav': {
+        const bytes = wasm.exportNotchFilteredSpanWav(
           message.audioId,
           message.t0,
           message.t1,

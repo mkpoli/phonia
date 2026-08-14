@@ -115,6 +115,41 @@ pub fn band_pass_filter(
     out
 }
 
+/// Attenuates the `[f_low, f_high]` Hann band, passing everything else — the
+/// complement of [`band_pass_filter`], for removing a hum or a single formant.
+pub fn band_stop_filter(
+    plan: &mut RealFftPlan,
+    samples: &[f32],
+    sample_rate: f64,
+    f_low: f64,
+    f_high: f64,
+) -> Vec<f32> {
+    let n = samples.len();
+    if n < 2 || !sample_rate.is_finite() || sample_rate <= 0.0 {
+        return samples.to_vec();
+    }
+    let (lo, hi) = (f_low.min(f_high), f_low.max(f_high));
+
+    let fft_len = next_pow2(n);
+    let mut buffer = vec![0.0_f64; fft_len];
+    for (dst, &sample) in buffer.iter_mut().zip(samples) {
+        *dst = f64::from(sample);
+    }
+
+    let mut spectrum = plan.rfft(&mut buffer);
+    let bin_hz = sample_rate / fft_len as f64;
+    for (k, bin) in spectrum.iter_mut().enumerate() {
+        let gain = 1.0 - band_pass_gain(k as f64 * bin_hz, lo, hi);
+        *bin = scaled(*bin, gain);
+    }
+
+    let time = plan.irfft(&mut spectrum, fft_len);
+    let scale = 1.0 / fft_len as f64;
+    let mut out: Vec<f32> = time[..n].iter().map(|&v| (v * scale) as f32).collect();
+    apply_edge_taper(&mut out, sample_rate);
+    out
+}
+
 fn scaled(bin: Complex<f64>, gain: f64) -> Complex<f64> {
     Complex::new(bin.re * gain, bin.im * gain)
 }

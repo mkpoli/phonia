@@ -1558,6 +1558,45 @@ impl Engine {
         Ok(audio.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the time span `[t0, t1]` of `id` with the `[f_low, f_high]` band
+    /// attenuated as mono WAV bytes at `bits` — Praat's Sound "Filter (stop Hann
+    /// band)", the complement of [`Engine::export_band_filtered_span_wav`].
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite, and
+    /// [`EngineError::Audio`] when the span cannot be decoded or encoded.
+    pub fn export_notch_filtered_span_wav(
+        &mut self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        f_low: f64,
+        f_high: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if ![t0, t1, f_low, f_high]
+            .iter()
+            .all(|value| value.is_finite())
+        {
+            return Err(EngineError::InvalidRequest {
+                reason: "export_notch_filtered_span_wav bounds must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let (start, end) = span_frames(info.sample_rate, info.duration, t0, t1);
+        let audio = self.store.range_owned(id, start, end)?;
+        let mono = audio.mono_mix();
+        let filtered = phx_dsp::band_stop_filter(
+            &mut self.filter_plan,
+            &mono,
+            info.sample_rate,
+            f_low,
+            f_high,
+        );
+        Ok(Audio::new(vec![filtered], info.sample_rate)?.to_wav_bytes(bits)?)
+    }
+
     /// Applies one command through the journal and reports what changed.
     ///
     /// This is the only path that mutates a document: it runs the command,
@@ -3746,6 +3785,42 @@ mod tests {
             .sum();
         // Cutting the 3 kHz tone removes about half the energy.
         assert!(low_band < 0.7 * raw, "low_band {low_band} vs raw {raw}");
+    }
+
+    #[test]
+    fn notch_filter_removes_the_stopped_band() {
+        // The same 300 + 3000 Hz two-tone; a notch around 3 kHz keeps the low
+        // tone and cuts the high one, so the result loses about half its energy.
+        let sr = 16_000_u32;
+        let seconds = 0.5;
+        let frames = (f64::from(sr) * seconds) as usize;
+        let planar: Vec<f32> = (0..frames)
+            .map(|i| {
+                let t = i as f64 / f64::from(sr);
+                (0.4 * (TAU * 300.0 * t).sin() + 0.4 * (TAU * 3000.0 * t).sin()) as f32
+            })
+            .collect();
+        let mut engine = Engine::new();
+        let audio = engine
+            .store
+            .insert(Audio::new(vec![planar], f64::from(sr)).unwrap());
+
+        let raw: f64 = engine
+            .span_samples(audio, 0.0, seconds)
+            .unwrap()
+            .iter()
+            .map(|&s| f64::from(s) * f64::from(s))
+            .sum();
+        let wav = engine
+            .export_notch_filtered_span_wav(audio, 0.0, seconds, 2700.0, 3300.0, BitDepth::Float32)
+            .unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+        let notched: f64 = decoded
+            .channel(0)
+            .iter()
+            .map(|&s| f64::from(s) * f64::from(s))
+            .sum();
+        assert!(notched < 0.7 * raw, "notched {notched} vs raw {raw}");
     }
 
     #[test]

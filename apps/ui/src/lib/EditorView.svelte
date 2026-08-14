@@ -108,6 +108,9 @@
     /** Passes a box selection through the engine's Hann band filter into a new
      *  library recording; absent hides the filter affordance. */
     onFilterSelection?: (t0: number, t1: number, f0: number, f1: number) => void;
+    /** Attenuates a box selection's band (notch) into a new library recording;
+     *  absent hides the notch affordance. */
+    onNotchSelection?: (t0: number, t1: number, f0: number, f1: number) => void;
     /** Reverses a span in time into a new library recording; absent hides the
      *  reverse affordance. */
     onReverseSelection?: (t0: number, t1: number) => void;
@@ -182,6 +185,7 @@
     onExportAudio,
     onExtractSelection,
     onFilterSelection,
+    onNotchSelection,
     onReverseSelection,
     onScaleSelection,
     onScalePeakSelection,
@@ -607,6 +611,13 @@
   function filterCurrentSelection() {
     if (selection?.mode === 'box') {
       onFilterSelection?.(selection.t0, selection.t1, selection.f0, selection.f1);
+    }
+  }
+
+  // Attenuates a box selection's frequency band (notch) into a new recording.
+  function notchCurrentSelection() {
+    if (selection?.mode === 'box') {
+      onNotchSelection?.(selection.t0, selection.t1, selection.f0, selection.f1);
     }
   }
 
@@ -1318,6 +1329,15 @@
       keywords: ['filter', 'band pass', 'hann', 'frequency', 'new sound', 'bandpass'],
       enabled: () => selection?.mode === 'box' && onFilterSelection !== undefined,
       run: filterCurrentSelection
+    },
+    {
+      id: 'notchSelection',
+      title: 'Filter selection (stop Hann band)',
+      group: 'Selection',
+      api: ['exportNotchFilteredSpanWav', 'importAudio'],
+      keywords: ['filter', 'notch', 'band stop', 'reject', 'hum', 'hann', 'new sound'],
+      enabled: () => selection?.mode === 'box' && onNotchSelection !== undefined,
+      run: notchCurrentSelection
     },
     {
       id: 'reverseSelection',
