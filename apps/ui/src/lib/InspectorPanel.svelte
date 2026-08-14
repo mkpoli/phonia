@@ -182,6 +182,22 @@
     </div>
     {#if expanded.formant}
       <div class="params">
+        {#if cursor && cursor.formants.length > 0}
+          <table class="formant-table" data-testid="formant-table">
+            <thead>
+              <tr><th scope="col">at cursor</th><th scope="col">Freq</th><th scope="col">Bw</th></tr>
+            </thead>
+            <tbody>
+              {#each cursor.formants as formant, i (i)}
+                <tr data-testid="formant-row">
+                  <td class="fk">F{i + 1}</td>
+                  <td>{hz(formant.frequencyHz)}</td>
+                  <td>{hz(formant.bandwidthHz)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
         <div class="field">
           <div class="label-row">
             <span>Ceiling</span>
@@ -459,6 +475,36 @@
 
   .params {
     padding-left: 2.05rem;
+  }
+
+  .formant-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.6rem;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.76rem;
+  }
+
+  .formant-table th {
+    text-align: right;
+    font-weight: 500;
+    color: var(--muted);
+    padding: 0.1rem 0.35rem;
+  }
+
+  .formant-table th:first-child {
+    text-align: left;
+  }
+
+  .formant-table td {
+    text-align: right;
+    padding: 0.1rem 0.35rem;
+    color: var(--text);
+  }
+
+  .formant-table .fk {
+    text-align: left;
+    color: var(--muted);
   }
 
   .toggle.inline {

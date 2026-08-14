@@ -7,10 +7,19 @@ export interface OverlayTracks {
   intensity: IntensityTrackData | null;
 }
 
+/** One formant reading: centre frequency and its bandwidth, in hertz. */
+export interface FormantReading {
+  frequencyHz: number;
+  bandwidthHz: number;
+}
+
 /** Values the drawn overlay tracks attest at one instant. */
 export interface TrackSample {
   f0Hz: number | null;
-  /** Candidates at the nearest frame, lowest first (read as F1, F2, …). */
+  /** Formants at the nearest frame, lowest first (read as F1, F2, …), with the
+   *  bandwidth Burg's roots give each pole. */
+  formants: FormantReading[];
+  /** Centre frequencies only, for consumers that ignore bandwidth. */
   formantsHz: number[];
   intensityDb: number | null;
 }
@@ -62,7 +71,7 @@ function sampleFormants(
   t: number,
   tolerance: number,
   limit: number
-): number[] {
+): FormantReading[] {
   if (!track || track.points.length < 3) return [];
   const points = track.points;
   let bestTime = Number.NaN;
@@ -75,19 +84,21 @@ function sampleFormants(
     }
   }
   if (!(bestDist <= tolerance)) return [];
-  const out: number[] = [];
+  const out: FormantReading[] = [];
   for (let i = 0; i < points.length; i += 3) {
-    if (points[i] === bestTime) out.push(points[i + 1]);
+    if (points[i] === bestTime) out.push({ frequencyHz: points[i + 1], bandwidthHz: points[i + 2] });
   }
-  out.sort((a, b) => a - b);
+  out.sort((a, b) => a.frequencyHz - b.frequencyHz);
   return out.slice(0, limit);
 }
 
 /** Reads the overlay tracks at time `t`, absent values as null/empty. */
 export function sampleTracks(tracks: OverlayTracks, t: number): TrackSample {
+  const formants = sampleFormants(tracks.formant, t, 0.02, 4);
   return {
     f0Hz: samplePitch(tracks.pitch, t, 0.02),
-    formantsHz: sampleFormants(tracks.formant, t, 0.02, 3),
+    formants,
+    formantsHz: formants.map((f) => f.frequencyHz),
     intensityDb: sampleIntensity(tracks.intensity, t, 0.05)
   };
 }

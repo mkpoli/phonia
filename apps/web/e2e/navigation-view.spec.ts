@@ -316,6 +316,26 @@ test('UI scale adjusts the root font size and persists across reload', async ({ 
   await expect.poll(rootFontPx).toBeCloseTo(16, 0);
 });
 
+test('the inspector shows an F1–F4 table with bandwidths at the cursor', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+
+  // Move the playhead into the steady vowel so a formant frame sits under the
+  // cursor; formants are shown by default, so the table then populates.
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(500);
+  await page.keyboard.press('Space');
+
+  const table = page.getByTestId('formant-table');
+  await expect(table).toBeVisible({ timeout: 15_000 });
+
+  const rows = page.getByTestId('formant-row');
+  // At least F1 and F2, each carrying a frequency and a bandwidth in hertz.
+  expect(await rows.count()).toBeGreaterThanOrEqual(2);
+  await expect(rows.first()).toContainText('F1');
+  // Two 'Hz' cells per row: the centre frequency and its bandwidth.
+  expect((await rows.first().innerText()).match(/Hz/g)?.length ?? 0).toBe(2);
+});
+
 test('editor view fits the viewport: the page never scrolls, even with the readout bar and inspector open', async ({
   page
 }) => {
