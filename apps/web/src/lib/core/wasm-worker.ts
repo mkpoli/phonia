@@ -200,6 +200,15 @@ type RequestMessage =
   | { id: number; method: 'reverseSpanWav'; audioId: AudioId; t0: number; t1: number; bits: WavBitDepth }
   | {
       id: number;
+      method: 'scaleIntensitySpanWav';
+      audioId: AudioId;
+      t0: number;
+      t1: number;
+      targetDb: number;
+      bits: WavBitDepth;
+    }
+  | {
+      id: number;
       method: 'exportBandFilteredSpanWav';
       audioId: AudioId;
       t0: number;
@@ -962,6 +971,19 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'reverseSpanWav': {
         const bytes = wasm.reverseSpanWav(message.audioId, message.t0, message.t1, WasmBitDepth[message.bits]);
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'scaleIntensitySpanWav': {
+        const bytes = wasm.scaleIntensitySpanWav(
+          message.audioId,
+          message.t0,
+          message.t1,
+          message.targetDb,
+          WasmBitDepth[message.bits]
+        );
         const copy = new Uint8Array(bytes.length);
         copy.set(bytes);
         postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });

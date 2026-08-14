@@ -1288,6 +1288,34 @@ impl Engine {
         Ok(audio.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the time span `[t0, t1]` of `id` scaled to an average intensity of
+    /// `target_db` as WAV bytes at `bits` — Praat's Sound "Scale intensity" over
+    /// a selection, as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite, and
+    /// [`EngineError::Audio`] when the span cannot be decoded or encoded.
+    pub fn scale_intensity_span_wav(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        target_db: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() || !target_db.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "scale_intensity_span_wav bounds must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let (start, end) = span_frames(info.sample_rate, info.duration, t0, t1);
+        let mut audio = self.store.range_owned(id, start, end)?;
+        audio.scale_intensity(target_db);
+        Ok(audio.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits`.
     ///
@@ -3304,6 +3332,28 @@ mod tests {
                 reference.channel(0)[n - 1 - i].to_bits()
             );
         }
+    }
+
+    #[test]
+    fn scale_intensity_span_wav_hits_the_target_intensity() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(8_000, 1.0, 220.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+
+        let target = 70.0;
+        let wav = engine
+            .scale_intensity_span_wav(audio, 0.0, 1.0, target, BitDepth::Float32)
+            .unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+
+        let ch = decoded.channel(0);
+        let mean_sq =
+            ch.iter().map(|&s| f64::from(s) * f64::from(s)).sum::<f64>() / ch.len() as f64;
+        let db = 10.0 * (mean_sq / (2e-5_f64).powi(2)).log10();
+        assert!(
+            (db - target).abs() < 1e-2,
+            "intensity {db} dB != target {target} dB"
+        );
     }
 
     #[test]

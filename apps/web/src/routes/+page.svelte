@@ -1293,6 +1293,20 @@
     }
   }
 
+  // Scales a span to Praat's default 70 dB average intensity and stores it as a
+  // new library recording.
+  async function scaleSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
+    const targetDb = 70;
+    const label = `${recording.name} [${targetDb} dB]`;
+    try {
+      const wav = await client.scaleIntensitySpanWav(audio.id, t0, t1, targetDb, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Reverses a span in time and stores it as a new library recording.
   async function reverseSelection(t0: number, t1: number) {
     if (!client || !audio || !recording || !(t1 > t0)) return;
@@ -1572,6 +1586,7 @@
       onExtractSelection={extractSelection}
       onFilterSelection={filterSelection}
       onReverseSelection={reverseSelection}
+      onScaleSelection={scaleSelection}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

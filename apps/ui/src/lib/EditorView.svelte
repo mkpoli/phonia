@@ -111,6 +111,9 @@
     /** Reverses a span in time into a new library recording; absent hides the
      *  reverse affordance. */
     onReverseSelection?: (t0: number, t1: number) => void;
+    /** Scales a span to a target average intensity into a new library recording;
+     *  absent hides the scale affordance. */
+    onScaleSelection?: (t0: number, t1: number) => void;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -160,6 +163,7 @@
     onExtractSelection,
     onFilterSelection,
     onReverseSelection,
+    onScaleSelection,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -529,6 +533,15 @@
     const t0 = selection ? selection.t0 : 0;
     const t1 = selection ? selection.t1 : audio.duration;
     if (t1 > t0) onReverseSelection?.(t0, t1);
+  }
+
+  // Scales the selection, or the whole file when nothing is selected, to the
+  // target intensity into a new recording.
+  function scaleCurrent() {
+    if (!audio) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (t1 > t0) onScaleSelection?.(t0, t1);
   }
 
   // Transport Play / Space plays what the user is looking at, in priority order:
@@ -992,6 +1005,15 @@
       keywords: ['reverse', 'backwards', 'flip', 'retrograde', 'new sound', 'time'],
       enabled: () => hasAudio() && onReverseSelection !== undefined,
       run: reverseCurrent
+    },
+    {
+      id: 'scaleSelection',
+      title: 'Scale intensity to 70 dB (new recording)',
+      group: 'Selection',
+      api: ['scaleIntensitySpanWav', 'importAudio'],
+      keywords: ['scale', 'intensity', 'loudness', 'normalize', 'gain', 'db', 'new sound'],
+      enabled: () => hasAudio() && onScaleSelection !== undefined,
+      run: scaleCurrent
     },
     {
       id: 'exportFigure',

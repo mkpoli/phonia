@@ -230,6 +230,39 @@ impl Audio {
         }
     }
 
+    /// Scales the whole signal so its average intensity reaches `target_db`,
+    /// following Praat's dB convention (`10·log10(mean(x²)/(2e-5)²)`). The gain
+    /// is one factor applied to every channel, so their balance is kept. Silence
+    /// carries no intensity to scale, so it is left untouched.
+    pub fn scale_intensity(&mut self, target_db: f64) {
+        let mut sum_sq = 0.0_f64;
+        let mut count = 0_usize;
+        for channel in &self.channels {
+            for &sample in channel {
+                sum_sq += f64::from(sample) * f64::from(sample);
+                count += 1;
+            }
+        }
+        if count == 0 {
+            return;
+        }
+        let mean_sq = sum_sq / count as f64;
+        if !(mean_sq > 0.0) {
+            return;
+        }
+        const PREF: f64 = 2e-5;
+        let target_mean = PREF * PREF * 10_f64.powf(target_db / 10.0);
+        let gain = (target_mean / mean_sq).sqrt();
+        if !gain.is_finite() {
+            return;
+        }
+        for channel in &mut self.channels {
+            for sample in channel {
+                *sample = (f64::from(*sample) * gain) as f32;
+            }
+        }
+    }
+
     /// Returns the duration in seconds.
     pub fn duration(&self) -> f64 {
         self.frames() as f64 / self.sample_rate
