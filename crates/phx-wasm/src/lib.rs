@@ -1474,6 +1474,8 @@ impl WasmEngine {
             "bandEnergyDb": readout.band_energy_db,
             "intensityMeanDb": readout.intensity_mean_db,
             "hnrMeanDb": readout.hnr_mean_db,
+            "rms": readout.rms,
+            "peak": readout.peak,
             "spectralCogHz": readout.spectral_cog_hz,
             "spectralSdHz": readout.spectral_sd_hz,
             "spectralSkewness": readout.spectral_skewness,

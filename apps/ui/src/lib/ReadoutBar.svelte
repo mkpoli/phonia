@@ -74,6 +74,15 @@
       : value.toFixed(digits);
   }
 
+  function amp(value: number | null | undefined): string {
+    return value === null || value === undefined || !Number.isFinite(value)
+      ? '—'
+      : value.toFixed(3);
+  }
+
+  // A near-full-scale peak reads as clipping in normalized float audio.
+  const clipping = $derived((readout?.peak ?? 0) >= 0.99);
+
   const visibleFormants = $derived(
     (formantMeans ?? []).slice(0, 3).map((value, index) => ({ index: index + 1, value }))
   );
@@ -113,6 +122,18 @@
     </span>
     <span class="field" data-testid="readout-band-energy" data-value={readout?.bandEnergyDb ?? ''}>
       <span class="k">Band energy</span><span class="v">{db(readout?.bandEnergyDb)}</span>
+    </span>
+    <span class="field" data-testid="readout-rms" data-value={readout?.rms ?? ''}>
+      <span class="k">RMS</span><span class="v">{amp(readout?.rms)}</span>
+    </span>
+    <span
+      class="field"
+      class:provisional={clipping}
+      data-testid="readout-peak"
+      data-value={readout?.peak ?? ''}
+      title={clipping ? 'Peak near full scale — the selection may be clipping' : 'Absolute peak amplitude'}
+    >
+      <span class="k">Peak</span><span class="v">{amp(readout?.peak)}</span>
     </span>
     <span class="field" data-testid="readout-intensity">
       <span class="k">Intensity</span><span class="v">{db(readout?.intensityMeanDb)}</span>

@@ -407,6 +407,10 @@ export interface SelectionReadout {
   bandEnergyDb: number;
   intensityMeanDb: number | null;
   hnrMeanDb: number | null;
+  /** Root-mean-square amplitude over the span. */
+  rms: number | null;
+  /** Largest absolute sample amplitude over the span. */
+  peak: number | null;
   /** Power-weighted spectral centre of gravity in hertz. */
   spectralCogHz: number | null;
   /** Power-weighted spectral standard deviation in hertz. */

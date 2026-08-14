@@ -115,6 +115,11 @@ pub struct SelectionReadout {
     pub intensity_mean_db: Option<f64>,
     /// Mean harmonics-to-noise ratio over the span, in decibels.
     pub hnr_mean_db: Option<f64>,
+    /// Root-mean-square amplitude over the span, absent when the span is empty.
+    pub rms: Option<f64>,
+    /// Largest absolute sample amplitude over the span, absent when the span is
+    /// empty — Praat's "Get absolute extremum", for clipping and level checks.
+    pub peak: Option<f64>,
     /// Power-weighted spectral centre of gravity in hertz, from the spectral
     /// slice at the span midpoint.
     pub spectral_cog_hz: Option<f64>,
@@ -846,16 +851,24 @@ impl Engine {
         let span = TimeSpan::new(lo, hi);
         let view = audio.slice_samples(0..audio.frames());
 
-        // Spectral moments from a single windowed FFT over the whole selection.
-        let moments = {
+        // Spectral moments from a single windowed FFT over the whole selection,
+        // plus the span's raw RMS and absolute-peak amplitude off the same slice.
+        let (moments, rms, peak) = {
             let sr = audio.sample_rate();
             let start = (lo * sr).floor().max(0.0) as usize;
             let end = ((hi * sr).ceil() as usize).min(audio.frames());
             if end > start {
                 let mono = audio.slice_samples(start..end).mono_mix();
-                windowed_span_moments(mono.as_ref(), sr, 2.0)
+                let moments = windowed_span_moments(mono.as_ref(), sr, 2.0);
+                let sum_sq: f64 = mono.iter().map(|&s| f64::from(s) * f64::from(s)).sum();
+                let rms = (sum_sq / mono.len() as f64).sqrt();
+                let peak = mono
+                    .iter()
+                    .map(|&s| f64::from(s).abs())
+                    .fold(0.0_f64, f64::max);
+                (moments, Some(rms), Some(peak))
             } else {
-                windowed_span_moments(&[], sr, 2.0)
+                (windowed_span_moments(&[], sr, 2.0), None, None)
             }
         };
 
@@ -892,6 +905,8 @@ impl Engine {
             band_energy_db: self.band_energy(id, lo, hi, flo, fhi)?,
             intensity_mean_db,
             hnr_mean_db,
+            rms,
+            peak,
             spectral_cog_hz: moments.centre_of_gravity_hz,
             spectral_sd_hz: moments.standard_deviation_hz,
             spectral_skewness: moments.skewness,
@@ -2718,6 +2733,25 @@ mod tests {
         assert_eq!(readout.band_energy_db.to_bits(), direct.to_bits());
         assert!((readout.duration - (t1 - t0)).abs() < 1.0e-12);
         assert!(readout.f0_mean_hz.is_some(), "vowel span should be voiced");
+    }
+
+    #[test]
+    fn selection_readout_reports_rms_and_peak() {
+        // A full-scale 200 Hz sine: absolute peak ≈ 1.0, RMS ≈ 1/√2.
+        let sr = 16_000.0;
+        let samples: Vec<f32> = (0..8_000)
+            .map(|i| (TAU * 200.0 * i as f64 / sr).sin() as f32)
+            .collect();
+        let mut engine = Engine::new();
+        let id = engine.store.insert(Audio::new(vec![samples], sr).unwrap());
+
+        let readout = engine
+            .selection_readout(id, 0.0, 0.5, 0.0, 8000.0, 75.0, 600.0, 100.0)
+            .unwrap();
+        let peak = readout.peak.expect("non-empty span has a peak");
+        let rms = readout.rms.expect("non-empty span has an rms");
+        assert!((peak - 1.0).abs() < 0.01, "peak {peak}");
+        assert!((rms - 0.5_f64.sqrt()).abs() < 0.02, "rms {rms}");
     }
 
     #[test]

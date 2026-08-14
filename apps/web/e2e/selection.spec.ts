@@ -72,6 +72,16 @@ test('spectrogram box selection: readout values are present and finite', async (
   expect(Number.isFinite(cog)).toBe(true);
   expect(cog).toBeGreaterThan(0);
 
+  // RMS and absolute peak over the selection: both finite, positive, and bounded
+  // by full scale, with the peak never below the RMS.
+  const rms = Number(await page.getByTestId('readout-rms').getAttribute('data-value'));
+  const peak = Number(await page.getByTestId('readout-peak').getAttribute('data-value'));
+  expect(Number.isFinite(rms)).toBe(true);
+  expect(Number.isFinite(peak)).toBe(true);
+  expect(rms).toBeGreaterThan(0);
+  expect(peak).toBeGreaterThanOrEqual(rms);
+  expect(peak).toBeLessThanOrEqual(1.0001);
+
   await expect(page.getByTestId('readout-duration')).toContainText('s');
 });
 
