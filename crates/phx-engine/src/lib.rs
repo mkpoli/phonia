@@ -1046,7 +1046,10 @@ impl Engine {
         if frames.is_empty() {
             return Ok(whole);
         }
-        let peak = frames.iter().map(|&(_, db)| db).fold(f64::NEG_INFINITY, f64::max);
+        let peak = frames
+            .iter()
+            .map(|&(_, db)| db)
+            .fold(f64::NEG_INFINITY, f64::max);
         if !peak.is_finite() {
             return Ok(whole);
         }
@@ -1072,7 +1075,11 @@ impl Engine {
         // flip strictly reduces the segment count once coalesced, so this ends.
         loop {
             let short = segs.iter().position(|&(a, b, sounding)| {
-                let min = if sounding { min_sounding_s } else { min_silent_s };
+                let min = if sounding {
+                    min_sounding_s
+                } else {
+                    min_silent_s
+                };
                 (b - a) < min
             });
             match short {
