@@ -151,6 +151,16 @@
           />
           <p class="note">Default 600 Hz — Praat. Lower toward 300 Hz for male speech.</p>
         </div>
+        <div class="field">
+          <label class="toggle inline">
+            <input type="checkbox" data-testid="pitch-pulses" bind:checked={params.pulses.show} />
+            <span>Glottal pulses</span>
+          </label>
+          <p class="note">
+            Marks each glottal pulse on the waveform — the point process jitter, shimmer, and HNR
+            are measured from.
+          </p>
+        </div>
       </div>
     {/if}
   </section>

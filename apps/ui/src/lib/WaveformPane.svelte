@@ -27,6 +27,8 @@
     onResetAmp?: () => void;
     /** Double-click intent: zoom to the active selection, or fit the whole file. */
     onDoubleZoom?: (intent: 'zoom' | 'fit') => void;
+    /** Glottal pulse instants (seconds); drawn as ticks when present. */
+    pulses?: Float64Array | null;
   }
 
   let {
@@ -39,8 +41,21 @@
     onSeek,
     onScaleAmp,
     onResetAmp,
-    onDoubleZoom
+    onDoubleZoom,
+    pulses = null
   }: Props = $props();
+
+  // Pulses inside the viewport, mapped to x-percent across the pane.
+  const visiblePulses = $derived.by(() => {
+    if (!pulses || pulses.length === 0) return [];
+    const span = viewport.t1 - viewport.t0;
+    if (!(span > 0)) return [];
+    const out: number[] = [];
+    for (const t of pulses) {
+      if (t >= viewport.t0 && t <= viewport.t1) out.push(((t - viewport.t0) / span) * 100);
+    }
+    return out;
+  });
 
   const ampScaled = $derived(Math.abs(viewport.ampScale - 1) > 1e-3);
 
@@ -489,6 +504,19 @@
       data-draw-time="0"
     ></canvas>
   {/key}
+  {#if visiblePulses.length > 0}
+    <svg
+      class="pulses"
+      data-testid="pulse-overlay"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      {#each visiblePulses as x, i (i)}
+        <line x1={x} x2={x} y1="0" y2="100" />
+      {/each}
+    </svg>
+  {/if}
   {#if audio && onSelectionChange}
     <SelectionLayer
       {viewport}
@@ -536,6 +564,22 @@
     border-bottom: 1px solid var(--chrome-strong);
     background: var(--canvas);
     overflow: hidden;
+  }
+
+  .pulses {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .pulses line {
+    /* A contrasting blue against the teal waveform, à la Praat's pulse marks;
+       semi-transparent so a dense pulse train doesn't wash out the wave. */
+    stroke: rgb(96 148 255 / 0.5);
+    stroke-width: 0.6;
+    vector-effect: non-scaling-stroke;
   }
 
   .canvas {

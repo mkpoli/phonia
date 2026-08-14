@@ -476,6 +476,8 @@ export interface CoreClientLike extends AnnotationClientLike {
     pitchFloorHz: number,
     pitchCeilingHz: number
   ): Promise<VoiceReportData>;
+  /** Glottal pulse instants across the whole signal, in seconds. */
+  pulseTimes(id: AudioId, floorHz: number, ceilingHz: number): Promise<Float64Array>;
   annotationJson(annotationId: AnnotationId): Promise<string>;
   attachAnnotationJson(audioId: AudioId, json: string): Promise<AnnotationId>;
   saveProjectContainer(spec: SaveProjectSpec): Promise<Uint8Array>;
@@ -618,6 +620,8 @@ export interface OverlayParams {
     mark: FormantMark;
   };
   intensity: { show: boolean; floorHz: number };
+  /** Glottal pulse ticks on the waveform, off by default. */
+  pulses: { show: boolean };
 }
 
 /** Highest tracked value per track, for the inspector's clipping badges. */
@@ -630,7 +634,8 @@ export function defaultOverlayParams(): OverlayParams {
   return {
     pitch: { show: true, floorHz: 75, ceilingHz: 600 },
     formant: { show: true, ceilingHz: 5500, maxFormants: 5, smoothed: false, mark: 'speckle' },
-    intensity: { show: true, floorHz: 100 }
+    intensity: { show: true, floorHz: 100 },
+    pulses: { show: false }
   };
 }
 

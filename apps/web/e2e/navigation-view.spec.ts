@@ -316,6 +316,20 @@ test('UI scale adjusts the root font size and persists across reload', async ({ 
   await expect.poll(rootFontPx).toBeCloseTo(16, 0);
 });
 
+test('toggling glottal pulses draws pulse ticks on the waveform', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+
+  // Off by default: no overlay.
+  await expect(page.getByTestId('pulse-overlay')).toHaveCount(0);
+
+  await page.getByTestId('pitch-pulses').check();
+
+  const overlay = page.getByTestId('pulse-overlay');
+  await expect(overlay).toBeVisible({ timeout: 15_000 });
+  // A steady vowel has many glottal pulses across the view.
+  expect(await overlay.locator('line').count()).toBeGreaterThan(5);
+});
+
 test('the inspector shows an F1–F4 table with bandwidths at the cursor', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
 

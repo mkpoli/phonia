@@ -958,6 +958,38 @@ impl Engine {
         ))
     }
 
+    /// Glottal pulse instants across the whole signal, in seconds — the same
+    /// point process the voice report is built on, exposed for the waveform
+    /// overlay that lets a reader audit jitter, shimmer, and HNR by eye.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
+    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
+    /// finite.
+    pub fn pulse_times(
+        &self,
+        id: AudioId,
+        pitch_floor_hz: f64,
+        pitch_ceiling_hz: f64,
+    ) -> Result<Vec<f64>, EngineError> {
+        if !pitch_floor_hz.is_finite() || !pitch_ceiling_hz.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "pulse_times floor/ceiling must be finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let view = audio.slice_samples(0..audio.frames());
+        let pitch_params = PitchParams {
+            floor_hz: pitch_floor_hz,
+            ceiling_hz: pitch_ceiling_hz,
+            ..PitchParams::default()
+        };
+        let pitch = phx_pitch::pitch_track(view.clone(), &pitch_params);
+        let pulses = phx_voice::pulses(view, &pitch, &PulseParams::default());
+        Ok(pulses.times().to_vec())
+    }
+
     /// Renders a time span band-filtered to `[f_low, f_high]` as a mono buffer
     /// at the source sample rate, for audible playback of a box selection.
     ///

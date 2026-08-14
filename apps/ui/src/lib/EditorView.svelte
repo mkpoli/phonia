@@ -284,6 +284,30 @@
   let selection = $state<Selection | null>(null);
   let readout = $state<SelectionReadout | null>(null);
   let formantMeans = $state<number[] | null>(null);
+
+  // Glottal pulses for the waveform overlay, fetched once per (recording, pitch
+  // range) while the overlay is on. Whole-signal, like the other contours.
+  let pulseTimes = $state<Float64Array | null>(null);
+  $effect(() => {
+    const id = audio?.id;
+    const show = overlayParams.pulses.show;
+    const floor = overlayParams.pitch.floorHz;
+    const ceiling = overlayParams.pitch.ceilingHz;
+    if (!client || id === undefined || !show) {
+      pulseTimes = null;
+      return;
+    }
+    let cancelled = false;
+    client
+      .pulseTimes(id, floor, ceiling)
+      .then((times) => {
+        if (!cancelled) pulseTimes = times;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
   let voiceReportOpen = $state(false);
   let voiceReport = $state<VoiceReportData | null>(null);
   let voiceReportLoading = $state(false);
@@ -1019,6 +1043,7 @@
           onScaleAmp={scaleAmplitude}
           onResetAmp={resetAmplitude}
           onDoubleZoom={handleDoubleZoom}
+          pulses={overlayParams.pulses.show ? pulseTimes : null}
         />
       {/if}
       <SpectrogramPane

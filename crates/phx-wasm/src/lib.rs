@@ -1422,6 +1422,24 @@ impl WasmEngine {
         Ok(Float64Array::from(flat.as_slice()))
     }
 
+    /// Glottal pulse instants across the whole signal, in seconds, for the
+    /// waveform pulse overlay.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, or when a bound is not finite.
+    #[wasm_bindgen(js_name = pulseTimes)]
+    pub fn pulse_times(
+        &self,
+        id: u64,
+        floor_hz: f64,
+        ceiling_hz: f64,
+    ) -> Result<Float64Array, JsError> {
+        let times = self
+            .inner
+            .pulse_times(AudioId::from_u64(id), floor_hz, ceiling_hz)?;
+        Ok(Float64Array::from(times.as_slice()))
+    }
+
     /// Computes the aggregate voice report over a selection span as a JSON string.
     ///
     /// The object carries the pitch summary, jitter and shimmer families, mean

@@ -284,6 +284,10 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'voiceReport', audioId: id, t0, t1, pitchFloorHz, pitchCeilingHz });
   }
 
+  pulseTimes(id: AudioId, floorHz: number, ceilingHz: number): Promise<Float64Array> {
+    return this.#call({ method: 'pulseTimes', audioId: id, floorHz, ceilingHz });
+  }
+
   createAnnotation(audioId: AudioId, xmin: number, xmax: number): Promise<AnnotationId> {
     return this.#call({ method: 'createAnnotation', audioId, xmin, xmax });
   }

@@ -340,6 +340,19 @@ pub fn formant_span_means(
 }
 
 #[tauri::command]
+pub fn pulse_times(
+    state: State<AppState>,
+    id: u64,
+    floor_hz: f64,
+    ceiling_hz: f64,
+) -> Result<Vec<f64>, String> {
+    let engine = lock(&state)?;
+    engine
+        .pulse_times(AudioId::from_u64(id), floor_hz, ceiling_hz)
+        .map_err(err)
+}
+
+#[tauri::command]
 pub fn voice_report(
     state: State<AppState>,
     id: u64,

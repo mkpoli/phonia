@@ -44,6 +44,7 @@ type RequestMessage =
   | { id: number; method: 'spectrogramTile'; audioId: AudioId; req: SpectrogramTileRequest }
   | { id: number; method: 'spectrogramProbe'; audioId: AudioId; req: SpectrogramTileRequest }
   | { id: number; method: 'pitchTrack'; audioId: AudioId; floorHz: number; ceilingHz: number }
+  | { id: number; method: 'pulseTimes'; audioId: AudioId; floorHz: number; ceilingHz: number }
   | {
       id: number;
       method: 'pitchTrackSpan';
@@ -705,6 +706,13 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           { id: message.id, ok: true, result: copy },
           { transfer: [copy.buffer] }
         );
+        return;
+      }
+      case 'pulseTimes': {
+        const data = wasm.pulseTimes(message.audioId, message.floorHz, message.ceilingHz);
+        const copy = new Float64Array(data.length);
+        copy.set(data);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
         return;
       }
       case 'voiceReport': {

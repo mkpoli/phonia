@@ -237,6 +237,12 @@ export class TauriCoreClient implements CoreClientLike {
     return invoke('voice_report', { id: num(id), t0, t1, pitchFloorHz, pitchCeilingHz });
   }
 
+  async pulseTimes(id: AudioId, floorHz: number, ceilingHz: number): Promise<Float64Array> {
+    return Float64Array.from(
+      await invoke<number[]>('pulse_times', { id: num(id), floorHz, ceilingHz })
+    );
+  }
+
   async createAnnotation(audioId: AudioId, xmin: number, xmax: number): Promise<AnnotationId> {
     return big(await invoke<number>('create_annotation', { audioId: num(audioId), xmin, xmax }));
   }
