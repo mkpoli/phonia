@@ -137,6 +137,26 @@ test('the pitch unit selector converts the F0 readout to semitones', async ({ pa
   await expect(page.getByTestId('readout-f0-range')).toContainText('st');
 });
 
+test('extract selection copies the span into a new library recording and opens it', async ({
+  page
+}) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.getByTestId('selection-extract').click();
+
+  // The extract becomes the active recording, named with its time span in seconds.
+  const name = page.getByTestId('recording-switcher-name');
+  await expect(name).toContainText('[', { timeout: 20_000 });
+  await expect(name).toContainText('s]');
+
+  // Both takes — the original and the extract — now live in the library.
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(2);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

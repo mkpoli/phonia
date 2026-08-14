@@ -102,6 +102,9 @@
     /** Encodes and downloads the whole recording or the selection as WAV;
      *  absent hides the audio-export affordances. */
     onExportAudio?: (request: AudioExportRequest) => void;
+    /** Copies the time selection into a new recording in the library and opens
+     *  it; absent hides the extract affordances. */
+    onExtractSelection?: (t0: number, t1: number) => void;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -148,6 +151,7 @@
     onPlaySelection,
     onPlayFilteredSelection,
     onExportAudio,
+    onExtractSelection,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -494,6 +498,12 @@
     }
     onCursorChange?.(sel.t0);
     onPlaySelection?.(sel.t0, sel.t1);
+  }
+
+  // Copies the selection's time span into a new library recording (a box's
+  // frequency bounds are ignored — extraction is a time operation).
+  function extractCurrentSelection() {
+    if (selection) onExtractSelection?.(selection.t0, selection.t1);
   }
 
   // Transport Play / Space plays what the user is looking at, in priority order:
@@ -932,6 +942,15 @@
       run: clearSelection
     },
     {
+      id: 'extractSelection',
+      title: 'Extract selection to new recording',
+      group: 'Selection',
+      api: ['exportSpanWav', 'importAudio'],
+      keywords: ['extract', 'crop', 'clip', 'split', 'new sound', 'copy to', 'trim'],
+      enabled: () => hasSelection() && onExtractSelection !== undefined,
+      run: extractCurrentSelection
+    },
+    {
       id: 'exportFigure',
       title: 'Export figure',
       group: 'Figures',
@@ -1126,6 +1145,7 @@
       onZoom={zoomToSelection}
       onVoiceReport={openVoiceReport}
       onSpectrum={openSpectrum}
+      onExtract={onExtractSelection ? extractCurrentSelection : undefined}
       onClear={clearSelection}
     />
   {/if}

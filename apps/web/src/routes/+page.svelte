@@ -1257,6 +1257,36 @@
     }
   }
 
+  // Copies the editor's time selection into a new library recording. The span
+  // is encoded to a lossless float WAV and re-imported, so the extract persists
+  // to OPFS and opens exactly as an imported or mic-recorded take does.
+  async function extractSelection(t0: number, t1: number) {
+    if (!client || !store || !project || !audio || !recording) return;
+    if (!(t1 > t0)) return;
+    const current = project;
+    const label = `${recording.name} [${t0.toFixed(2)}–${t1.toFixed(2)} s]`;
+    try {
+      const wav = await client.exportSpanWav(audio.id, t0, t1, 'Float32');
+      const file = new File([new Uint8Array(wav)], `${label}.wav`, { type: 'audio/wav' });
+      const info = await client.importAudio(file);
+      const finished = {
+        audioId: info.id,
+        duration: info.duration,
+        sampleRate: info.sampleRate,
+        channels: info.channels,
+        hash: info.hash ?? (await client.contentHash(wav)),
+        wav
+      };
+      const entry = await store.addRecording(current, label, finished);
+      project = { ...current };
+      resetAutosaveBaseline();
+      await refreshProjects();
+      await openRecording(entry);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   async function cancelRecording() {
     if (!recorder || !capturing) return;
     const recId = recordingId;
@@ -1508,6 +1538,7 @@
         }
       }}
       onExportAudio={exportEditorAudio}
+      onExtractSelection={extractSelection}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

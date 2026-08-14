@@ -4,6 +4,7 @@
   import IconActivity from '~icons/lucide/activity';
   import IconAudioWaveform from '~icons/lucide/audio-waveform';
   import IconFilter from '~icons/lucide/filter';
+  import IconScissors from '~icons/lucide/scissors';
   import IconX from '~icons/lucide/x';
   import { formatTime, type Selection, type SelectionReadout } from './types';
   import { formatPitch, type PitchUnit } from './pitch-units';
@@ -21,6 +22,9 @@
     onZoom: () => void;
     onVoiceReport: () => void;
     onSpectrum: () => void;
+    /** Copies the selection's time span into a new library recording; absent
+     *  hides the extract button. */
+    onExtract?: () => void;
     onClear: () => void;
   }
 
@@ -35,6 +39,7 @@
     onZoom,
     onVoiceReport,
     onSpectrum,
+    onExtract,
     onClear
   }: Props = $props();
 
@@ -152,6 +157,11 @@
     <button type="button" data-testid="selection-voice-report" onclick={onVoiceReport}>
       <IconActivity aria-hidden="true" /><span>Voice report</span>
     </button>
+    {#if onExtract}
+      <button type="button" data-testid="selection-extract" onclick={onExtract}>
+        <IconScissors aria-hidden="true" /><span>Extract</span>
+      </button>
+    {/if}
     <button type="button" class="clear" data-testid="selection-clear" onclick={onClear}>
       <IconX aria-hidden="true" /><span>Clear</span>
     </button>
