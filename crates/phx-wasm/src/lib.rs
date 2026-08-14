@@ -2037,6 +2037,25 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes the whole of `id` resampled to `target_hz` as WAV bytes at `bits`
+    /// — the "resample to a new take" path.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live store entry, when `target_hz` is not
+    /// positive and finite, or when resampling or encoding fails.
+    #[wasm_bindgen(js_name = resampleWav)]
+    pub fn resample_wav(
+        &self,
+        id: u64,
+        target_hz: f64,
+        bits: WasmBitDepth,
+    ) -> Result<Uint8Array, JsError> {
+        let wav = self
+            .inner
+            .resample_wav(AudioId::from_u64(id), target_hz, bits.into())?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits` — the "save selection as audio" path for a filtered selection.
     ///

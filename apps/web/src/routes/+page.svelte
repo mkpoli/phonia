@@ -1326,6 +1326,18 @@
     }
   }
 
+  // Resamples the whole recording to 16 kHz and stores it as a new recording.
+  async function resampleTo16k() {
+    if (!client || !audio || !recording) return;
+    const label = `${recording.name} [16 kHz]`;
+    try {
+      const wav = await client.resampleWav(audio.id, 16000, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Reverses a span in time and stores it as a new library recording.
   async function reverseSelection(t0: number, t1: number) {
     if (!client || !audio || !recording || !(t1 > t0)) return;
@@ -1607,6 +1619,7 @@
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
       onScalePeakSelection={scalePeakSelection}
+      onResample16k={resampleTo16k}
       onNearestZero={nearestZero}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}

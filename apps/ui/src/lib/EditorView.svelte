@@ -117,6 +117,9 @@
     /** Normalizes a span's peak into a new library recording; absent hides the
      *  scale-peak affordance. */
     onScalePeakSelection?: (t0: number, t1: number) => void;
+    /** Resamples the whole recording to 16 kHz into a new library recording;
+     *  absent hides the resample affordance. */
+    onResample16k?: () => void;
     /** Resolves the zero crossing nearest a time, for snapping selection edges;
      *  absent hides the snap affordance. */
     onNearestZero?: (t: number) => Promise<number>;
@@ -171,6 +174,7 @@
     onReverseSelection,
     onScaleSelection,
     onScalePeakSelection,
+    onResample16k,
     onNearestZero,
     onStartRecording,
     recording = false,
@@ -1129,6 +1133,15 @@
       keywords: ['scale', 'peak', 'normalize', 'amplitude', 'gain', 'new sound', 'clip'],
       enabled: () => hasAudio() && onScalePeakSelection !== undefined,
       run: scalePeakCurrent
+    },
+    {
+      id: 'resample16k',
+      title: 'Resample to 16 kHz (new recording)',
+      group: 'Selection',
+      api: ['resampleWav', 'importAudio'],
+      keywords: ['resample', 'downsample', 'sample rate', '16000', 'convert', 'new sound'],
+      enabled: () => hasAudio() && onResample16k !== undefined,
+      run: () => onResample16k?.()
     },
     {
       id: 'snapSelectionZero',

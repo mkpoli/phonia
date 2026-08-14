@@ -37,7 +37,7 @@ use phx_spectrogram::{analysis_axes_dims, select_axis_indices};
 
 use tile_cache::{BlockKey, TILE_COLS, TileCache, params_hash};
 
-use phx_audio::Audio;
+use phx_audio::{Audio, ResampleQuality};
 use phx_dsp::{RealFftPlan, Window, window_samples};
 
 use std::sync::Arc;
@@ -1431,6 +1431,35 @@ impl Engine {
         let mut audio = self.store.range_owned(id, start, end)?;
         audio.scale_peak(target);
         Ok(audio.to_wav_bytes(bits)?)
+    }
+
+    /// Encodes the whole of `id` resampled to `target_hz` as WAV bytes at `bits`
+    /// — Praat's Sound "Resample", as a new take. A source already at the target
+    /// rate is re-encoded unchanged.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when `target_hz` is not positive
+    /// and finite, and [`EngineError::Audio`] when resampling or encoding fails.
+    pub fn resample_wav(
+        &self,
+        id: AudioId,
+        target_hz: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !(target_hz.is_finite() && target_hz > 0.0) {
+            return Err(EngineError::InvalidRequest {
+                reason: "resample_wav target_hz must be positive and finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        if audio.sample_rate() == target_hz {
+            return Ok(audio.to_wav_bytes(bits)?);
+        }
+        Ok(audio
+            .resampled(target_hz, ResampleQuality::Best)?
+            .to_wav_bytes(bits)?)
     }
 
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
@@ -3511,6 +3540,26 @@ mod tests {
         assert!(
             (got - zero_t).abs() < 2.0 / sr,
             "zero crossing {got} not near {zero_t}"
+        );
+    }
+
+    #[test]
+    fn resample_wav_changes_the_sample_rate_and_keeps_duration() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(8_000, 1.0, 220.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+
+        let wav = engine
+            .resample_wav(audio, 16_000.0, BitDepth::Float32)
+            .unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+
+        assert_eq!(decoded.sample_rate(), 16_000.0);
+        // A one-second source stays about one second across the rate change.
+        assert!(
+            (decoded.duration() - 1.0).abs() < 0.01,
+            "duration {}",
+            decoded.duration()
         );
     }
 

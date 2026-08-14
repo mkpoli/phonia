@@ -217,6 +217,7 @@ type RequestMessage =
       target: number;
       bits: WavBitDepth;
     }
+  | { id: number; method: 'resampleWav'; audioId: AudioId; targetHz: number; bits: WavBitDepth }
   | {
       id: number;
       method: 'exportBandFilteredSpanWav';
@@ -1012,6 +1013,13 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           message.target,
           WasmBitDepth[message.bits]
         );
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'resampleWav': {
+        const bytes = wasm.resampleWav(message.audioId, message.targetHz, WasmBitDepth[message.bits]);
         const copy = new Uint8Array(bytes.length);
         copy.set(bytes);
         postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
