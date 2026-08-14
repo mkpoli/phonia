@@ -195,6 +195,8 @@
     viewport.f0;
     viewport.f1;
     paletteId;
+    overlayParams.spectrogram.windowLength;
+    overlayParams.spectrogram.dynamicRangeDb;
     applyTransform();
     scheduleFetch();
   });
@@ -214,7 +216,9 @@
       viewport.f1.toFixed(1),
       cssWidth,
       cssHeight,
-      paletteId
+      paletteId,
+      overlayParams.spectrogram.windowLength,
+      overlayParams.spectrogram.dynamicRangeDb
     ].join(':');
     const key = `${String(audio.id)}:spec:${paramsHash}`;
     const cached = cache.get(key);
@@ -226,11 +230,11 @@
       f1: viewport.f1,
       widthPx: cssWidth,
       heightPx: cssHeight,
-      windowLength: 0.005,
+      windowLength: overlayParams.spectrogram.windowLength,
       maxFrequency: 5000,
       timeStep: 0.002,
       frequencyStep: 20,
-      dynamicRangeDb: 70,
+      dynamicRangeDb: overlayParams.spectrogram.dynamicRangeDb,
       colormap: palette.kind === 'builtin' ? palette.name : 'Phonia',
       invert: paletteInvert,
       lut: paletteLut
@@ -452,7 +456,9 @@
     </div>
   {/if}
   <div class="pane-label">
-    Spectrogram · {fmtHz(viewport.f0)}–{fmtHz(viewport.f1)} · 5 ms · 70 dB
+    Spectrogram · {fmtHz(viewport.f0)}–{fmtHz(viewport.f1)} · {Math.round(
+      overlayParams.spectrogram.windowLength * 1000
+    )} ms · {Math.round(overlayParams.spectrogram.dynamicRangeDb)} dB
   </div>
   {#if notice}
     <div class="notice">{notice}</div>

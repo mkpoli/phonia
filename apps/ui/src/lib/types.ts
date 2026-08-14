@@ -697,6 +697,9 @@ export interface OverlayParams {
   cpp: { show: boolean };
   /** Glottal pulse ticks on the waveform, off by default. */
   pulses: { show: boolean };
+  /** Spectrogram analysis controls — the Gaussian window length (a short window
+   *  gives a wideband view, a long one narrowband) and the dB dynamic range. */
+  spectrogram: { windowLength: number; dynamicRangeDb: number };
 }
 
 /** Highest tracked value per track, for the inspector's clipping badges. */
@@ -712,7 +715,8 @@ export function defaultOverlayParams(): OverlayParams {
     intensity: { show: true, floorHz: 100 },
     harmonicity: { show: false, floorHz: 75 },
     cpp: { show: false },
-    pulses: { show: false }
+    pulses: { show: false },
+    spectrogram: { windowLength: 0.005, dynamicRangeDb: 70 }
   };
 }
 

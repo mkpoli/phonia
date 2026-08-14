@@ -109,7 +109,8 @@
     formant: true,
     intensity: true,
     harmonicity: false,
-    cpp: false
+    cpp: false,
+    spectrogram: false
   });
 
   let visibleCount = $derived(
@@ -167,6 +168,56 @@
       </button>
     {/if}
   </header>
+
+  <section class="layer" data-testid="inspector-spectrogram">
+    <div class="layer-head">
+      <button
+        type="button"
+        class="layer-name"
+        aria-expanded={expanded.spectrogram}
+        onclick={() => (expanded.spectrogram = !expanded.spectrogram)}
+      >
+        <span class="chev" class:open={expanded.spectrogram}
+          ><IconChevronRight aria-hidden="true" /></span
+        >
+        Spectrogram
+      </button>
+      <span class="live-value"
+        >{params.spectrogram.windowLength <= 0.01 ? 'wideband' : 'narrowband'}</span
+      >
+    </div>
+    {#if expanded.spectrogram}
+      <div class="params">
+        <div class="field">
+          <div class="label-row"><span>Window</span><span class="unit">s</span></div>
+          <input
+            type="number"
+            min="0.001"
+            max="0.05"
+            step="0.001"
+            data-testid="spectrogram-window"
+            bind:value={params.spectrogram.windowLength}
+          />
+          <p class="note">
+            Gaussian analysis window. Short (~0.005 s) resolves time (wideband); long
+            (~0.03 s) resolves frequency (narrowband).
+          </p>
+        </div>
+        <div class="field">
+          <div class="label-row"><span>Dynamic range</span><span class="unit">dB</span></div>
+          <input
+            type="number"
+            min="20"
+            max="120"
+            step="5"
+            data-testid="spectrogram-dynamic-range"
+            bind:value={params.spectrogram.dynamicRangeDb}
+          />
+          <p class="note">Levels this far below the peak render as the floor colour.</p>
+        </div>
+      </div>
+    {/if}
+  </section>
 
   <section class="layer" class:off={!params.pitch.show} data-testid="inspector-pitch">
     <div class="layer-head">

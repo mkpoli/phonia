@@ -476,6 +476,26 @@ test('formant extrema: per-slot frequency range over the selection appears', asy
   expect(await rows.count()).toBeGreaterThan(0);
 });
 
+test('spectrogram settings: changing the window length re-renders the spectrogram', async ({
+  page
+}) => {
+  await openEditorWithFixture(page, vowelFixture);
+  const canvas = page.getByTestId('spectrogram-canvas');
+  await expect(canvas).toBeVisible();
+
+  // Expand the Spectrogram settings section and read the current render.
+  await page.getByTestId('inspector-spectrogram').getByRole('button', { name: 'Spectrogram' }).click();
+  const window = page.getByTestId('spectrogram-window');
+  await expect(window).toBeVisible();
+  const snapshot = () => canvas.evaluate((el: HTMLCanvasElement) => el.toDataURL());
+  const before = await snapshot();
+
+  // Switch to a narrowband window; the raster changes.
+  await window.fill('0.03');
+  await window.blur();
+  await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
+});
+
 test('cpp overlay: the layer toggles on', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const eye = page.getByTestId('toggle-cpp');
