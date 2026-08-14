@@ -17,8 +17,8 @@ export interface FormantReading {
 export interface TrackSample {
   /** F0 linearly interpolated between the bracketing voiced frames. */
   f0Hz: number | null;
-  /** Formants at the nearest frame, lowest first (read as F1, F2, …), with the
-   *  bandwidth Burg's roots give each pole. */
+  /** Formants interpolated at the cursor, lowest first (read as F1, F2, …),
+   *  each with the bandwidth Burg's roots give its pole. */
   formants: FormantReading[];
   /** Centre frequencies only, for consumers that ignore bandwidth. */
   formantsHz: number[];
@@ -97,10 +97,23 @@ function sampleIntensity(
   return Number.isFinite(db) ? db : null;
 }
 
+/** Frequency-sorted formant candidates recorded at exactly `frameTime`. */
+function candidatesAt(points: Float64Array, frameTime: number, limit: number): FormantReading[] {
+  const out: FormantReading[] = [];
+  for (let i = 0; i < points.length; i += 3) {
+    if (points[i] === frameTime) out.push({ frequencyHz: points[i + 1], bandwidthHz: points[i + 2] });
+  }
+  out.sort((a, b) => a.frequencyHz - b.frequencyHz);
+  return out.slice(0, limit);
+}
+
 /**
- * Candidates of the formant frame nearest `t`, lowest frequency first. The
- * flat `[time, frequency, bandwidth]` triples are frame-ordered, so the
- * nearest frame is found by time and its members collected by equal time.
+ * Formants at `t`, lowest frequency first, matching Praat's Formant "Get value
+ * at time … linear": the two bracketing frames' frequency-sorted candidates are
+ * paired by rank (F1↔F1, F2↔F2, …) and each pair's frequency and bandwidth
+ * blended. Edges, or a bracket frame with no candidates, read the nearest frame.
+ * The flat `[time, frequency, bandwidth]` triples are frame-ordered, so a frame
+ * is its run of triples that share one time.
  */
 function sampleFormants(
   track: FormantTrackData | null,
@@ -110,22 +123,32 @@ function sampleFormants(
 ): FormantReading[] {
   if (!track || track.points.length < 3) return [];
   const points = track.points;
-  let bestTime = Number.NaN;
-  let bestDist = Number.POSITIVE_INFINITY;
+  const times: number[] = [];
+  let last = Number.NaN;
   for (let i = 0; i < points.length; i += 3) {
-    const dist = Math.abs(points[i] - t);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestTime = points[i];
+    if (points[i] !== last) {
+      times.push(points[i]);
+      last = points[i];
     }
   }
-  if (!(bestDist <= tolerance)) return [];
-  const out: FormantReading[] = [];
-  for (let i = 0; i < points.length; i += 3) {
-    if (points[i] === bestTime) out.push({ frequencyHz: points[i + 1], bandwidthHz: points[i + 2] });
+  const stamps = Float64Array.from(times);
+  const [i0, i1, frac] = bracket(stamps, t);
+  const a = candidatesAt(points, times[i0], limit);
+  const b = candidatesAt(points, times[i1], limit);
+  if (i0 !== i1 && a.length > 0 && b.length > 0) {
+    const n = Math.min(a.length, b.length);
+    const out: FormantReading[] = [];
+    for (let k = 0; k < n; k += 1) {
+      out.push({
+        frequencyHz: a[k].frequencyHz + (b[k].frequencyHz - a[k].frequencyHz) * frac,
+        bandwidthHz: a[k].bandwidthHz + (b[k].bandwidthHz - a[k].bandwidthHz) * frac
+      });
+    }
+    return out;
   }
-  out.sort((a, b) => a.frequencyHz - b.frequencyHz);
-  return out.slice(0, limit);
+  const near = nearestIndex(stamps, t);
+  if (Math.abs(times[near] - t) > tolerance) return [];
+  return candidatesAt(points, times[near], limit);
 }
 
 /** Reads the overlay tracks at time `t`, absent values as null/empty. */
