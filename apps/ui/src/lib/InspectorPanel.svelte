@@ -3,6 +3,8 @@
   import IconEye from '~icons/lucide/eye';
   import IconEyeOff from '~icons/lucide/eye-off';
   import IconChevronRight from '~icons/lucide/chevron-right';
+  import IconClipboard from '~icons/lucide/clipboard-copy';
+  import IconCheck from '~icons/lucide/check';
   import IconX from '~icons/lucide/x';
   import type { OverlayParams, OverlayStats, SelectionReadout } from './types';
   import type { TrackSample } from './tracks';
@@ -18,11 +20,44 @@
     /** Track values at the playhead; each layer's live value when no
      *  selection readout supplies one. */
     cursor?: TrackSample | null;
+    /** Playhead time in seconds, for the copy-at-cursor row. */
+    cursorTime?: number;
     onClose?: () => void;
   }
 
-  let { params, stats, readout = null, formantMeans = null, cursor = null, onClose }: Props =
-    $props();
+  let {
+    params,
+    stats,
+    readout = null,
+    formantMeans = null,
+    cursor = null,
+    cursorTime = 0,
+    onClose
+  }: Props = $props();
+
+  let cursorCopied = $state(false);
+
+  function tsvCell(value: number | null | undefined, digits: number): string {
+    return value === null || value === undefined || !Number.isFinite(value) ? '' : value.toFixed(digits);
+  }
+
+  // A tab-separated point measurement at the playhead — time, F0, F1–F4 with
+  // their bandwidths, and intensity — so rows accumulate cleanly in a sheet.
+  async function copyCursor() {
+    const f = cursor?.formants ?? [];
+    const cols = [tsvCell(cursorTime, 4), tsvCell(cursor?.f0Hz, 1)];
+    for (let i = 0; i < 4; i += 1) {
+      cols.push(tsvCell(f[i]?.frequencyHz, 0), tsvCell(f[i]?.bandwidthHz, 0));
+    }
+    cols.push(tsvCell(cursor?.intensityDb, 1));
+    try {
+      await navigator.clipboard.writeText(cols.join('\t'));
+      cursorCopied = true;
+      setTimeout(() => (cursorCopied = false), 1500);
+    } catch {
+      cursorCopied = false;
+    }
+  }
 
   // A ceiling clips the data once a tracked value crowds it. Tracked maxima
   // sit a little under the ceiling even when the true value is cut off, so the
@@ -85,6 +120,16 @@
   <header class="head">
     <h2><IconLayers aria-hidden="true" />Layers</h2>
     <span class="count">{visibleCount}/3 visible</span>
+    <button
+      type="button"
+      class="copy-cursor"
+      data-testid="copy-cursor"
+      title="Copy values at cursor: time, F0, F1–F4 + bandwidths, intensity (tab-separated)"
+      aria-label="Copy values at cursor"
+      onclick={copyCursor}
+    >
+      {#if cursorCopied}<IconCheck aria-hidden="true" />{:else}<IconClipboard aria-hidden="true" />{/if}
+    </button>
     {#if onClose}
       <button type="button" class="close" aria-label="Close inspector" onclick={onClose}>
         <IconX aria-hidden="true" />
@@ -372,11 +417,11 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .close {
+  .close,
+  .copy-cursor {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: auto;
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: transparent;
@@ -389,7 +434,13 @@
       color var(--t-fast);
   }
 
-  .close:hover {
+  .copy-cursor {
+    margin-left: auto;
+    font-size: 0.9rem;
+  }
+
+  .close:hover,
+  .copy-cursor:hover {
     background: var(--panel-soft);
     color: var(--text);
   }

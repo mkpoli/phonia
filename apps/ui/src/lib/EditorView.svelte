@@ -1172,6 +1172,7 @@
         {readout}
         {formantMeans}
         cursor={cursorSample}
+        {cursorTime}
         onClose={() => (inspectorOpen = false)}
       />
     {/if}

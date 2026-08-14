@@ -330,6 +330,23 @@ test('toggling glottal pulses draws pulse ticks on the waveform', async ({ page 
   expect(await overlay.locator('line').count()).toBeGreaterThan(5);
 });
 
+test('copy values at cursor writes a tab-separated point measurement', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+
+  // Put the playhead inside the steady vowel so F0/formants are present.
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(500);
+  await page.keyboard.press('Space');
+
+  await page.getByTestId('copy-cursor').click();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  const cols = text.split('\t');
+  // time, F0, then four (freq, bandwidth) pairs, then intensity = 11 columns.
+  expect(cols.length).toBe(11);
+  expect(Number(cols[0])).toBeGreaterThan(0);
+});
+
 test('the inspector shows an F1–F4 table with bandwidths at the cursor', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
 
