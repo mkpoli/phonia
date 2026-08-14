@@ -91,10 +91,13 @@
     }
   });
 
-  let expanded = $state({ pitch: true, formant: true, intensity: true });
+  let expanded = $state({ pitch: true, formant: true, intensity: true, harmonicity: false });
 
   let visibleCount = $derived(
-    Number(params.pitch.show) + Number(params.formant.show) + Number(params.intensity.show)
+    Number(params.pitch.show) +
+      Number(params.formant.show) +
+      Number(params.intensity.show) +
+      Number(params.harmonicity.show)
   );
 
   function hz(value: number | null | undefined, digits = 0): string {
@@ -127,7 +130,7 @@
 <aside class="inspector" data-testid="inspector" aria-label="Analysis layers">
   <header class="head">
     <h2><IconLayers aria-hidden="true" />Layers</h2>
-    <span class="count">{visibleCount}/3 visible</span>
+    <span class="count">{visibleCount}/4 visible</span>
     <button
       type="button"
       class="copy-cursor"
@@ -398,6 +401,61 @@
       </div>
     {/if}
   </section>
+
+  <section
+    class="layer"
+    class:off={!params.harmonicity.show}
+    data-testid="inspector-harmonicity"
+  >
+    <div class="layer-head">
+      <button
+        type="button"
+        class="eye"
+        data-testid="toggle-harmonicity"
+        aria-pressed={params.harmonicity.show}
+        aria-label={params.harmonicity.show ? 'Hide harmonicity' : 'Show harmonicity'}
+        title={params.harmonicity.show ? 'Hide harmonicity' : 'Show harmonicity'}
+        onclick={() => (params.harmonicity.show = !params.harmonicity.show)}
+      >
+        {#if params.harmonicity.show}<IconEye aria-hidden="true" />{:else}<IconEyeOff
+            aria-hidden="true"
+          />{/if}
+      </button>
+      <span class="swatch harmonicity"></span>
+      <button
+        type="button"
+        class="layer-name"
+        aria-expanded={expanded.harmonicity}
+        onclick={() => (expanded.harmonicity = !expanded.harmonicity)}
+      >
+        <span class="chev" class:open={expanded.harmonicity}
+          ><IconChevronRight aria-hidden="true" /></span
+        >
+        Harmonicity
+      </button>
+      <span
+        class="live-value"
+        title={readout ? 'Mean HNR over the selection' : 'HNR at the cursor'}
+        >{db(readout ? readout.hnrMeanDb : cursor?.hnrDb)}</span
+      >
+    </div>
+    {#if expanded.harmonicity}
+      <div class="params">
+        <div class="field">
+          <div class="label-row"><span>Floor</span><span class="unit">Hz</span></div>
+          <input
+            type="number"
+            min="40"
+            max="400"
+            step="5"
+            data-testid="harmonicity-floor"
+            bind:value={params.harmonicity.floorHz}
+          />
+          <p class="note">Lowest searched F0 — Praat's harmonicity floor, default 75 Hz.</p>
+        </div>
+      </div>
+    {/if}
+  </section>
 </aside>
 
 <style>
@@ -528,6 +586,10 @@
 
   .swatch.intensity {
     background: var(--overlay-intensity);
+  }
+
+  .swatch.harmonicity {
+    background: var(--overlay-harmonicity);
   }
 
   .layer-name {

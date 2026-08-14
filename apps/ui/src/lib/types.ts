@@ -103,6 +103,12 @@ export interface IntensityTrackData {
   db: Float64Array;
 }
 
+/** A harmonics-to-noise ratio track; `hnr` is NaN where the frame is undefined. */
+export interface HarmonicityTrackData {
+  times: Float64Array;
+  hnr: Float64Array;
+}
+
 /** Stable annotation-document handle. */
 export type AnnotationId = bigint;
 /** Stable tier handle within a document. */
@@ -529,6 +535,7 @@ export interface CoreClientLike extends AnnotationClientLike {
     smoothed: boolean
   ): Promise<FormantTrackData>;
   intensityTrack(id: AudioId, floorHz: number): Promise<IntensityTrackData>;
+  harmonicityTrack(id: AudioId, t0: number, t1: number): Promise<HarmonicityTrackData>;
   buildFigure(spec: FigureSpec): Promise<string>;
   renderFigureSvg(figureJson: string): Promise<string>;
   exportFigure(figureJson: string, format: FigureExportFormat): Promise<FigureExportResult>;
@@ -646,6 +653,8 @@ export interface OverlayParams {
     mark: FormantMark;
   };
   intensity: { show: boolean; floorHz: number };
+  /** Harmonics-to-noise ratio contour, off by default. */
+  harmonicity: { show: boolean; floorHz: number };
   /** Glottal pulse ticks on the waveform, off by default. */
   pulses: { show: boolean };
 }
@@ -661,6 +670,7 @@ export function defaultOverlayParams(): OverlayParams {
     pitch: { show: true, floorHz: 75, ceilingHz: 600, unit: 'hertz' },
     formant: { show: true, ceilingHz: 5500, maxFormants: 5, smoothed: false, mark: 'speckle' },
     intensity: { show: true, floorHz: 100 },
+    harmonicity: { show: false, floorHz: 75 },
     pulses: { show: false }
   };
 }

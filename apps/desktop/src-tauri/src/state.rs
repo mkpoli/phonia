@@ -99,6 +99,15 @@ pub struct IntensityTrackDto {
     pub db: Vec<f64>,
 }
 
+/// A harmonicity contour as parallel arrays of frame times and HNR values in
+/// dB; `hnr` is NaN where the frame is undefined.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HarmonicityTrackDto {
+    pub times: Vec<f64>,
+    pub hnr: Vec<f64>,
+}
+
 /// One tier's identity and kind, in document order.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

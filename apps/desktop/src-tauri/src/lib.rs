@@ -75,6 +75,7 @@ pub fn run() {
             engine_cmds::pitch_track_span,
             engine_cmds::formant_track,
             engine_cmds::intensity_track,
+            engine_cmds::harmonicity_track,
             engine_cmds::band_energy,
             engine_cmds::selection_readout,
             engine_cmds::formant_span_means,

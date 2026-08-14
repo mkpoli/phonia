@@ -1,10 +1,16 @@
-import type { FormantTrackData, IntensityTrackData, PitchTrackData } from './types';
+import type {
+  FormantTrackData,
+  HarmonicityTrackData,
+  IntensityTrackData,
+  PitchTrackData
+} from './types';
 
 /** The overlay tracks a pane has fetched for drawing, shared for readouts. */
 export interface OverlayTracks {
   pitch: PitchTrackData | null;
   formant: FormantTrackData | null;
   intensity: IntensityTrackData | null;
+  harmonicity: HarmonicityTrackData | null;
 }
 
 /** One formant reading: centre frequency and its bandwidth, in hertz. */
@@ -24,10 +30,12 @@ export interface TrackSample {
   formantsHz: number[];
   /** Intensity linearly interpolated between the bracketing frames. */
   intensityDb: number | null;
+  /** Harmonics-to-noise ratio at the nearest voiced frame, in dB. */
+  hnrDb: number | null;
 }
 
 export function emptyOverlayTracks(): OverlayTracks {
-  return { pitch: null, formant: null, intensity: null };
+  return { pitch: null, formant: null, intensity: null, harmonicity: null };
 }
 
 /** Index of the value in ascending `times` closest to `t`. */
@@ -97,6 +105,20 @@ function sampleIntensity(
   return Number.isFinite(db) ? db : null;
 }
 
+// The HNR at the nearest frame within tolerance. Undefined frames carry NaN and
+// read as absent, so the value is not interpolated across a voicing gap.
+function sampleHarmonicity(
+  track: HarmonicityTrackData | null,
+  t: number,
+  tolerance: number
+): number | null {
+  if (!track || track.times.length === 0) return null;
+  const i = nearestIndex(track.times, t);
+  if (Math.abs(track.times[i] - t) > tolerance) return null;
+  const hnr = track.hnr[i];
+  return Number.isFinite(hnr) ? hnr : null;
+}
+
 /** Frequency-sorted formant candidates recorded at exactly `frameTime`. */
 function candidatesAt(points: Float64Array, frameTime: number, limit: number): FormantReading[] {
   const out: FormantReading[] = [];
@@ -158,6 +180,7 @@ export function sampleTracks(tracks: OverlayTracks, t: number): TrackSample {
     f0Hz: samplePitch(tracks.pitch, t, 0.02),
     formants,
     formantsHz: formants.map((f) => f.frequencyHz),
-    intensityDb: sampleIntensity(tracks.intensity, t, 0.05)
+    intensityDb: sampleIntensity(tracks.intensity, t, 0.05),
+    hnrDb: sampleHarmonicity(tracks.harmonicity, t, 0.05)
   };
 }

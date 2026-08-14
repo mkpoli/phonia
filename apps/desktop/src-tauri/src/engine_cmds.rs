@@ -13,8 +13,8 @@ use tauri::State;
 use tauri::ipc::Response;
 
 use crate::state::{
-    AppState, AppliedDto, ExportBundleDto, FormantTrackDto, IntensityTrackDto, IntervalDto,
-    LabelHitDto, PitchTrackDto, PointDto, SidecarDto, TierInfoDto,
+    AppState, AppliedDto, ExportBundleDto, FormantTrackDto, HarmonicityTrackDto, IntensityTrackDto,
+    IntervalDto, LabelHitDto, PitchTrackDto, PointDto, SidecarDto, TierInfoDto,
 };
 
 /// Maps an [`EngineError`] to the string the IPC layer rejects with.
@@ -258,6 +258,26 @@ pub fn intensity_track(
 }
 
 #[tauri::command]
+pub fn harmonicity_track(
+    state: State<AppState>,
+    id: u64,
+    t0: f64,
+    t1: f64,
+) -> Result<HarmonicityTrackDto, String> {
+    let engine = lock(&state)?;
+    let frames = engine
+        .harmonicity_track_span(AudioId::from_u64(id), t0, t1)
+        .map_err(err)?;
+    let mut times = Vec::with_capacity(frames.len());
+    let mut hnr = Vec::with_capacity(frames.len());
+    for (time, db) in frames {
+        times.push(time);
+        hnr.push(db.unwrap_or(f64::NAN));
+    }
+    Ok(HarmonicityTrackDto { times, hnr })
+}
+
+#[tauri::command]
 pub fn band_energy(
     state: State<AppState>,
     id: u64,
@@ -360,12 +380,19 @@ pub fn spectrum_slice(
     t1: f64,
 ) -> Result<serde_json::Value, String> {
     let engine = lock(&state)?;
-    let (freqs, db) = engine.spectrum_slice(AudioId::from_u64(id), t0, t1).map_err(err)?;
+    let (freqs, db) = engine
+        .spectrum_slice(AudioId::from_u64(id), t0, t1)
+        .map_err(err)?;
     Ok(serde_json::json!({ "freqs": freqs, "db": db }))
 }
 
 #[tauri::command]
-pub fn ltas(state: State<AppState>, id: u64, t0: f64, t1: f64) -> Result<serde_json::Value, String> {
+pub fn ltas(
+    state: State<AppState>,
+    id: u64,
+    t0: f64,
+    t1: f64,
+) -> Result<serde_json::Value, String> {
     let engine = lock(&state)?;
     let (freqs, db) = engine.ltas(AudioId::from_u64(id), t0, t1).map_err(err)?;
     Ok(serde_json::json!({ "freqs": freqs, "db": db }))
@@ -381,7 +408,12 @@ pub fn silence_intervals(
 ) -> Result<serde_json::Value, String> {
     let engine = lock(&state)?;
     let segs = engine
-        .silence_intervals(AudioId::from_u64(id), threshold_db, min_silent_s, min_sounding_s)
+        .silence_intervals(
+            AudioId::from_u64(id),
+            threshold_db,
+            min_silent_s,
+            min_sounding_s,
+        )
         .map_err(err)?;
     let value: Vec<_> = segs
         .into_iter()

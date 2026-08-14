@@ -10,6 +10,7 @@ import type {
   FigureExportResult,
   FigureSpec,
   FormantTrackData,
+  HarmonicityTrackData,
   IntensityTrackData,
   IntervalData,
   IntervalId,
@@ -165,6 +166,15 @@ export class TauriCoreClient implements CoreClientLike {
       floorHz
     });
     return { times: new Float64Array(raw.times), db: new Float64Array(raw.db) };
+  }
+
+  async harmonicityTrack(id: AudioId, t0: number, t1: number): Promise<HarmonicityTrackData> {
+    const raw = await invoke<{ times: number[]; hnr: number[] }>('harmonicity_track', {
+      id: num(id),
+      t0,
+      t1
+    });
+    return { times: new Float64Array(raw.times), hnr: new Float64Array(raw.hnr) };
   }
 
   bandEnergy(id: AudioId, t0: number, t1: number, f0: number, f1: number): Promise<number> {

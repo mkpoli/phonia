@@ -1175,6 +1175,16 @@
       }
     },
     {
+      id: 'toggleHarmonicityTrack',
+      title: 'Toggle harmonicity track',
+      group: 'Analysis',
+      api: ['harmonicityTrack'],
+      keywords: ['overlay', 'hnr', 'harmonics', 'noise'],
+      run: () => {
+        overlayParams.harmonicity.show = !overlayParams.harmonicity.show;
+      }
+    },
+    {
       id: 'toggleFormantTracking',
       title: 'Toggle formant tracking',
       group: 'Analysis',

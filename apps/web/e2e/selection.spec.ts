@@ -412,6 +412,15 @@ test('copy harmonicity contour writes CSV rows to the clipboard', async ({ page,
   expect(Number.isFinite(hnr)).toBe(true);
 });
 
+test('harmonicity overlay: the layer toggles on', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  const eye = page.getByTestId('toggle-harmonicity');
+  await expect(eye).toHaveAttribute('aria-pressed', 'false');
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('inspector-harmonicity')).not.toHaveClass(/\boff\b/);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);
