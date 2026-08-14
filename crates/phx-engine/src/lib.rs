@@ -1262,6 +1262,32 @@ impl Engine {
         Ok(audio.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the time span `[t0, t1]` of `id` reversed in time as WAV bytes at
+    /// `bits` — Praat's Sound "Reverse" over a selection, as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite, and
+    /// [`EngineError::Audio`] when the span cannot be decoded or encoded.
+    pub fn reverse_span_wav(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "reverse_span_wav t0/t1 must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let (start, end) = span_frames(info.sample_rate, info.duration, t0, t1);
+        let mut audio = self.store.range_owned(id, start, end)?;
+        audio.reverse();
+        Ok(audio.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits`.
     ///
@@ -3248,6 +3274,35 @@ mod tests {
         assert_eq!(decoded.frames(), reference.frames());
         for (a, b) in decoded.channel(0).iter().zip(reference.channel(0)) {
             assert_eq!(a.to_bits(), b.to_bits());
+        }
+    }
+
+    #[test]
+    fn reverse_span_wav_is_the_time_reverse_of_the_slice() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(8_000, 1.0, 220.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+        let info = engine.audio_info(audio).unwrap();
+        let sr = info.sample_rate;
+
+        let (t0, t1) = (0.25, 0.75);
+        let wav = engine
+            .reverse_span_wav(audio, t0, t1, BitDepth::Float32)
+            .unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+
+        let start = (t0 * sr).floor() as usize;
+        let end = (t1 * sr).ceil() as usize;
+        let reference = engine.store.range_owned(audio, start, end).unwrap();
+        assert_eq!(decoded.frames(), reference.frames());
+
+        // Each sample equals its mirror in the unreversed slice, bit-for-bit.
+        let n = reference.frames();
+        for i in 0..n {
+            assert_eq!(
+                decoded.channel(0)[i].to_bits(),
+                reference.channel(0)[n - 1 - i].to_bits()
+            );
         }
     }
 

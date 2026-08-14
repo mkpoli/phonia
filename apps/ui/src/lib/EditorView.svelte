@@ -108,6 +108,9 @@
     /** Passes a box selection through the engine's Hann band filter into a new
      *  library recording; absent hides the filter affordance. */
     onFilterSelection?: (t0: number, t1: number, f0: number, f1: number) => void;
+    /** Reverses a span in time into a new library recording; absent hides the
+     *  reverse affordance. */
+    onReverseSelection?: (t0: number, t1: number) => void;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -156,6 +159,7 @@
     onExportAudio,
     onExtractSelection,
     onFilterSelection,
+    onReverseSelection,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -516,6 +520,15 @@
     if (selection?.mode === 'box') {
       onFilterSelection?.(selection.t0, selection.t1, selection.f0, selection.f1);
     }
+  }
+
+  // Reverses the selection, or the whole file when nothing is selected, into a
+  // new recording.
+  function reverseCurrent() {
+    if (!audio) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (t1 > t0) onReverseSelection?.(t0, t1);
   }
 
   // Transport Play / Space plays what the user is looking at, in priority order:
@@ -972,6 +985,15 @@
       run: filterCurrentSelection
     },
     {
+      id: 'reverseSelection',
+      title: 'Reverse to new recording',
+      group: 'Selection',
+      api: ['reverseSpanWav', 'importAudio'],
+      keywords: ['reverse', 'backwards', 'flip', 'retrograde', 'new sound', 'time'],
+      enabled: () => hasAudio() && onReverseSelection !== undefined,
+      run: reverseCurrent
+    },
+    {
       id: 'exportFigure',
       title: 'Export figure',
       group: 'Figures',
@@ -1168,6 +1190,7 @@
       onSpectrum={openSpectrum}
       onExtract={onExtractSelection ? extractCurrentSelection : undefined}
       onFilter={onFilterSelection ? filterCurrentSelection : undefined}
+      onReverse={onReverseSelection ? reverseCurrent : undefined}
       onClear={clearSelection}
     />
   {/if}

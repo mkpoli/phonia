@@ -5,6 +5,7 @@
   import IconAudioWaveform from '~icons/lucide/audio-waveform';
   import IconFilter from '~icons/lucide/filter';
   import IconScissors from '~icons/lucide/scissors';
+  import IconFlipHorizontal2 from '~icons/lucide/flip-horizontal-2';
   import IconX from '~icons/lucide/x';
   import { formatTime, type Selection, type SelectionReadout } from './types';
   import { formatPitch, type PitchUnit } from './pitch-units';
@@ -28,6 +29,9 @@
     /** Filters a box selection to its frequency band into a new recording;
      *  absent, or on a time selection, hides the filter button. */
     onFilter?: () => void;
+    /** Reverses the selection in time into a new recording; absent hides the
+     *  reverse button. */
+    onReverse?: () => void;
     onClear: () => void;
   }
 
@@ -44,6 +48,7 @@
     onSpectrum,
     onExtract,
     onFilter,
+    onReverse,
     onClear
   }: Props = $props();
 
@@ -169,6 +174,11 @@
     {#if onExtract}
       <button type="button" data-testid="selection-extract" onclick={onExtract}>
         <IconScissors aria-hidden="true" /><span>Extract</span>
+      </button>
+    {/if}
+    {#if onReverse}
+      <button type="button" data-testid="selection-reverse" onclick={onReverse}>
+        <IconFlipHorizontal2 aria-hidden="true" /><span>Reverse</span>
       </button>
     {/if}
     <button type="button" class="clear" data-testid="selection-clear" onclick={onClear}>

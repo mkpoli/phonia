@@ -197,6 +197,7 @@ type RequestMessage =
   | { id: number; method: 'renameProjectContainer'; bytes: ArrayBuffer; name: string }
   | { id: number; method: 'contentHash'; bytes: ArrayBuffer }
   | { id: number; method: 'exportSpanWav'; audioId: AudioId; t0: number; t1: number; bits: WavBitDepth }
+  | { id: number; method: 'reverseSpanWav'; audioId: AudioId; t0: number; t1: number; bits: WavBitDepth }
   | {
       id: number;
       method: 'exportBandFilteredSpanWav';
@@ -954,6 +955,13 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'exportSpanWav': {
         const bytes = wasm.exportSpanWav(message.audioId, message.t0, message.t1, WasmBitDepth[message.bits]);
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'reverseSpanWav': {
+        const bytes = wasm.reverseSpanWav(message.audioId, message.t0, message.t1, WasmBitDepth[message.bits]);
         const copy = new Uint8Array(bytes.length);
         copy.set(bytes);
         postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });

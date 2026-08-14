@@ -223,6 +223,13 @@ impl Audio {
         }
     }
 
+    /// Reverses the signal in time, each channel independently.
+    pub fn reverse(&mut self) {
+        for channel in &mut self.channels {
+            channel.reverse();
+        }
+    }
+
     /// Returns the duration in seconds.
     pub fn duration(&self) -> f64 {
         self.frames() as f64 / self.sample_rate

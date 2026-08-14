@@ -508,6 +508,11 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'exportSpanWav', audioId: id, t0, t1, bits });
   }
 
+  /** Encodes `[t0, t1]` of `id` reversed in time as WAV bytes at `bits`. */
+  reverseSpanWav(id: AudioId, t0: number, t1: number, bits: WavBitDepth): Promise<Uint8Array> {
+    return this.#call({ method: 'reverseSpanWav', audioId: id, t0, t1, bits });
+  }
+
   /** Encodes the band-filtered `[t0, t1]` of `id` as mono WAV bytes at `bits`. */
   exportBandFilteredSpanWav(
     id: AudioId,

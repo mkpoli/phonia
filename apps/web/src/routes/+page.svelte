@@ -1293,6 +1293,18 @@
     }
   }
 
+  // Reverses a span in time and stores it as a new library recording.
+  async function reverseSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
+    const label = `${recording.name} [reversed]`;
+    try {
+      const wav = await client.reverseSpanWav(audio.id, t0, t1, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Passes the box selection's time span through the engine's Hann band filter
   // and stores the mono result as a new library recording.
   async function filterSelection(t0: number, t1: number, f0: number, f1: number) {
@@ -1559,6 +1571,7 @@
       onExportAudio={exportEditorAudio}
       onExtractSelection={extractSelection}
       onFilterSelection={filterSelection}
+      onReverseSelection={reverseSelection}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

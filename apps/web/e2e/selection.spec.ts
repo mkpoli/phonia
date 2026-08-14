@@ -173,6 +173,21 @@ test('filter box selection stores a band-passed copy as a new recording', async 
   ).toHaveCount(2);
 });
 
+test('reverse selection stores a time-reversed copy as a new recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.getByTestId('selection-reverse').click();
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[reversed]', {
+    timeout: 20_000
+  });
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(2);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);
