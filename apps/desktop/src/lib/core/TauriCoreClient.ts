@@ -300,6 +300,20 @@ export class TauriCoreClient implements CoreClientLike {
     ) as AppliedChange;
   }
 
+  async reorderTier(
+    annotationId: AnnotationId,
+    tierId: TierId,
+    toIndex: number
+  ): Promise<AppliedChange> {
+    return appliedFrom(
+      await invoke('reorder_tier', {
+        annotationId: num(annotationId),
+        tierId: num(tierId),
+        toIndex
+      })
+    ) as AppliedChange;
+  }
+
   async insertBoundary(annotationId: AnnotationId, tierId: TierId, at: number): Promise<BoundaryId> {
     return big(
       await invoke<number>('insert_boundary', {

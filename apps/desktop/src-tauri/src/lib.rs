@@ -91,6 +91,7 @@ pub fn run() {
             engine_cmds::detach_audio,
             engine_cmds::rename_tier,
             engine_cmds::remove_tier,
+            engine_cmds::reorder_tier,
             engine_cmds::insert_boundary,
             engine_cmds::move_boundary,
             engine_cmds::remove_boundary,

@@ -4,6 +4,8 @@
   import IconFileUp from '~icons/lucide/file-up';
   import IconKeyboard from '~icons/lucide/keyboard';
   import IconFileDown from '~icons/lucide/file-down';
+  import IconChevronUp from '~icons/lucide/chevron-up';
+  import IconChevronDown from '~icons/lucide/chevron-down';
   import IconX from '~icons/lucide/x';
   import InlineRename from './InlineRename.svelte';
   import SearchBar from './SearchBar.svelte';
@@ -388,6 +390,21 @@
     try {
       await client.removeTier(annotationId, tierId);
       if (activeTierId === tierId) activeTierId = null;
+      await refresh();
+    } catch (error) {
+      status = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  // Moves a tier one place up (`delta = -1`) or down (`delta = +1`) in the stack.
+  async function moveTier(tierId: bigint, delta: number) {
+    if (!client || annotationId === null) return;
+    const from = tiers.findIndex((tier) => tier.id === tierId);
+    if (from < 0) return;
+    const to = from + delta;
+    if (to < 0 || to >= tiers.length) return;
+    try {
+      await client.reorderTier(annotationId, tierId, to);
       await refresh();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
@@ -825,6 +842,26 @@
               onRename={(next) => void renameTier(tier.id, next)}
             />
           </span>
+          <button
+            type="button"
+            class="tier-move"
+            aria-label={`Move ${tier.name} up`}
+            data-testid="move-tier-up"
+            disabled={tierIndex === 0}
+            onclick={() => moveTier(tier.id, -1)}
+          >
+            <IconChevronUp aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="tier-move"
+            aria-label={`Move ${tier.name} down`}
+            data-testid="move-tier-down"
+            disabled={tierIndex === tiers.length - 1}
+            onclick={() => moveTier(tier.id, 1)}
+          >
+            <IconChevronDown aria-hidden="true" />
+          </button>
           <button type="button" class="tier-remove" aria-label={`Remove ${tier.name}`} data-testid="remove-tier" onclick={() => removeTier(tier.id)}>
             <IconX aria-hidden="true" />
           </button>
@@ -966,6 +1003,31 @@
 
   .tier-remove:hover {
     color: var(--danger);
+  }
+
+  .tier-move {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: var(--chip-bg);
+    color: var(--muted);
+    padding: 0 0.2rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .tier-move :global(svg) {
+    font-size: 0.8rem;
+  }
+
+  .tier-move:hover:not(:disabled) {
+    color: var(--text);
+  }
+
+  .tier-move:disabled {
+    opacity: 0.3;
+    cursor: default;
   }
 
   .empty {

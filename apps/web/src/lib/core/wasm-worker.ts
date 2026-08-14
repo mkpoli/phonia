@@ -135,6 +135,13 @@ type RequestMessage =
       name: string;
     }
   | { id: number; method: 'removeTier'; annotationId: AnnotationId; tierId: TierId }
+  | {
+      id: number;
+      method: 'reorderTier';
+      annotationId: AnnotationId;
+      tierId: TierId;
+      toIndex: number;
+    }
   | { id: number; method: 'insertBoundary'; annotationId: AnnotationId; tierId: TierId; at: number }
   | {
       id: number;
@@ -822,6 +829,13 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'removeTier': {
         const result = appliedToPlain(wasm.removeTier(message.annotationId, message.tierId));
+        postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
+        return;
+      }
+      case 'reorderTier': {
+        const result = appliedToPlain(
+          wasm.reorderTier(message.annotationId, message.tierId, message.toIndex)
+        );
         postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
         return;
       }

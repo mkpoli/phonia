@@ -346,6 +346,10 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'removeTier', annotationId, tierId });
   }
 
+  reorderTier(annotationId: AnnotationId, tierId: TierId, toIndex: number): Promise<AppliedChange> {
+    return this.#call({ method: 'reorderTier', annotationId, tierId, toIndex });
+  }
+
   insertBoundary(annotationId: AnnotationId, tierId: TierId, at: number): Promise<BoundaryId> {
     return this.#call({ method: 'insertBoundary', annotationId, tierId, at });
   }

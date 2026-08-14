@@ -190,6 +190,23 @@ test('label search finds hits and navigates between them', async ({ page }) => {
   await expect(pane(page)).toHaveAttribute('data-active-index', String(first));
 });
 
+test('reorder tier moves it up or down in the stack', async ({ page }) => {
+  await openEditorWithFixture(page, wavFixture);
+  const lanes = page.getByTestId('tier-lane');
+  await page.getByTestId('add-interval-tier').click();
+  await expect(lanes).toHaveCount(1);
+  await page.getByTestId('add-interval-tier').click();
+  await expect(lanes).toHaveCount(2);
+  const order = async () =>
+    Promise.all((await lanes.all()).map((lane) => lane.getAttribute('data-tier-name')));
+  expect(await order()).toEqual(['interval 1', 'interval 2']);
+
+  // The topmost tier's up control is disabled; moving it down swaps the pair.
+  await expect(page.getByTestId('move-tier-up').first()).toBeDisabled();
+  await page.getByTestId('move-tier-down').first().click();
+  await expect.poll(order).toEqual(['interval 2', 'interval 1']);
+});
+
 test('undoing a textgrid import repoints the pane instead of going blank', async ({ page }) => {
   await loadFixture(page);
   // Loading already journaled the audio import and an empty document (undo
