@@ -95,6 +95,7 @@ pub fn run() {
             engine_cmds::reorder_tier,
             engine_cmds::duplicate_tier,
             engine_cmds::insert_boundary,
+            engine_cmds::insert_point,
             engine_cmds::move_boundary,
             engine_cmds::remove_boundary,
             engine_cmds::set_interval_label,

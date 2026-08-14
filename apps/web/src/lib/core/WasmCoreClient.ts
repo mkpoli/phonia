@@ -370,6 +370,15 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'insertBoundary', annotationId, tierId, at });
   }
 
+  insertPoint(
+    annotationId: AnnotationId,
+    tierId: TierId,
+    time: number,
+    label: string
+  ): Promise<PointId> {
+    return this.#call({ method: 'insertPoint', annotationId, tierId, time, label });
+  }
+
   moveBoundary(
     annotationId: AnnotationId,
     boundaryId: BoundaryId,

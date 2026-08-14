@@ -282,9 +282,15 @@
   }
 
   async function splitAtCursor() {
-    if (!client || annotationId === null || activeTier?.kind !== 'interval') return;
+    if (!client || annotationId === null) return;
     try {
-      await client.insertBoundary(annotationId, activeTier.id, cursorTime);
+      if (activeTier?.kind === 'interval') {
+        await client.insertBoundary(annotationId, activeTier.id, cursorTime);
+      } else if (activeTier?.kind === 'point') {
+        await client.insertPoint(annotationId, activeTier.id, cursorTime, '');
+      } else {
+        return;
+      }
       status = '';
       await refresh();
       selectByTime(cursorTime);
@@ -357,9 +363,21 @@
   }
 
   function selectByTime(time: number) {
-    if (activeTier?.kind !== 'interval') return;
-    const index = activeIntervals.findIndex((iv) => time >= iv.xmin && time < iv.xmax);
-    if (index >= 0) activeIndex = index;
+    if (activeTier?.kind === 'interval') {
+      const index = activeIntervals.findIndex((iv) => time >= iv.xmin && time < iv.xmax);
+      if (index >= 0) activeIndex = index;
+    } else if (activeTier?.kind === 'point' && activePoints.length) {
+      let best = 0;
+      let bestDist = Infinity;
+      activePoints.forEach((point, i) => {
+        const dist = Math.abs(point.time - time);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = i;
+        }
+      });
+      activeIndex = best;
+    }
   }
 
   async function addTier(kind: 'interval' | 'point') {
@@ -633,6 +651,7 @@
 
   const hasDocument = () => annotationId !== null;
   const onIntervalTier = () => annotationId !== null && activeTier?.kind === 'interval';
+  const onPointTier = () => annotationId !== null && activeTier?.kind === 'point';
 
   registerCommands([
     {
@@ -666,12 +685,12 @@
     },
     {
       id: 'insertBoundary',
-      title: 'Split interval at cursor',
+      title: 'Split interval / add point at cursor',
       group: 'Annotation',
-      api: ['insertBoundary'],
+      api: ['insertBoundary', 'insertPoint'],
       shortcut: () => keyBindings?.labelFor('insertBoundary') ?? 'S',
-      keywords: ['boundary', 'divide'],
-      enabled: onIntervalTier,
+      keywords: ['boundary', 'divide', 'point', 'add', 'mark'],
+      enabled: () => onIntervalTier() || onPointTier(),
       run: () => void splitAtCursor()
     },
     {

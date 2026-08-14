@@ -120,6 +120,43 @@ test('keyboard-only annotation: tier, boundaries, labels, merge, undo x5, redo x
   expect(afterSplitsCheck).not.toBe(afterLabels);
 });
 
+test('point tier: S adds a point at the cursor, undo removes it, label commits', async ({
+  page
+}) => {
+  await loadFixture(page);
+
+  await page.getByTestId('add-point-tier').focus();
+  await page.keyboard.press('Enter');
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
+  await expect(page.getByTestId('point')).toHaveCount(0);
+
+  // Play to move the cursor, then S drops a point at it.
+  await pane(page).focus();
+  await playFor(page, 700);
+  await page.keyboard.press('s');
+  await expect(page.getByTestId('point')).toHaveCount(1);
+  const afterPoint = await stateHash(page);
+
+  // A second point at a later cursor.
+  await playFor(page, 500);
+  await page.keyboard.press('s');
+  await expect(page.getByTestId('point')).toHaveCount(2);
+
+  // Label the active point: Enter opens the editor, typed text commits.
+  await pane(page).focus();
+  await page.keyboard.press('Enter');
+  await page.getByTestId('label-editor').fill('H*');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('point').nth(1)).toHaveAttribute('data-label', 'H*');
+
+  // Undo the label and the second point, back to the single-point state.
+  await pane(page).focus();
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await expect(page.getByTestId('point')).toHaveCount(1);
+  await expect.poll(() => stateHash(page)).toBe(afterPoint);
+});
+
 test('arrow nudge moves the active boundary; Alt steps one frame', async ({ page }) => {
   await loadFixture(page);
   await page.getByTestId('add-interval-tier').focus();

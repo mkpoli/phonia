@@ -340,6 +340,22 @@ export class TauriCoreClient implements CoreClientLike {
     );
   }
 
+  async insertPoint(
+    annotationId: AnnotationId,
+    tierId: TierId,
+    time: number,
+    label: string
+  ): Promise<PointId> {
+    return big(
+      await invoke<number>('insert_point', {
+        annotationId: num(annotationId),
+        tierId: num(tierId),
+        time,
+        label
+      })
+    );
+  }
+
   async moveBoundary(
     annotationId: AnnotationId,
     boundaryId: BoundaryId,

@@ -148,6 +148,14 @@ type RequestMessage =
   | { id: number; method: 'insertBoundary'; annotationId: AnnotationId; tierId: TierId; at: number }
   | {
       id: number;
+      method: 'insertPoint';
+      annotationId: AnnotationId;
+      tierId: TierId;
+      time: number;
+      label: string;
+    }
+  | {
+      id: number;
       method: 'moveBoundary';
       annotationId: AnnotationId;
       boundaryId: BoundaryId;
@@ -885,6 +893,16 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'insertBoundary': {
         const result = wasm.insertBoundary(message.annotationId, message.tierId, message.at);
+        postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
+        return;
+      }
+      case 'insertPoint': {
+        const result = wasm.insertPoint(
+          message.annotationId,
+          message.tierId,
+          message.time,
+          message.label
+        );
         postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
         return;
       }

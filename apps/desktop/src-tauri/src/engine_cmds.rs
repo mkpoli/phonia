@@ -700,6 +700,29 @@ pub fn insert_boundary(
 }
 
 #[tauri::command]
+pub fn insert_point(
+    state: State<AppState>,
+    annotation_id: u64,
+    tier_id: u64,
+    time: f64,
+    label: String,
+) -> Result<u64, String> {
+    let mut engine = lock(&state)?;
+    match apply(
+        &mut engine,
+        Command::InsertPoint {
+            annotation: AnnotationId::from_u64(annotation_id),
+            tier: TierId::new(tier_id),
+            time,
+            label,
+        },
+    )? {
+        Applied::PointInserted { point, .. } => Ok(point.get()),
+        _ => Err("insert did not report a point id".into()),
+    }
+}
+
+#[tauri::command]
 pub fn move_boundary(
     state: State<AppState>,
     annotation_id: u64,
