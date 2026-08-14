@@ -607,6 +607,31 @@
     }
   }
 
+  // Copies the intensity contour over the selection (or the whole file) as CSV.
+  // The engine reports intensity for the whole signal, so frames are kept by
+  // time to the chosen span.
+  async function copyIntensityContour() {
+    if (!client || !audio) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (!(t1 > t0)) return;
+    try {
+      const track = await client.intensityTrack(audio.id, overlayParams.intensity.floorHz);
+      const rows = ['time_s,intensity_db'];
+      for (let i = 0; i < track.times.length; i += 1) {
+        const time = track.times[i];
+        const db = track.db[i];
+        if (time >= t0 && time <= t1 && Number.isFinite(db)) {
+          rows.push(`${time.toFixed(4)},${db.toFixed(2)}`);
+        }
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`Intensity contour copied · ${rows.length - 1} points`);
+    } catch {
+      flashToast('Could not copy the intensity contour');
+    }
+  }
+
   // Transport Play / Space plays what the user is looking at, in priority order:
   // an active selection's time span, else the visible viewport when zoomed in,
   // else the whole file from the cursor. A box selection plays its time span
@@ -947,6 +972,15 @@
       keywords: ['f0', 'pitch', 'contour', 'csv', 'export', 'pitchtier', 'copy', 'list'],
       enabled: hasAudio,
       run: () => void copyPitchContour()
+    },
+    {
+      id: 'copyIntensityContour',
+      title: 'Copy intensity contour (CSV)',
+      group: 'Analysis',
+      api: ['intensityTrack'],
+      keywords: ['intensity', 'db', 'loudness', 'contour', 'csv', 'export', 'copy', 'list'],
+      enabled: hasAudio,
+      run: () => void copyIntensityContour()
     },
     {
       id: 'toggleFormantTrack',

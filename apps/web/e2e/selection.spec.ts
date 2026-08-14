@@ -282,6 +282,29 @@ test('copy pitch contour writes CSV rows to the clipboard', async ({ page, conte
   expect(f0).toBeGreaterThan(0);
 });
 
+test('copy intensity contour writes CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('intensity contour');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyIntensityContour"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('Intensity contour copied', {
+    timeout: 20_000
+  });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('time_s,intensity_db')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const [t, db] = lines[1].split(',').map(Number);
+  expect(Number.isFinite(t)).toBe(true);
+  expect(Number.isFinite(db)).toBe(true);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);
