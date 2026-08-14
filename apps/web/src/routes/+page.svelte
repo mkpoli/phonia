@@ -1307,6 +1307,12 @@
     }
   }
 
+  // Resolves the zero crossing nearest a time for the editor's snap command.
+  async function nearestZero(t: number): Promise<number> {
+    if (!client || !audio) return t;
+    return client.nearestZeroCrossing(audio.id, t);
+  }
+
   // Normalizes a span so its peak reaches 0.99 and stores it as a new recording.
   async function scalePeakSelection(t0: number, t1: number) {
     if (!client || !audio || !recording || !(t1 > t0)) return;
@@ -1601,6 +1607,7 @@
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
       onScalePeakSelection={scalePeakSelection}
+      onNearestZero={nearestZero}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

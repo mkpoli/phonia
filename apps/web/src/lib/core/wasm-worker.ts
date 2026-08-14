@@ -82,6 +82,7 @@ type RequestMessage =
       f0: number;
       f1: number;
     }
+  | { id: number; method: 'nearestZeroCrossing'; audioId: AudioId; t: number }
   | {
       id: number;
       method: 'bandFilteredSpan';
@@ -687,6 +688,11 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           message.f0,
           message.f1
         );
+        postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
+        return;
+      }
+      case 'nearestZeroCrossing': {
+        const result = wasm.nearestZeroCrossing(message.audioId, message.t);
         postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
         return;
       }

@@ -224,6 +224,11 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'bandEnergy', audioId: id, t0, t1, f0, f1 });
   }
 
+  /** The time of the zero crossing nearest `t`, for a click-free cut point. */
+  nearestZeroCrossing(id: AudioId, t: number): Promise<number> {
+    return this.#call({ method: 'nearestZeroCrossing', audioId: id, t });
+  }
+
   bandFilteredSpan(
     id: AudioId,
     t0: number,

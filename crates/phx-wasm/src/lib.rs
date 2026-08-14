@@ -1334,6 +1334,16 @@ impl WasmEngine {
             .band_energy(AudioId::from_u64(id), t0, t1, f0, f1)?)
     }
 
+    /// Returns the time of the zero crossing nearest `t`, for snapping a
+    /// selection edge to a click-free cut point.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, or when `t` is not finite.
+    #[wasm_bindgen(js_name = nearestZeroCrossing)]
+    pub fn nearest_zero_crossing(&self, id: u64, t: f64) -> Result<f64, JsError> {
+        Ok(self.inner.nearest_zero_crossing(AudioId::from_u64(id), t)?)
+    }
+
     /// Computes the selection measurement readout as a JSON string.
     ///
     /// The object carries the box geometry and the span statistics the readout

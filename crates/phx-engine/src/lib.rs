@@ -1232,6 +1232,95 @@ impl Engine {
         Ok(audio.mono_mix().into_owned())
     }
 
+    /// Returns the time of the zero crossing nearest `t`, for snapping a
+    /// selection edge so a cut leaves no click. The signal is read as the mean
+    /// of its channels; a crossing lies where consecutive frames straddle zero,
+    /// and its sub-sample position is linearly interpolated. The search expands
+    /// outward from `t` and returns the first crossing it reaches; a signal with
+    /// none in range (silence held at a constant, DC) leaves `t` unchanged.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry and [`EngineError::InvalidRequest`] when `t` is not finite.
+    pub fn nearest_zero_crossing(&self, id: AudioId, t: f64) -> Result<f64, EngineError> {
+        if !t.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "nearest_zero_crossing t must be finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let sr = audio.sample_rate();
+        let frames = audio.frames();
+        let channels = audio.channel_count();
+        if frames < 2 || channels == 0 || !(sr > 0.0) {
+            return Ok(t);
+        }
+        let duration = audio.duration();
+        let target = t.clamp(0.0, duration);
+        let center = ((target * sr).round() as i64).clamp(0, frames as i64 - 1) as usize;
+
+        let sample_at = |i: usize| -> f64 {
+            let mut sum = 0.0;
+            for c in 0..channels {
+                sum += f64::from(audio.channel(c)[i]);
+            }
+            sum / channels as f64
+        };
+        // The crossing between frames `i` and `i+1`, in seconds. An exact zero at
+        // either end is that frame; otherwise the line between them hits zero at
+        // `a / (a - b)` of the way across.
+        let crossing_time = |i: usize| -> f64 {
+            let a = sample_at(i);
+            let b = sample_at(i + 1);
+            if a == 0.0 {
+                i as f64 / sr
+            } else if b == 0.0 {
+                (i + 1) as f64 / sr
+            } else {
+                (i as f64 + a / (a - b)) / sr
+            }
+        };
+        let straddles = |i: usize| -> bool {
+            let a = sample_at(i);
+            let b = sample_at(i + 1);
+            (a <= 0.0 && b >= 0.0) || (a >= 0.0 && b <= 0.0)
+        };
+
+        let max_i = frames - 2;
+        let mut offset: i64 = 0;
+        loop {
+            let mut in_range = false;
+            let mut best: Option<f64> = None;
+            let mut best_dist = f64::INFINITY;
+            for side in [center as i64 + offset, center as i64 - offset] {
+                if side < 0 || side as usize > max_i {
+                    continue;
+                }
+                in_range = true;
+                let i = side as usize;
+                if straddles(i) {
+                    let ct = crossing_time(i);
+                    let dist = (ct - target).abs();
+                    if dist < best_dist {
+                        best_dist = dist;
+                        best = Some(ct);
+                    }
+                }
+                if offset == 0 {
+                    break; // both entries are the same index
+                }
+            }
+            if let Some(ct) = best {
+                return Ok(ct);
+            }
+            if !in_range {
+                return Ok(t);
+            }
+            offset += 1;
+        }
+    }
+
     /// Encodes the time span `[t0, t1]` of `id` as WAV bytes at `bits`, with no
     /// filtering.
     ///
@@ -3404,6 +3493,24 @@ mod tests {
         assert!(
             (f64::from(peak) - target).abs() < 1e-4,
             "peak {peak} != target {target}"
+        );
+    }
+
+    #[test]
+    fn nearest_zero_crossing_lands_on_a_sine_zero() {
+        let mut engine = Engine::new();
+        let freq = 220.0;
+        let bytes = sine_wav_bytes(8_000, 1.0, freq);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+
+        let sr = 8_000.0;
+        // sin(2π f t) is zero at t = k / (2f); probe just past one of them.
+        let zero_t = 100.0 / (2.0 * freq);
+        let probe = zero_t + 0.3 / sr;
+        let got = engine.nearest_zero_crossing(audio, probe).unwrap();
+        assert!(
+            (got - zero_t).abs() < 2.0 / sr,
+            "zero crossing {got} not near {zero_t}"
         );
     }
 

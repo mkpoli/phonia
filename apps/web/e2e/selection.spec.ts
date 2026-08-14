@@ -228,6 +228,37 @@ test('scale peak command stores a peak-normalized copy as a new recording', asyn
   ).toHaveCount(2);
 });
 
+test('snap selection to zero crossings lands the edges on crossings', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('snap');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="snapSelectionZero"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  const box = spectrogramBox(page);
+  await expect(box).toBeVisible();
+
+  // The snapped edge sits on a zero crossing: re-querying the nearest crossing
+  // of the snapped start returns the same time (the snap is idempotent).
+  await expect
+    .poll(async () => {
+      const t0 = Number(await box.getAttribute('data-sel-t0'));
+      if (!Number.isFinite(t0)) return false;
+      const again = await page.evaluate(async (t) => {
+        const hook = (globalThis as unknown as { __phonia?: { client: any; audioId: bigint | null } })
+          .__phonia;
+        if (!hook || hook.audioId === null) throw new Error('no client hook');
+        return (await hook.client.nearestZeroCrossing(hook.audioId, t)) as number;
+      }, t0);
+      return Math.abs(again - t0) < 1e-6;
+    }, { timeout: 15_000 })
+    .toBe(true);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

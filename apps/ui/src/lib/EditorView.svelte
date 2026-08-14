@@ -117,6 +117,9 @@
     /** Normalizes a span's peak into a new library recording; absent hides the
      *  scale-peak affordance. */
     onScalePeakSelection?: (t0: number, t1: number) => void;
+    /** Resolves the zero crossing nearest a time, for snapping selection edges;
+     *  absent hides the snap affordance. */
+    onNearestZero?: (t: number) => Promise<number>;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -168,6 +171,7 @@
     onReverseSelection,
     onScaleSelection,
     onScalePeakSelection,
+    onNearestZero,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -554,6 +558,16 @@
     const t0 = selection ? selection.t0 : 0;
     const t1 = selection ? selection.t1 : audio.duration;
     if (t1 > t0) onScalePeakSelection?.(t0, t1);
+  }
+
+  // Snaps both selection edges to the nearest zero crossings. Setting the
+  // selection re-runs the readout and re-draws the box.
+  async function snapSelectionToZero() {
+    const sel = selection;
+    if (!sel || !onNearestZero) return;
+    const [a, b] = await Promise.all([onNearestZero(sel.t0), onNearestZero(sel.t1)]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return;
+    selection = { ...sel, t0: Math.min(a, b), t1: Math.max(a, b) };
   }
 
   // Transport Play / Space plays what the user is looking at, in priority order:
@@ -1035,6 +1049,15 @@
       keywords: ['scale', 'peak', 'normalize', 'amplitude', 'gain', 'new sound', 'clip'],
       enabled: () => hasAudio() && onScalePeakSelection !== undefined,
       run: scalePeakCurrent
+    },
+    {
+      id: 'snapSelectionZero',
+      title: 'Snap selection to zero crossings',
+      group: 'Selection',
+      api: ['nearestZeroCrossing'],
+      keywords: ['zero', 'crossing', 'snap', 'click', 'boundary', 'cut'],
+      enabled: () => hasSelection() && onNearestZero !== undefined,
+      run: () => void snapSelectionToZero()
     },
     {
       id: 'exportFigure',
