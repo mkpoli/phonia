@@ -22,6 +22,7 @@
   import MeasurementTable from './MeasurementTable.svelte';
   import SpectrumCard from './SpectrumCard.svelte';
   import FormantSweepCard from './FormantSweepCard.svelte';
+  import VowelChartCard from './VowelChartCard.svelte';
   import WaveformPane from './WaveformPane.svelte';
   import { registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
@@ -315,6 +316,7 @@
   let voiceReport = $state<VoiceReportData | null>(null);
   let voiceReportLoading = $state(false);
   let measureOpen = $state(false);
+  let vowelChartOpen = $state(false);
   let spectrumOpen = $state(false);
   let spectrumSpan = $state<{ t0: number; t1: number }>({ t0: 0, t1: 0 });
 
@@ -684,6 +686,11 @@
       sweepOpen = false;
       return;
     }
+    if (event.key === 'Escape' && vowelChartOpen) {
+      event.preventDefault();
+      vowelChartOpen = false;
+      return;
+    }
     if (event.key === 'Escape' && (selection || voiceReportOpen)) {
       event.preventDefault();
       if (voiceReportOpen) voiceReportOpen = false;
@@ -870,6 +877,17 @@
       keywords: ['formant', 'ceiling', 'lpc', 'fast track', 'vowel', 'sweep'],
       enabled: hasSelection,
       run: () => void openFormantSweep()
+    },
+    {
+      id: 'vowelChart',
+      title: 'Vowel F1–F2 chart…',
+      group: 'Analysis',
+      api: ['formantSpanMeans'],
+      keywords: ['vowel', 'chart', 'f1', 'f2', 'scatter', 'space'],
+      enabled: () => annotationId !== null,
+      run: () => {
+        vowelChartOpen = true;
+      }
     },
     {
       id: 'annotateBySilences',
@@ -1270,6 +1288,16 @@
       t0={spectrumSpan.t0}
       t1={spectrumSpan.t1}
       onClose={() => (spectrumOpen = false)}
+    />
+  {/if}
+  {#if vowelChartOpen}
+    <VowelChartCard
+      {client}
+      {audio}
+      {annotationId}
+      maxFormants={overlayParams.formant.maxFormants}
+      ceilingHz={overlayParams.formant.ceilingHz}
+      onClose={() => (vowelChartOpen = false)}
     />
   {/if}
   {#if sweepOpen}

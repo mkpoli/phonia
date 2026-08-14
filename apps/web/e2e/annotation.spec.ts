@@ -314,3 +314,20 @@ test('annotate by silences lays down a labelled speech/silence tier', async ({ p
     page.getByTestId('interval').filter({ hasText: 'sounding' }).first()
   ).toBeVisible({ timeout: 20_000 });
 });
+
+test('the vowel chart plots F1-F2 for labelled intervals', async ({ page }) => {
+  await loadFixture(page);
+  await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '3');
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('vowel f1');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="vowelChart"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('vowel-chart-card')).toBeVisible();
+  await expect(page.getByTestId('vowel-chart-canvas')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('vowel-chart-count')).toContainText('vowel');
+});
