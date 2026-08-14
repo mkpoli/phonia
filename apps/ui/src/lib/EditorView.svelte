@@ -21,6 +21,7 @@
   import VoiceReportCard from './VoiceReportCard.svelte';
   import MeasurementTable from './MeasurementTable.svelte';
   import SpectrumCard from './SpectrumCard.svelte';
+  import FormantSweepCard from './FormantSweepCard.svelte';
   import WaveformPane from './WaveformPane.svelte';
   import { registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
@@ -321,6 +322,15 @@
     if (!selection) return;
     spectrumAt = 0.5 * (selection.t0 + selection.t1);
     spectrumOpen = true;
+  }
+
+  let sweepOpen = $state(false);
+  let sweepSpan = $state<{ t0: number; t1: number }>({ t0: 0, t1: 0 });
+
+  function openFormantSweep() {
+    if (!selection) return;
+    sweepSpan = { t0: selection.t0, t1: selection.t1 };
+    sweepOpen = true;
   }
 
   // Bumped after a direct annotation mutation so the tier pane refetches.
@@ -669,6 +679,11 @@
       spectrumOpen = false;
       return;
     }
+    if (event.key === 'Escape' && sweepOpen) {
+      event.preventDefault();
+      sweepOpen = false;
+      return;
+    }
     if (event.key === 'Escape' && (selection || voiceReportOpen)) {
       event.preventDefault();
       if (voiceReportOpen) voiceReportOpen = false;
@@ -846,6 +861,15 @@
       run: () => {
         measureOpen = true;
       }
+    },
+    {
+      id: 'formantCeilingSweep',
+      title: 'Formant ceiling sweep over selection',
+      group: 'Analysis',
+      api: ['formantSpanMeans'],
+      keywords: ['formant', 'ceiling', 'lpc', 'fast track', 'vowel', 'sweep'],
+      enabled: hasSelection,
+      run: () => void openFormantSweep()
     },
     {
       id: 'annotateBySilences',
@@ -1241,6 +1265,16 @@
   {/if}
   {#if spectrumOpen}
     <SpectrumCard {client} {audio} at={spectrumAt} onClose={() => (spectrumOpen = false)} />
+  {/if}
+  {#if sweepOpen}
+    <FormantSweepCard
+      {client}
+      {audio}
+      t0={sweepSpan.t0}
+      t1={sweepSpan.t1}
+      maxFormants={overlayParams.formant.maxFormants}
+      onClose={() => (sweepOpen = false)}
+    />
   {/if}
 </div>
 

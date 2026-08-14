@@ -74,6 +74,25 @@ test('spectrogram box selection: readout values are present and finite', async (
   await expect(page.getByTestId('readout-duration')).toContainText('s');
 });
 
+test('the formant ceiling sweep tabulates F1-F4 at several LPC ceilings', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('formant ceiling sweep');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="formantCeilingSweep"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('formant-sweep-card')).toBeVisible();
+  const rows = page.getByTestId('formant-sweep-row');
+  await expect(rows).toHaveCount(4, { timeout: 20_000 });
+  await expect(rows.first()).toContainText('4500');
+  // The steadiest ceiling is flagged.
+  await expect(page.getByTestId('formant-sweep-grid')).toContainText('steadiest');
+});
+
 test('the spectrum card plots the selection slice with a hover readout', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);
