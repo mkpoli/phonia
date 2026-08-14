@@ -263,6 +263,30 @@ impl Audio {
         }
     }
 
+    /// Scales the whole signal so its largest absolute sample reaches `target`
+    /// (Praat's "Scale peak"). One gain across all channels keeps their balance;
+    /// silence has no peak to scale, so it is left untouched.
+    pub fn scale_peak(&mut self, target: f64) {
+        let mut max_abs = 0.0_f32;
+        for channel in &self.channels {
+            for &sample in channel {
+                max_abs = max_abs.max(sample.abs());
+            }
+        }
+        if max_abs == 0.0 {
+            return;
+        }
+        let gain = (target / f64::from(max_abs)) as f32;
+        if !gain.is_finite() {
+            return;
+        }
+        for channel in &mut self.channels {
+            for sample in channel {
+                *sample *= gain;
+            }
+        }
+    }
+
     /// Returns the duration in seconds.
     pub fn duration(&self) -> f64 {
         self.frames() as f64 / self.sample_rate

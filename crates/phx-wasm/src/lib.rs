@@ -2005,6 +2005,28 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes the time span `[t0, t1]` of `id` scaled so its largest absolute
+    /// sample reaches `target` as WAV bytes at `bits` — the "scale selection peak
+    /// to a new take" path.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live store entry, when a bound is not finite,
+    /// or when the span cannot be decoded or encoded.
+    #[wasm_bindgen(js_name = scalePeakSpanWav)]
+    pub fn scale_peak_span_wav(
+        &self,
+        id: u64,
+        t0: f64,
+        t1: f64,
+        target: f64,
+        bits: WasmBitDepth,
+    ) -> Result<Uint8Array, JsError> {
+        let wav =
+            self.inner
+                .scale_peak_span_wav(AudioId::from_u64(id), t0, t1, target, bits.into())?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits` — the "save selection as audio" path for a filtered selection.
     ///

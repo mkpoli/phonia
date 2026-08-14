@@ -114,6 +114,9 @@
     /** Scales a span to a target average intensity into a new library recording;
      *  absent hides the scale affordance. */
     onScaleSelection?: (t0: number, t1: number) => void;
+    /** Normalizes a span's peak into a new library recording; absent hides the
+     *  scale-peak affordance. */
+    onScalePeakSelection?: (t0: number, t1: number) => void;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -164,6 +167,7 @@
     onFilterSelection,
     onReverseSelection,
     onScaleSelection,
+    onScalePeakSelection,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -542,6 +546,14 @@
     const t0 = selection ? selection.t0 : 0;
     const t1 = selection ? selection.t1 : audio.duration;
     if (t1 > t0) onScaleSelection?.(t0, t1);
+  }
+
+  // Normalizes the selection's, or the whole file's, peak into a new recording.
+  function scalePeakCurrent() {
+    if (!audio) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (t1 > t0) onScalePeakSelection?.(t0, t1);
   }
 
   // Transport Play / Space plays what the user is looking at, in priority order:
@@ -1014,6 +1026,15 @@
       keywords: ['scale', 'intensity', 'loudness', 'normalize', 'gain', 'db', 'new sound'],
       enabled: () => hasAudio() && onScaleSelection !== undefined,
       run: scaleCurrent
+    },
+    {
+      id: 'scalePeakSelection',
+      title: 'Scale peak to 0.99 (new recording)',
+      group: 'Selection',
+      api: ['scalePeakSpanWav', 'importAudio'],
+      keywords: ['scale', 'peak', 'normalize', 'amplitude', 'gain', 'new sound', 'clip'],
+      enabled: () => hasAudio() && onScalePeakSelection !== undefined,
+      run: scalePeakCurrent
     },
     {
       id: 'exportFigure',

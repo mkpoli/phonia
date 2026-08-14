@@ -524,6 +524,17 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'scaleIntensitySpanWav', audioId: id, t0, t1, targetDb, bits });
   }
 
+  /** Encodes `[t0, t1]` of `id` scaled so its largest absolute sample is `target`. */
+  scalePeakSpanWav(
+    id: AudioId,
+    t0: number,
+    t1: number,
+    target: number,
+    bits: WavBitDepth
+  ): Promise<Uint8Array> {
+    return this.#call({ method: 'scalePeakSpanWav', audioId: id, t0, t1, target, bits });
+  }
+
   /** Encodes the band-filtered `[t0, t1]` of `id` as mono WAV bytes at `bits`. */
   exportBandFilteredSpanWav(
     id: AudioId,

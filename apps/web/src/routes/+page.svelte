@@ -1307,6 +1307,19 @@
     }
   }
 
+  // Normalizes a span so its peak reaches 0.99 and stores it as a new recording.
+  async function scalePeakSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
+    const target = 0.99;
+    const label = `${recording.name} [peak ${target}]`;
+    try {
+      const wav = await client.scalePeakSpanWav(audio.id, t0, t1, target, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Reverses a span in time and stores it as a new library recording.
   async function reverseSelection(t0: number, t1: number) {
     if (!client || !audio || !recording || !(t1 > t0)) return;
@@ -1587,6 +1600,7 @@
       onFilterSelection={filterSelection}
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
+      onScalePeakSelection={scalePeakSelection}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

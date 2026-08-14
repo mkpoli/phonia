@@ -1316,6 +1316,34 @@ impl Engine {
         Ok(audio.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the time span `[t0, t1]` of `id` scaled so its largest absolute
+    /// sample reaches `target` as WAV bytes at `bits` — Praat's Sound "Scale
+    /// peak" over a selection, as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite, and
+    /// [`EngineError::Audio`] when the span cannot be decoded or encoded.
+    pub fn scale_peak_span_wav(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        target: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() || !target.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "scale_peak_span_wav bounds must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let (start, end) = span_frames(info.sample_rate, info.duration, t0, t1);
+        let mut audio = self.store.range_owned(id, start, end)?;
+        audio.scale_peak(target);
+        Ok(audio.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the band-filtered time span `[t0, t1]` of `id` as mono WAV bytes
     /// at `bits`.
     ///
@@ -3353,6 +3381,29 @@ mod tests {
         assert!(
             (db - target).abs() < 1e-2,
             "intensity {db} dB != target {target} dB"
+        );
+    }
+
+    #[test]
+    fn scale_peak_span_wav_hits_the_target_peak() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(8_000, 1.0, 220.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+
+        let target = 0.99;
+        let wav = engine
+            .scale_peak_span_wav(audio, 0.0, 1.0, target, BitDepth::Float32)
+            .unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+
+        let peak = decoded
+            .channel(0)
+            .iter()
+            .map(|&s| s.abs())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            (f64::from(peak) - target).abs() < 1e-4,
+            "peak {peak} != target {target}"
         );
     }
 

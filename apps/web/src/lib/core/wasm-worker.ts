@@ -209,6 +209,15 @@ type RequestMessage =
     }
   | {
       id: number;
+      method: 'scalePeakSpanWav';
+      audioId: AudioId;
+      t0: number;
+      t1: number;
+      target: number;
+      bits: WavBitDepth;
+    }
+  | {
+      id: number;
       method: 'exportBandFilteredSpanWav';
       audioId: AudioId;
       t0: number;
@@ -982,6 +991,19 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           message.t0,
           message.t1,
           message.targetDb,
+          WasmBitDepth[message.bits]
+        );
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'scalePeakSpanWav': {
+        const bytes = wasm.scalePeakSpanWav(
+          message.audioId,
+          message.t0,
+          message.t1,
+          message.target,
           WasmBitDepth[message.bits]
         );
         const copy = new Uint8Array(bytes.length);

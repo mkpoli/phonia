@@ -208,6 +208,26 @@ test('scale intensity command stores a 70 dB copy as a new recording', async ({ 
   ).toHaveCount(2);
 });
 
+test('scale peak command stores a peak-normalized copy as a new recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('scale peak');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="scalePeakSelection"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[peak 0.99]', {
+    timeout: 20_000
+  });
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(2);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);
