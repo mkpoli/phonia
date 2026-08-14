@@ -455,6 +455,19 @@ test('harmonicity extrema: min/max HNR over the selection appear when the layer 
   await expect(page.getByTestId('harmonicity-min')).toContainText('Min');
 });
 
+test('formant extrema: per-slot frequency range over the selection appears', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  // The formant layer is on by default, so a selection populates the extrema.
+  const extrema = page.getByTestId('formant-extrema');
+  await expect(extrema).toBeVisible({ timeout: 20_000 });
+  const rows = page.getByTestId('formant-extrema-row');
+  await expect(rows.first()).toContainText('F1');
+  await expect(rows.first()).toContainText('Hz');
+  expect(await rows.count()).toBeGreaterThan(0);
+});
+
 test('cpp overlay: the layer toggles on', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const eye = page.getByTestId('toggle-cpp');

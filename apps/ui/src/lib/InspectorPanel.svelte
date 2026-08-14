@@ -17,6 +17,9 @@
     readout?: SelectionReadout | null;
     /** Provisional tracked-formant means over the selection (F1, F2, …). */
     formantMeans?: number[] | null;
+    /** Per-slot formant frequency range over the selection, or null when the
+     *  layer is off or no selection is active. */
+    formantStats?: { slot: number; minHz: number; maxHz: number }[] | null;
     /** Intensity extrema over the selection, or null with no selection. */
     intensityStats?: {
       maxDb: number;
@@ -45,6 +48,7 @@
     stats,
     readout = null,
     formantMeans = null,
+    formantStats = null,
     intensityStats = null,
     harmonicityStats = null,
     cursor = null,
@@ -276,6 +280,15 @@
       </button>
       <span class="live-value">{formantLive}</span>
     </div>
+    {#if formantStats}
+      <div class="extrema" data-testid="formant-extrema">
+        {#each formantStats as slot (slot.slot)}
+          <span data-testid="formant-extrema-row"
+            >F{slot.slot} {Math.round(slot.minHz)}–{Math.round(slot.maxHz)} Hz</span
+          >
+        {/each}
+      </div>
+    {/if}
     {#if expanded.formant}
       <div class="params">
         {#if cursor && cursor.formants.length > 0}

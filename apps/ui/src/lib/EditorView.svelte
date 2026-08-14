@@ -377,6 +377,7 @@
     minDb: number;
     minTime: number;
   } | null>(null);
+  let formantStats = $state<{ slot: number; minHz: number; maxHz: number }[] | null>(null);
 
   // Glottal pulses for the waveform overlay, fetched once per (recording, pitch
   // range) while the overlay is on. Whole-signal, like the other contours.
@@ -610,6 +611,58 @@
           }
         }
         harmonicityStats = found ? { maxDb, maxTime, minDb, minTime } : null;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  // Formant extrema per slot over the selection — the frequency range each
+  // formant sweeps, the way a diphthong's F1/F2 excursion reads. Computed only
+  // while the formant layer is on.
+  $effect(() => {
+    const sel = selection;
+    const id = audio?.id;
+    if (!client || id === undefined || !sel || !overlayParams.formant.show) {
+      formantStats = null;
+      return;
+    }
+    const maxF = overlayParams.formant.maxFormants;
+    let cancelled = false;
+    client
+      .formantTrack(id, overlayParams.formant.ceilingHz, maxF, overlayParams.formant.smoothed)
+      .then((track) => {
+        if (cancelled) return;
+        const pts = track.points;
+        const slots = Array.from({ length: maxF }, () => ({
+          minHz: Infinity,
+          maxHz: -Infinity,
+          found: false
+        }));
+        let i = 0;
+        while (i < pts.length) {
+          const time = pts[i];
+          const freqs: number[] = [];
+          while (i < pts.length && pts[i] === time) {
+            freqs.push(pts[i + 1]);
+            i += 3;
+          }
+          if (time < sel.t0 || time > sel.t1) continue;
+          freqs.sort((a, b) => a - b);
+          for (let k = 0; k < freqs.length && k < maxF; k += 1) {
+            const hz = freqs[k];
+            if (!Number.isFinite(hz)) continue;
+            const slot = slots[k];
+            slot.found = true;
+            if (hz < slot.minHz) slot.minHz = hz;
+            if (hz > slot.maxHz) slot.maxHz = hz;
+          }
+        }
+        const result = slots.flatMap((slot, k) =>
+          slot.found ? [{ slot: k + 1, minHz: slot.minHz, maxHz: slot.maxHz }] : []
+        );
+        formantStats = result.length ? result : null;
       })
       .catch(() => {});
     return () => {
@@ -1858,6 +1911,7 @@
         stats={overlayStats}
         {readout}
         {formantMeans}
+        {formantStats}
         {intensityStats}
         {harmonicityStats}
         cursor={cursorSample}
