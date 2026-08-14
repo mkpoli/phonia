@@ -636,6 +636,49 @@
     }
   }
 
+  // Copies the formant tracks over the selection (or the whole file) as CSV, one
+  // `time_s,f1_hz,f2_hz,…` row per frame. The flat `[time, freq, bandwidth]`
+  // triples are frame-ordered, so a frame is the run that shares a time; its
+  // candidates are sorted low to high and read as F1, F2, ….
+  async function copyFormantContour() {
+    if (!client || !audio) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (!(t1 > t0)) return;
+    try {
+      const maxF = overlayParams.formant.maxFormants;
+      const track = await client.formantTrack(
+        audio.id,
+        overlayParams.formant.ceilingHz,
+        maxF,
+        overlayParams.formant.smoothed
+      );
+      const pts = track.points;
+      const header = ['time_s'];
+      for (let k = 1; k <= maxF; k += 1) header.push(`f${k}_hz`);
+      const rows = [header.join(',')];
+      let i = 0;
+      while (i < pts.length) {
+        const time = pts[i];
+        const freqs: number[] = [];
+        while (i < pts.length && pts[i] === time) {
+          freqs.push(pts[i + 1]);
+          i += 3;
+        }
+        if (time >= t0 && time <= t1) {
+          freqs.sort((a, b) => a - b);
+          const cols = [time.toFixed(4)];
+          for (let k = 0; k < maxF; k += 1) cols.push(k < freqs.length ? freqs[k].toFixed(1) : '');
+          rows.push(cols.join(','));
+        }
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`Formant contour copied · ${rows.length - 1} frames`);
+    } catch {
+      flashToast('Could not copy the formant contour');
+    }
+  }
+
   // Transport Play / Space plays what the user is looking at, in priority order:
   // an active selection's time span, else the visible viewport when zoomed in,
   // else the whole file from the cursor. A box selection plays its time span
@@ -985,6 +1028,15 @@
       keywords: ['intensity', 'db', 'loudness', 'contour', 'csv', 'export', 'copy', 'list'],
       enabled: hasAudio,
       run: () => void copyIntensityContour()
+    },
+    {
+      id: 'copyFormantContour',
+      title: 'Copy formant contour (CSV)',
+      group: 'Analysis',
+      api: ['formantTrack'],
+      keywords: ['formant', 'f1', 'f2', 'contour', 'csv', 'export', 'copy', 'list', 'vowel'],
+      enabled: hasAudio,
+      run: () => void copyFormantContour()
     },
     {
       id: 'toggleFormantTrack',

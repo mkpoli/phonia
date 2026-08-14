@@ -324,6 +324,29 @@ test('resample to 16 kHz stores a downsampled copy as a new recording', async ({
   ).toHaveCount(2);
 });
 
+test('copy formant contour writes CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('formant contour');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyFormantContour"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('Formant contour copied', {
+    timeout: 20_000
+  });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('time_s,f1_hz')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const cells = lines[1].split(',');
+  expect(Number.isFinite(Number(cells[0]))).toBe(true);
+  expect(Number(cells[1])).toBeGreaterThan(0);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);
