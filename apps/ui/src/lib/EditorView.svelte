@@ -129,6 +129,9 @@
       t0: number,
       t1: number
     ) => Promise<{ times: Float64Array; hnr: Float64Array }>;
+    /** Saves each labelled interval of a tier as its own library recording;
+     *  absent hides the affordance. */
+    onExtractIntervals?: (spans: { t0: number; t1: number; label: string }[]) => Promise<void>;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -183,6 +186,7 @@
     onResample16k,
     onNearestZero,
     onHarmonicityTrack,
+    onExtractIntervals,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -774,6 +778,23 @@
       flashToast(`Harmonicity copied · ${rows.length - 1} frames`);
     } catch {
       flashToast('Could not copy the harmonicity');
+    }
+  }
+
+  // Saves a tier's labelled intervals as recordings, capped so an over-long
+  // tier cannot spawn hundreds of takes in one click.
+  const MAX_EXTRACTED_INTERVALS = 50;
+  async function extractIntervalsFromTable(spans: { t0: number; t1: number; label: string }[]) {
+    if (spans.length === 0 || !onExtractIntervals) return;
+    if (spans.length > MAX_EXTRACTED_INTERVALS) {
+      flashToast(`Too many intervals (${spans.length}); extract a shorter tier`);
+      return;
+    }
+    try {
+      await onExtractIntervals(spans);
+      flashToast(`Extracted ${spans.length} interval${spans.length === 1 ? '' : 's'}`);
+    } catch {
+      flashToast('Could not extract the intervals');
     }
   }
 
@@ -1699,6 +1720,7 @@
       {annotationId}
       params={overlayParams}
       name={projectName ?? 'measurements'}
+      onExtractIntervals={onExtractIntervals ? extractIntervalsFromTable : undefined}
       onClose={() => (measureOpen = false)}
     />
   {/if}

@@ -220,6 +220,32 @@ test('duplicate tier copies it below with a " copy" name', async ({ page }) => {
   expect(await names()).toEqual(['interval 1', 'interval 1 copy']);
 });
 
+test('extract labelled intervals adds one recording per interval', async ({ page }) => {
+  await loadFixture(page);
+  await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('measure');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="measureIntervals"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('measure-grid')).toBeVisible({ timeout: 20_000 });
+  const rowCount = await page.getByTestId('measure-row').count();
+  expect(rowCount).toBeGreaterThan(0);
+
+  await page.getByTestId('measure-extract').click();
+  await expect(page.getByTestId('editor-toast')).toContainText('Extracted', { timeout: 40_000 });
+
+  // The library gained one recording per labelled interval, and the original.
+  await page.getByTestId('measure-close').click();
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(rowCount + 1);
+});
+
 test('undoing a textgrid import repoints the pane instead of going blank', async ({ page }) => {
   await loadFixture(page);
   // Loading already journaled the audio import and an empty document (undo

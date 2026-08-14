@@ -4,6 +4,7 @@
   import IconClipboard from '~icons/lucide/clipboard-copy';
   import IconCheck from '~icons/lucide/check';
   import IconDownload from '~icons/lucide/download';
+  import IconScissors from '~icons/lucide/scissors';
   import type { AudioInfo, CoreClientLike, OverlayParams, TierInfo, AnnotationId } from './types';
 
   interface Props {
@@ -13,10 +14,21 @@
     params: OverlayParams;
     /** Recording name, for the exported file name. */
     name?: string;
+    /** Extracts each labelled interval to its own recording; absent hides the
+     *  affordance. */
+    onExtractIntervals?: (spans: { t0: number; t1: number; label: string }[]) => Promise<void>;
     onClose: () => void;
   }
 
-  let { client, audio, annotationId, params, name = 'measurements', onClose }: Props = $props();
+  let {
+    client,
+    audio,
+    annotationId,
+    params,
+    name = 'measurements',
+    onExtractIntervals,
+    onClose
+  }: Props = $props();
 
   interface Row {
     label: string;
@@ -33,6 +45,17 @@
   let rows = $state<Row[]>([]);
   let loading = $state(false);
   let copied = $state(false);
+  let extracting = $state(false);
+
+  async function extract() {
+    if (!onExtractIntervals || rows.length === 0) return;
+    extracting = true;
+    try {
+      await onExtractIntervals(rows.map((row) => ({ t0: row.tmin, t1: row.tmax, label: row.label })));
+    } finally {
+      extracting = false;
+    }
+  }
 
   // The columns, in order: label, times, then the measures harvested per
   // interval from the same engine queries the readout uses.
@@ -205,6 +228,18 @@
         <button type="button" class="copy" data-testid="measure-csv" onclick={downloadCsv}>
           <IconDownload aria-hidden="true" /><span>Download CSV</span>
         </button>
+        {#if onExtractIntervals}
+          <button
+            type="button"
+            class="copy"
+            data-testid="measure-extract"
+            disabled={extracting}
+            onclick={extract}
+          >
+            <IconScissors aria-hidden="true" />
+            <span>{extracting ? 'Extracting…' : 'Extract to recordings'}</span>
+          </button>
+        {/if}
       </footer>
     {/if}
   </div>

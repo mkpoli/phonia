@@ -1257,11 +1257,10 @@
     }
   }
 
-  // Registers WAV bytes as a new library recording and opens it. The bytes are
-  // re-imported so the take persists to OPFS and switches in exactly as an
-  // imported or mic-recorded one does.
-  async function persistWavAsRecording(wav: Uint8Array, label: string) {
-    if (!client || !store || !project) return;
+  // Re-imports WAV bytes and appends them to the library as a persisted
+  // recording, without switching to it. Returns the new entry, or null.
+  async function addWavRecording(wav: Uint8Array, label: string) {
+    if (!client || !store || !project) return null;
     const current = project;
     const file = new File([new Uint8Array(wav)], `${label}.wav`, { type: 'audio/wav' });
     const info = await client.importAudio(file);
@@ -1275,9 +1274,33 @@
     };
     const entry = await store.addRecording(current, label, finished);
     project = { ...current };
+    return entry;
+  }
+
+  // Registers WAV bytes as a new library recording and opens it. The bytes are
+  // re-imported so the take persists to OPFS and switches in exactly as an
+  // imported or mic-recorded one does.
+  async function persistWavAsRecording(wav: Uint8Array, label: string) {
+    const entry = await addWavRecording(wav, label);
+    if (!entry) return;
     resetAutosaveBaseline();
     await refreshProjects();
     await openRecording(entry);
+  }
+
+  // Saves each labelled interval of a tier as its own recording, in sequence so
+  // the OPFS writes don't overlap, refreshing the project once at the end.
+  async function extractIntervals(spans: { t0: number; t1: number; label: string }[]) {
+    if (!client || !audio || !recording) return;
+    const base = recording.name;
+    for (const span of spans) {
+      if (!(span.t1 > span.t0)) continue;
+      const wav = await client.exportSpanWav(audio.id, span.t0, span.t1, 'Float32');
+      const label = `${base}_${span.label.replace(/[/\\]/g, '-')}`;
+      await addWavRecording(wav, label);
+    }
+    resetAutosaveBaseline();
+    await refreshProjects();
   }
 
   // Copies the editor's time selection into a new library recording, encoded to
@@ -1631,6 +1654,7 @@
       onResample16k={resampleTo16k}
       onNearestZero={nearestZero}
       onHarmonicityTrack={harmonicityTrack}
+      onExtractIntervals={extractIntervals}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}
