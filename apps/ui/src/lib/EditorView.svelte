@@ -19,6 +19,7 @@
   import Transport from './Transport.svelte';
   import GradientEditor from './GradientEditor.svelte';
   import VoiceReportCard from './VoiceReportCard.svelte';
+  import MeasurementTable from './MeasurementTable.svelte';
   import WaveformPane from './WaveformPane.svelte';
   import { registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
@@ -311,6 +312,7 @@
   let voiceReportOpen = $state(false);
   let voiceReport = $state<VoiceReportData | null>(null);
   let voiceReportLoading = $state(false);
+  let measureOpen = $state(false);
 
   $effect(() => {
     const duration = audio?.duration ?? 1;
@@ -619,6 +621,11 @@
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
     // Escape closes whichever overlay sits on top before it does anything
     // else; this is baseline modal behavior, not a rebindable command.
+    if (event.key === 'Escape' && measureOpen) {
+      event.preventDefault();
+      measureOpen = false;
+      return;
+    }
     if (event.key === 'Escape' && (selection || voiceReportOpen)) {
       event.preventDefault();
       if (voiceReportOpen) voiceReportOpen = false;
@@ -785,6 +792,17 @@
       keywords: ['jitter', 'shimmer', 'hnr'],
       enabled: hasSelection,
       run: () => void openVoiceReport()
+    },
+    {
+      id: 'measureIntervals',
+      title: 'Measure labelled intervals…',
+      group: 'Analysis',
+      api: ['selectionReadout', 'formantSpanMeans'],
+      keywords: ['table', 'csv', 'tsv', 'export', 'harvest', 'formants', 'batch'],
+      enabled: () => annotationId !== null,
+      run: () => {
+        measureOpen = true;
+      }
     },
     {
       id: 'playSelection',
@@ -1155,6 +1173,16 @@
 
   {#if voiceReportOpen}
     <VoiceReportCard report={voiceReport} loading={voiceReportLoading} onClose={() => (voiceReportOpen = false)} />
+  {/if}
+  {#if measureOpen}
+    <MeasurementTable
+      {client}
+      {audio}
+      {annotationId}
+      params={overlayParams}
+      name={projectName ?? 'measurements'}
+      onClose={() => (measureOpen = false)}
+    />
   {/if}
 </div>
 

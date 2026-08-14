@@ -259,3 +259,39 @@ test('textgrid import/export round trip and 4-tier screenshots in both themes', 
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(screenshots, 'tiers-dark.png'), fullPage: true });
 });
+
+test('measurement table harvests labelled intervals and exports CSV', async ({ page }) => {
+  await loadFixture(page);
+  await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '3');
+
+  // Open the measurement table through the command palette.
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('measure labelled');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="measureIntervals"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await expect(cmd).toHaveAttribute('data-selected', 'true');
+  await page.keyboard.press('Enter');
+
+  // A row per labelled interval on the first (words) tier, measured from the
+  // same engine queries the readout uses.
+  await expect(page.getByTestId('measurement-table')).toBeVisible();
+  const rows = page.getByTestId('measure-row');
+  await expect(rows.first()).toBeVisible({ timeout: 30_000 });
+  expect(await rows.count()).toBeGreaterThan(1);
+  await expect(page.getByTestId('measure-grid')).toContainText('danger');
+
+  // CSV export downloads a file whose header names the measurement columns.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('measure-csv').click()
+  ]);
+  expect(download.suggestedFilename()).toMatch(/\.csv$/);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  const csv = Buffer.concat(chunks).toString('utf-8');
+  expect(csv.split('\n')[0]).toContain('F1 (Hz)');
+  expect(csv).toContain('CoG (Hz)');
+});
