@@ -259,6 +259,29 @@ test('snap selection to zero crossings lands the edges on crossings', async ({ p
     .toBe(true);
 });
 
+test('copy pitch contour writes CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('pitch contour');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyPitchContour"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('Pitch contour copied', {
+    timeout: 20_000
+  });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('time_s,f0_hz')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const [t, f0] = lines[1].split(',').map(Number);
+  expect(Number.isFinite(t)).toBe(true);
+  expect(f0).toBeGreaterThan(0);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

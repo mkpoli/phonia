@@ -308,6 +308,16 @@
   let inspectorOpen = $state(true);
   let exportOpen = $state(false);
   let railOpen = $state(true);
+  // A brief self-clearing status line for background actions (a contour copy).
+  let toast = $state<string | null>(null);
+  let toastToken = 0;
+  function flashToast(message: string) {
+    toast = message;
+    const token = (toastToken += 1);
+    setTimeout(() => {
+      if (toastToken === token) toast = null;
+    }, 2200);
+  }
 
   let selection = $state<Selection | null>(null);
   let readout = $state<SelectionReadout | null>(null);
@@ -568,6 +578,33 @@
     const [a, b] = await Promise.all([onNearestZero(sel.t0), onNearestZero(sel.t1)]);
     if (!Number.isFinite(a) || !Number.isFinite(b)) return;
     selection = { ...sel, t0: Math.min(a, b), t1: Math.max(a, b) };
+  }
+
+  // Copies the F0 contour over the selection (or the whole file) as CSV: one
+  // `time_s,f0_hz` row per voiced frame, for a plot or stats package elsewhere.
+  async function copyPitchContour() {
+    if (!client || !audio) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (!(t1 > t0)) return;
+    try {
+      const track = await client.pitchTrackSpan(
+        audio.id,
+        overlayParams.pitch.floorHz,
+        overlayParams.pitch.ceilingHz,
+        t0,
+        t1
+      );
+      const rows = ['time_s,f0_hz'];
+      for (let i = 0; i < track.times.length; i += 1) {
+        const f0 = track.f0[i];
+        if (Number.isFinite(f0) && f0 > 0) rows.push(`${track.times[i].toFixed(4)},${f0.toFixed(2)}`);
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`Pitch contour copied · ${rows.length - 1} points`);
+    } catch {
+      flashToast('Could not copy the pitch contour');
+    }
   }
 
   // Transport Play / Space plays what the user is looking at, in priority order:
@@ -901,6 +938,15 @@
       run: () => {
         overlayParams.pitch.show = !overlayParams.pitch.show;
       }
+    },
+    {
+      id: 'copyPitchContour',
+      title: 'Copy pitch contour (CSV)',
+      group: 'Analysis',
+      api: ['pitchTrackSpan'],
+      keywords: ['f0', 'pitch', 'contour', 'csv', 'export', 'pitchtier', 'copy', 'list'],
+      enabled: hasAudio,
+      run: () => void copyPitchContour()
     },
     {
       id: 'toggleFormantTrack',
@@ -1460,6 +1506,10 @@
       onClose={() => (sweepOpen = false)}
     />
   {/if}
+
+  {#if toast}
+    <div class="toast" data-testid="editor-toast" role="status" aria-live="polite">{toast}</div>
+  {/if}
 </div>
 
 <style>
@@ -1672,5 +1722,21 @@
     background: var(--warn);
     pointer-events: none;
     z-index: 6;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--chrome-strong);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+    font-size: 0.82rem;
+    pointer-events: none;
   }
 </style>
