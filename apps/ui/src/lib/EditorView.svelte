@@ -371,6 +371,12 @@
     minDb: number;
     minTime: number;
   } | null>(null);
+  let harmonicityStats = $state<{
+    maxDb: number;
+    maxTime: number;
+    minDb: number;
+    minTime: number;
+  } | null>(null);
 
   // Glottal pulses for the waveform overlay, fetched once per (recording, pitch
   // range) while the overlay is on. Whole-signal, like the other contours.
@@ -563,6 +569,47 @@
           }
         }
         intensityStats = found ? { maxDb, maxTime, minDb, minTime } : null;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  // Harmonicity extrema over the selection — the most and least periodic frames
+  // and when they fall. Computed only while the harmonicity layer is on, since
+  // HNR is the heavier track a phonetician opts into.
+  $effect(() => {
+    const sel = selection;
+    const id = audio?.id;
+    if (!client || id === undefined || !sel || !overlayParams.harmonicity.show) {
+      harmonicityStats = null;
+      return;
+    }
+    let cancelled = false;
+    client
+      .harmonicityTrack(id, sel.t0, sel.t1)
+      .then((track) => {
+        if (cancelled) return;
+        let maxDb = -Infinity;
+        let minDb = Infinity;
+        let maxTime = sel.t0;
+        let minTime = sel.t0;
+        let found = false;
+        for (let i = 0; i < track.times.length; i += 1) {
+          const level = track.hnr[i];
+          if (!Number.isFinite(level)) continue;
+          found = true;
+          if (level > maxDb) {
+            maxDb = level;
+            maxTime = track.times[i];
+          }
+          if (level < minDb) {
+            minDb = level;
+            minTime = track.times[i];
+          }
+        }
+        harmonicityStats = found ? { maxDb, maxTime, minDb, minTime } : null;
       })
       .catch(() => {});
     return () => {
@@ -1812,6 +1859,7 @@
         {readout}
         {formantMeans}
         {intensityStats}
+        {harmonicityStats}
         cursor={cursorSample}
         {cursorTime}
         onClose={() => (inspectorOpen = false)}

@@ -24,6 +24,14 @@
       minDb: number;
       minTime: number;
     } | null;
+    /** Harmonicity (HNR) extrema over the selection, or null when the layer is
+     *  off or no selection is active. */
+    harmonicityStats?: {
+      maxDb: number;
+      maxTime: number;
+      minDb: number;
+      minTime: number;
+    } | null;
     /** Track values at the playhead; each layer's live value when no
      *  selection readout supplies one. */
     cursor?: TrackSample | null;
@@ -38,6 +46,7 @@
     readout = null,
     formantMeans = null,
     intensityStats = null,
+    harmonicityStats = null,
     cursor = null,
     cursorTime = 0,
     onClose
@@ -446,6 +455,16 @@
         >{db(readout ? readout.hnrMeanDb : cursor?.hnrDb)}</span
       >
     </div>
+    {#if harmonicityStats}
+      <div class="extrema" data-testid="harmonicity-extrema">
+        <span data-testid="harmonicity-max"
+          >Max {db(harmonicityStats.maxDb)} at {harmonicityStats.maxTime.toFixed(3)} s</span
+        >
+        <span data-testid="harmonicity-min"
+          >Min {db(harmonicityStats.minDb)} at {harmonicityStats.minTime.toFixed(3)} s</span
+        >
+      </div>
+    {/if}
     {#if expanded.harmonicity}
       <div class="params">
         <div class="field">

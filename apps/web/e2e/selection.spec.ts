@@ -441,6 +441,20 @@ test('harmonicity overlay: the layer toggles on', async ({ page }) => {
   await expect(page.getByTestId('inspector-harmonicity')).not.toHaveClass(/\boff\b/);
 });
 
+test('harmonicity extrema: min/max HNR over the selection appear when the layer is on', async ({
+  page
+}) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+  await page.getByTestId('toggle-harmonicity').click();
+
+  const extrema = page.getByTestId('harmonicity-extrema');
+  await expect(extrema).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('harmonicity-max')).toContainText('Max');
+  await expect(page.getByTestId('harmonicity-max')).toContainText('dB');
+  await expect(page.getByTestId('harmonicity-min')).toContainText('Min');
+});
+
 test('cpp overlay: the layer toggles on', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const eye = page.getByTestId('toggle-cpp');
