@@ -20,6 +20,7 @@
   import GradientEditor from './GradientEditor.svelte';
   import VoiceReportCard from './VoiceReportCard.svelte';
   import MeasurementTable from './MeasurementTable.svelte';
+  import SpectrumCard from './SpectrumCard.svelte';
   import WaveformPane from './WaveformPane.svelte';
   import { registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
@@ -313,6 +314,14 @@
   let voiceReport = $state<VoiceReportData | null>(null);
   let voiceReportLoading = $state(false);
   let measureOpen = $state(false);
+  let spectrumOpen = $state(false);
+  let spectrumAt = $state(0);
+
+  function openSpectrum() {
+    if (!selection) return;
+    spectrumAt = 0.5 * (selection.t0 + selection.t1);
+    spectrumOpen = true;
+  }
 
   $effect(() => {
     const duration = audio?.duration ?? 1;
@@ -624,6 +633,11 @@
     if (event.key === 'Escape' && measureOpen) {
       event.preventDefault();
       measureOpen = false;
+      return;
+    }
+    if (event.key === 'Escape' && spectrumOpen) {
+      event.preventDefault();
+      spectrumOpen = false;
       return;
     }
     if (event.key === 'Escape' && (selection || voiceReportOpen)) {
@@ -1013,6 +1027,7 @@
       onPlay={playSelection}
       onZoom={zoomToSelection}
       onVoiceReport={openVoiceReport}
+      onSpectrum={openSpectrum}
       onClear={clearSelection}
     />
   {/if}
@@ -1183,6 +1198,9 @@
       name={projectName ?? 'measurements'}
       onClose={() => (measureOpen = false)}
     />
+  {/if}
+  {#if spectrumOpen}
+    <SpectrumCard {client} {audio} at={spectrumAt} onClose={() => (spectrumOpen = false)} />
   {/if}
 </div>
 

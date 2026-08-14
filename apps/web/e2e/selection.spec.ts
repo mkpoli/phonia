@@ -74,6 +74,22 @@ test('spectrogram box selection: readout values are present and finite', async (
   await expect(page.getByTestId('readout-duration')).toContainText('s');
 });
 
+test('the spectrum card plots the selection slice with a hover readout', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.getByTestId('selection-spectrum').click();
+  await expect(page.getByTestId('spectrum-card')).toBeVisible();
+  const canvas = page.getByTestId('spectrum-canvas');
+  await expect(canvas).toBeVisible({ timeout: 15_000 });
+
+  // Hovering the plot reads out the frequency and dB under the cursor.
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await expect(page.getByTestId('spectrum-readout')).toContainText('Hz');
+  await expect(page.getByTestId('spectrum-readout')).toContainText('dB');
+});
+
 test('the pitch unit selector converts the F0 readout to semitones', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);

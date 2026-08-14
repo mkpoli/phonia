@@ -1440,6 +1440,18 @@ impl WasmEngine {
         Ok(Float64Array::from(times.as_slice()))
     }
 
+    /// The spectral slice at time `at` as a JSON string `{ freqs, db }` with
+    /// parallel arrays, for the dB-vs-Hz spectrum view.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, or when `at` is not finite.
+    #[wasm_bindgen(js_name = spectrumSlice)]
+    pub fn spectrum_slice(&self, id: u64, at: f64) -> Result<String, JsError> {
+        let (freqs, db) = self.inner.spectrum_slice(AudioId::from_u64(id), at)?;
+        let value = serde_json::json!({ "freqs": freqs, "db": db });
+        serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
+    }
+
     /// Computes the aggregate voice report over a selection span as a JSON string.
     ///
     /// The object carries the pitch summary, jitter and shimmer families, mean

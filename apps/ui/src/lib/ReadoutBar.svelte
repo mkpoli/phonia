@@ -2,6 +2,7 @@
   import IconPlay from '~icons/lucide/play';
   import IconZoomIn from '~icons/lucide/zoom-in';
   import IconActivity from '~icons/lucide/activity';
+  import IconAudioWaveform from '~icons/lucide/audio-waveform';
   import IconFilter from '~icons/lucide/filter';
   import IconX from '~icons/lucide/x';
   import { formatTime, type Selection, type SelectionReadout } from './types';
@@ -19,6 +20,7 @@
     onPlay: () => void;
     onZoom: () => void;
     onVoiceReport: () => void;
+    onSpectrum: () => void;
     onClear: () => void;
   }
 
@@ -32,6 +34,7 @@
     onPlay,
     onZoom,
     onVoiceReport,
+    onSpectrum,
     onClear
   }: Props = $props();
 
@@ -142,6 +145,9 @@
     </button>
     <button type="button" data-testid="selection-zoom" onclick={onZoom}>
       <IconZoomIn aria-hidden="true" /><span>Zoom to</span>
+    </button>
+    <button type="button" data-testid="selection-spectrum" onclick={onSpectrum}>
+      <IconAudioWaveform aria-hidden="true" /><span>Spectrum</span>
     </button>
     <button type="button" data-testid="selection-voice-report" onclick={onVoiceReport}>
       <IconActivity aria-hidden="true" /><span>Voice report</span>

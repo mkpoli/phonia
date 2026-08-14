@@ -917,6 +917,25 @@ impl Engine {
         Ok(phx_voice::spectral_moments(&spectrum, power))
     }
 
+    /// The spectral slice at time `at`: parallel `(frequencies_hz, db)` vectors
+    /// for a dB-vs-Hz view of the spectrum under the cursor or selection.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
+    /// store entry, and [`EngineError::InvalidRequest`] when `at` is not finite.
+    pub fn spectrum_slice(&self, id: AudioId, at: f64) -> Result<(Vec<f64>, Vec<f32>), EngineError> {
+        if !at.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "spectrum_slice time must be finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let view = audio.slice_samples(0..audio.frames());
+        let slice = phx_spectrogram::spectral_slice(view, at, &SpectrogramParams::default());
+        Ok((slice.f_axis, slice.db))
+    }
+
     /// Computes the aggregate voice report over a selection span.
     ///
     /// Wraps [`phx_voice::voice_report`]: it tracks pitch, extracts pulses, and

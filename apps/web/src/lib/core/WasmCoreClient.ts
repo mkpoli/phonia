@@ -20,6 +20,7 @@ import type {
   PointId,
   SaveProjectSpec,
   SelectionReadout,
+  SpectrumSliceData,
   SpectrogramTileRequest,
   TierId,
   TierInfo,
@@ -286,6 +287,10 @@ export class WasmCoreClient implements CoreClient {
 
   pulseTimes(id: AudioId, floorHz: number, ceilingHz: number): Promise<Float64Array> {
     return this.#call({ method: 'pulseTimes', audioId: id, floorHz, ceilingHz });
+  }
+
+  spectrumSlice(id: AudioId, at: number): Promise<SpectrumSliceData> {
+    return this.#call({ method: 'spectrumSlice', audioId: id, at });
   }
 
   createAnnotation(audioId: AudioId, xmin: number, xmax: number): Promise<AnnotationId> {

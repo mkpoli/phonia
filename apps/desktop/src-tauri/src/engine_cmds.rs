@@ -353,6 +353,13 @@ pub fn pulse_times(
 }
 
 #[tauri::command]
+pub fn spectrum_slice(state: State<AppState>, id: u64, at: f64) -> Result<serde_json::Value, String> {
+    let engine = lock(&state)?;
+    let (freqs, db) = engine.spectrum_slice(AudioId::from_u64(id), at).map_err(err)?;
+    Ok(serde_json::json!({ "freqs": freqs, "db": db }))
+}
+
+#[tauri::command]
 pub fn voice_report(
     state: State<AppState>,
     id: u64,

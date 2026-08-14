@@ -21,6 +21,7 @@ import type {
   PointId,
   SaveProjectSpec,
   SelectionReadout,
+  SpectrumSliceData,
   SpectrogramTileRequest,
   TierId,
   TierInfo,
@@ -241,6 +242,10 @@ export class TauriCoreClient implements CoreClientLike {
     return Float64Array.from(
       await invoke<number[]>('pulse_times', { id: num(id), floorHz, ceilingHz })
     );
+  }
+
+  spectrumSlice(id: AudioId, at: number): Promise<SpectrumSliceData> {
+    return invoke('spectrum_slice', { id: num(id), at });
   }
 
   async createAnnotation(audioId: AudioId, xmin: number, xmax: number): Promise<AnnotationId> {
