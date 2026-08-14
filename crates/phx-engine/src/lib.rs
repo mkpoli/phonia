@@ -955,6 +955,62 @@ impl Engine {
         Ok((frequencies_hz, db))
     }
 
+    /// The long-term average spectrum of `[t0, t1]`: the mean power spectrum
+    /// across overlapping 20 ms Hann frames, in dB vs Hz. Averaging over frames
+    /// smooths the harmonic fine structure a single spectrum shows, leaving the
+    /// spectral slope voice-quality and sociophonetic work reads.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
+    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
+    /// finite.
+    pub fn ltas(&self, id: AudioId, t0: f64, t1: f64) -> Result<(Vec<f64>, Vec<f32>), EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "ltas bounds must be finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let duration = audio.duration();
+        let (lo, hi) = ordered_clamped(t0, t1, 0.0, duration);
+        let sr = audio.sample_rate();
+        let start = (lo * sr).floor().max(0.0) as usize;
+        let end = ((hi * sr).ceil() as usize).min(audio.frames());
+        if end < start + 8 {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let mono = audio.slice_samples(start..end).mono_mix();
+        let total = mono.len();
+        let frame = ((sr * 0.02).round() as usize).clamp(8, total);
+        let hop = (frame / 2).max(1);
+        let window = window_samples(Window::Hanning, frame);
+        let bins = frame / 2 + 1;
+        let mut power = vec![0.0_f64; bins];
+        let mut plan = RealFftPlan::new();
+        let mut frames = 0usize;
+        let mut pos = 0usize;
+        while pos + frame <= total {
+            let mut buffer: Vec<f64> = (0..frame)
+                .map(|i| f64::from(mono[pos + i]) * window[i])
+                .collect();
+            for (acc, bin) in power.iter_mut().zip(plan.rfft(&mut buffer)) {
+                *acc += bin.norm_sqr();
+            }
+            frames += 1;
+            pos += hop;
+        }
+        if frames == 0 {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let frequencies_hz = (0..bins).map(|k| k as f64 * sr / frame as f64).collect();
+        let db = power
+            .iter()
+            .map(|&p| (10.0 * (p / frames as f64).max(1e-20).log10()) as f32)
+            .collect();
+        Ok((frequencies_hz, db))
+    }
+
     /// Segments the recording into sounding and silent intervals by thresholding
     /// the intensity contour at `threshold_db` below its peak, then removing
     /// silent runs shorter than `min_silent_s` and sounding runs shorter than

@@ -495,6 +495,8 @@ export interface CoreClientLike extends AnnotationClientLike {
   pulseTimes(id: AudioId, floorHz: number, ceilingHz: number): Promise<Float64Array>;
   /** The spectrum of `[t0, t1]`: parallel frequency (Hz) and dB arrays. */
   spectrumSlice(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData>;
+  /** The long-term average spectrum of `[t0, t1]`: frequency (Hz) and dB arrays. */
+  ltas(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData>;
   /** Sounding/silent segmentation from the intensity contour. */
   silenceIntervals(
     id: AudioId,

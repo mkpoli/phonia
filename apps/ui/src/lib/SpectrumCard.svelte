@@ -9,10 +9,14 @@
     /** Selection span in seconds to take the spectrum over. */
     t0: number;
     t1: number;
+    /** `spectrum` is one FFT over the span; `ltas` averages frame spectra. */
+    mode?: 'spectrum' | 'ltas';
     onClose: () => void;
   }
 
-  let { client, audio, t0, t1, onClose }: Props = $props();
+  let { client, audio, t0, t1, mode = 'spectrum', onClose }: Props = $props();
+
+  const title = $derived(mode === 'ltas' ? 'LTAS' : 'Spectrum');
 
   let data = $state<SpectrumSliceData | null>(null);
   let loading = $state(true);
@@ -32,8 +36,9 @@
     }
     let cancelled = false;
     loading = true;
-    client
-      .spectrumSlice(audio.id, t0, t1)
+    const request =
+      mode === 'ltas' ? client.ltas(audio.id, t0, t1) : client.spectrumSlice(audio.id, t0, t1);
+    request
       .then((result) => {
         if (!cancelled) {
           data = result;
@@ -153,7 +158,7 @@
 <div class="backdrop" data-testid="spectrum-card">
   <div class="card" role="dialog" aria-modal="true" aria-label="Spectrum">
     <header>
-      <h2><IconAudioWaveform aria-hidden="true" />Spectrum</h2>
+      <h2><IconAudioWaveform aria-hidden="true" />{title}</h2>
       <span class="span">{t0.toFixed(3)}–{t1.toFixed(3)} s</span>
       <span class="readout" data-testid="spectrum-readout">
         {#if hover}{Math.round(hover.hz)} Hz · {hover.db.toFixed(1)} dB{:else}hover to read{/if}

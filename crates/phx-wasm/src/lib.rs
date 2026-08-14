@@ -1452,6 +1452,17 @@ impl WasmEngine {
         serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
     }
 
+    /// The long-term average spectrum of `[t0, t1]` as a JSON `{ freqs, db }`.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, or when a bound is not finite.
+    #[wasm_bindgen(js_name = ltas)]
+    pub fn ltas(&self, id: u64, t0: f64, t1: f64) -> Result<String, JsError> {
+        let (freqs, db) = self.inner.ltas(AudioId::from_u64(id), t0, t1)?;
+        let value = serde_json::json!({ "freqs": freqs, "db": db });
+        serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
+    }
+
     /// Sounding/silent segmentation as a JSON array of `{ t0, t1, sounding }`,
     /// for annotating a recording by its silences.
     ///

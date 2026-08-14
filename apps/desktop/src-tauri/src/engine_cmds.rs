@@ -365,6 +365,13 @@ pub fn spectrum_slice(
 }
 
 #[tauri::command]
+pub fn ltas(state: State<AppState>, id: u64, t0: f64, t1: f64) -> Result<serde_json::Value, String> {
+    let engine = lock(&state)?;
+    let (freqs, db) = engine.ltas(AudioId::from_u64(id), t0, t1).map_err(err)?;
+    Ok(serde_json::json!({ "freqs": freqs, "db": db }))
+}
+
+#[tauri::command]
 pub fn silence_intervals(
     state: State<AppState>,
     id: u64,

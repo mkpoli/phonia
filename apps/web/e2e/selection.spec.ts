@@ -93,6 +93,21 @@ test('the formant ceiling sweep tabulates F1-F4 at several LPC ceilings', async 
   await expect(page.getByTestId('formant-sweep-grid')).toContainText('steadiest');
 });
 
+test('LTAS shows an averaged spectrum over the selection', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('ltas');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="ltas"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('spectrum-card')).toContainText('LTAS');
+  await expect(page.getByTestId('spectrum-canvas')).toBeVisible({ timeout: 15_000 });
+});
+
 test('the spectrum card plots the selection slice with a hover readout', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);

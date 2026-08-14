@@ -318,11 +318,20 @@
   let measureOpen = $state(false);
   let vowelChartOpen = $state(false);
   let spectrumOpen = $state(false);
+  let spectrumMode = $state<'spectrum' | 'ltas'>('spectrum');
   let spectrumSpan = $state<{ t0: number; t1: number }>({ t0: 0, t1: 0 });
 
   function openSpectrum() {
     if (!selection) return;
     spectrumSpan = { t0: selection.t0, t1: selection.t1 };
+    spectrumMode = 'spectrum';
+    spectrumOpen = true;
+  }
+
+  function openLtas() {
+    if (!selection) return;
+    spectrumSpan = { t0: selection.t0, t1: selection.t1 };
+    spectrumMode = 'ltas';
     spectrumOpen = true;
   }
 
@@ -879,6 +888,15 @@
       run: () => void openFormantSweep()
     },
     {
+      id: 'ltas',
+      title: 'LTAS over selection',
+      group: 'Analysis',
+      api: ['ltas'],
+      keywords: ['ltas', 'long-term', 'average', 'spectrum', 'spectral tilt'],
+      enabled: hasSelection,
+      run: () => void openLtas()
+    },
+    {
       id: 'vowelChart',
       title: 'Vowel F1–F2 chart…',
       group: 'Analysis',
@@ -1287,6 +1305,7 @@
       {audio}
       t0={spectrumSpan.t0}
       t1={spectrumSpan.t1}
+      mode={spectrumMode}
       onClose={() => (spectrumOpen = false)}
     />
   {/if}

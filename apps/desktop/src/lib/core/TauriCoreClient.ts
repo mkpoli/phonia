@@ -249,6 +249,10 @@ export class TauriCoreClient implements CoreClientLike {
     return invoke('spectrum_slice', { id: num(id), t0, t1 });
   }
 
+  ltas(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData> {
+    return invoke('ltas', { id: num(id), t0, t1 });
+  }
+
   silenceIntervals(
     id: AudioId,
     thresholdDb: number,
