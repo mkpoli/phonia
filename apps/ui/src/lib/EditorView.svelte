@@ -45,7 +45,8 @@
     type SelectionReadout,
     type ViewportState,
     type VoiceReportData,
-    type AudioId
+    type AudioId,
+    type SpectrumSliceData
   } from './types';
 
   interface RecordingChoice {
@@ -135,6 +136,9 @@
     /** Saves each labelled interval of a tier as its own library recording;
      *  absent hides the affordance. */
     onExtractIntervals?: (spans: { t0: number; t1: number; label: string }[]) => Promise<void>;
+    /** Resolves the LPC-smoothed spectral envelope over a span, for the
+     *  spectrum card's formant-tracing overlay; absent hides it. */
+    onLpcEnvelope?: (t0: number, t1: number) => Promise<SpectrumSliceData>;
     /** Joins the project's recordings into one new recording; absent hides it. */
     onConcatenate?: () => Promise<void>;
     /** Starts a microphone recording; absent when the browser cannot capture. */
@@ -193,6 +197,7 @@
     onNearestZero,
     onHarmonicityTrack,
     onExtractIntervals,
+    onLpcEnvelope,
     onConcatenate,
     onStartRecording,
     recording = false,
@@ -1773,6 +1778,7 @@
       t0={spectrumSpan.t0}
       t1={spectrumSpan.t1}
       mode={spectrumMode}
+      onLpcEnvelope={onLpcEnvelope ?? null}
       onClose={() => (spectrumOpen = false)}
     />
   {/if}

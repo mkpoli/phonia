@@ -3,11 +3,13 @@
 #![warn(missing_docs)]
 
 mod burg;
+mod envelope;
 mod params;
 mod roots;
 mod track;
 mod types;
 
+pub use envelope::lpc_envelope_db;
 pub use params::{FormantParams, effective_time_step, frame_grid};
 pub use track::{TrackingRefs, formant_track, track_smoothed};
 pub use types::{FormantFrame, FormantPoint, FormantTrack};

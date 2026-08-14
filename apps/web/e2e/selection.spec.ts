@@ -122,6 +122,15 @@ test('the spectrum card plots the selection slice with a hover readout', async (
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await expect(page.getByTestId('spectrum-readout')).toContainText('Hz');
   await expect(page.getByTestId('spectrum-readout')).toContainText('dB');
+
+  // The LPC-smoothed envelope overlays the slice and can be toggled off and on.
+  const lpc = page.getByTestId('spectrum-lpc-toggle');
+  await expect(lpc).toBeVisible();
+  await expect(lpc).toHaveAttribute('aria-pressed', 'true');
+  await lpc.click();
+  await expect(lpc).toHaveAttribute('aria-pressed', 'false');
+  await lpc.click();
+  await expect(lpc).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('the pitch unit selector converts the F0 readout to semitones', async ({ page }) => {

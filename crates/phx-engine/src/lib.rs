@@ -994,6 +994,61 @@ impl Engine {
         Ok((frequencies_hz, db))
     }
 
+    /// The LPC-smoothed spectral envelope of the selection `[t0, t1]` as
+    /// parallel `(frequencies_hz, db)` vectors — an all-pole Burg model sampled
+    /// across `0..Nyquist`, the way Praat's `To LPC` then `To Spectrum (slice)`
+    /// traces the resonance peaks a phonetician reads as formants over the raw
+    /// spectrum. The model order tracks the sample rate (`round(sr/1000) + 2`,
+    /// clamped to `4..=40`), one pole pair per expected formant plus headroom.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
+    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
+    /// finite.
+    pub fn lpc_spectrum(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+    ) -> Result<(Vec<f64>, Vec<f32>), EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "lpc_spectrum bounds must be finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let duration = audio.duration();
+        let (lo, hi) = ordered_clamped(t0, t1, 0.0, duration);
+        let sr = audio.sample_rate();
+        let start = (lo * sr).floor().max(0.0) as usize;
+        let end = ((hi * sr).ceil() as usize).min(audio.frames());
+        let order = ((sr / 1000.0).round() as usize + 2).clamp(4, 40);
+        if end < start + order + 1 {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let samples = audio
+            .slice_samples(start..end)
+            .mono_mix()
+            .iter()
+            .map(|&sample| f64::from(sample))
+            .collect::<Vec<_>>();
+        let points = 512;
+        let Some(envelope) = phx_formant::lpc_envelope_db(&samples, sr, order, points) else {
+            return Ok((Vec::new(), Vec::new()));
+        };
+        let mut frequencies_hz = Vec::with_capacity(envelope.len());
+        let mut db = Vec::with_capacity(envelope.len());
+        for (frequency, decibels) in envelope {
+            if !frequency.is_finite() || !decibels.is_finite() {
+                return Ok((Vec::new(), Vec::new()));
+            }
+            frequencies_hz.push(frequency);
+            db.push(decibels as f32);
+        }
+        Ok((frequencies_hz, db))
+    }
+
     /// The long-term average spectrum of `[t0, t1]`: the mean power spectrum
     /// across overlapping 20 ms Hann frames, in dB vs Hz. Averaging over frames
     /// smooths the harmonic fine structure a single spectrum shows, leaving the
@@ -3709,6 +3764,21 @@ mod tests {
         // A clean sine is near-perfectly periodic, so its HNR runs very high.
         let peak = voiced.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         assert!(peak > 20.0, "peak HNR {peak} dB too low for a clean sine");
+    }
+
+    #[test]
+    fn lpc_spectrum_spans_zero_to_nyquist_with_finite_levels() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(8_000, 0.5, 220.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+
+        let (freqs, db) = engine.lpc_spectrum(audio, 0.1, 0.4).unwrap();
+        assert_eq!(freqs.len(), 512);
+        assert_eq!(db.len(), 512);
+        assert!(freqs.first().copied().unwrap() == 0.0);
+        assert!((freqs.last().copied().unwrap() - 4_000.0).abs() < 1e-6);
+        assert!(freqs.windows(2).all(|pair| pair[1] > pair[0]));
+        assert!(db.iter().all(|value| value.is_finite()));
     }
 
     #[test]

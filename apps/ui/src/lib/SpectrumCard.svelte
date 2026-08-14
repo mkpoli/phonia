@@ -11,17 +11,28 @@
     t1: number;
     /** `spectrum` is one FFT over the span; `ltas` averages frame spectra. */
     mode?: 'spectrum' | 'ltas';
+    /**
+     * Resolves the LPC-smoothed envelope over the span. When supplied and
+     * `mode` is `spectrum`, the envelope overlays the FFT so its resonance
+     * peaks read as formants.
+     */
+    onLpcEnvelope?: ((t0: number, t1: number) => Promise<SpectrumSliceData>) | null;
     onClose: () => void;
   }
 
-  let { client, audio, t0, t1, mode = 'spectrum', onClose }: Props = $props();
+  let { client, audio, t0, t1, mode = 'spectrum', onLpcEnvelope = null, onClose }: Props = $props();
 
   const title = $derived(mode === 'ltas' ? 'LTAS' : 'Spectrum');
+  const LPC_COLOR = '#f2a33c';
 
   let data = $state<SpectrumSliceData | null>(null);
+  let lpc = $state<SpectrumSliceData | null>(null);
+  let showLpc = $state(true);
   let loading = $state(true);
   let canvas = $state<HTMLCanvasElement | null>(null);
   let hover = $state<{ hz: number; db: number } | null>(null);
+
+  const lpcActive = $derived(mode === 'spectrum' && onLpcEnvelope !== null);
 
   function cssVar(name: string, fallback: string): string {
     if (typeof window === 'undefined' || !canvas) return fallback;
@@ -53,7 +64,46 @@
     };
   });
 
-  // dB extent, padded, for the vertical scale.
+  $effect(() => {
+    if (!lpcActive || !audio || !onLpcEnvelope) {
+      lpc = null;
+      return;
+    }
+    let cancelled = false;
+    onLpcEnvelope(t0, t1)
+      .then((result) => {
+        if (!cancelled) lpc = result;
+      })
+      .catch(() => {
+        if (!cancelled) lpc = null;
+      });
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  function peakDb(values: number[]): number | null {
+    let hi = -Infinity;
+    for (const v of values) {
+      if (Number.isFinite(v) && v > hi) hi = v;
+    }
+    return Number.isFinite(hi) ? hi : null;
+  }
+
+  // The envelope level-matched to the FFT so peaks sit on the raw spectrum: a
+  // single offset aligns their maxima, since the LPC gain carries no absolute
+  // reference the FFT shares.
+  const alignedLpc = $derived.by(() => {
+    if (!showLpc || !lpcActive || !lpc || !data || lpc.db.length === 0) return null;
+    const fftPeak = peakDb(data.db);
+    const lpcPeak = peakDb(lpc.db);
+    if (fftPeak === null || lpcPeak === null) return null;
+    const offset = fftPeak - lpcPeak;
+    return { freqs: lpc.freqs, db: lpc.db.map((v) => v + offset) };
+  });
+
+  // dB extent, padded, for the vertical scale — folds in the aligned envelope so
+  // its valleys are not clipped off the bottom of the plot.
   const range = $derived.by(() => {
     if (!data || data.db.length === 0) return null;
     let lo = Infinity;
@@ -62,6 +112,13 @@
       if (!Number.isFinite(v)) continue;
       if (v < lo) lo = v;
       if (v > hi) hi = v;
+    }
+    if (alignedLpc) {
+      for (const v of alignedLpc.db) {
+        if (!Number.isFinite(v)) continue;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
     }
     if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
     const maxHz = data.freqs.length ? data.freqs[data.freqs.length - 1] : 1;
@@ -117,6 +174,20 @@
     }
     ctx.stroke();
 
+    // LPC envelope, level-matched, traced over the raw spectrum.
+    if (alignedLpc) {
+      ctx.strokeStyle = LPC_COLOR;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < alignedLpc.freqs.length; i += 1) {
+        const x = xOf(alignedLpc.freqs[i]);
+        const y = yOf(alignedLpc.db[i]);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
     // Hover cursor.
     if (hover) {
       const x = xOf(hover.hz);
@@ -131,10 +202,11 @@
   }
 
   $effect(() => {
-    // Redraw when data, range, hover, or the element changes.
+    // Redraw when data, range, hover, the envelope, or the element changes.
     void data;
     void range;
     void hover;
+    void alignedLpc;
     if (canvas) draw();
   });
 
@@ -163,6 +235,19 @@
       <span class="readout" data-testid="spectrum-readout">
         {#if hover}{Math.round(hover.hz)} Hz · {hover.db.toFixed(1)} dB{:else}hover to read{/if}
       </span>
+      {#if lpcActive}
+        <button
+          type="button"
+          class="lpc-toggle"
+          class:on={showLpc}
+          data-testid="spectrum-lpc-toggle"
+          onclick={() => (showLpc = !showLpc)}
+          aria-pressed={showLpc}
+          title="Show or hide the LPC-smoothed envelope"
+        >
+          <span class="dot" style:background={LPC_COLOR}></span>LPC
+        </button>
+      {/if}
       <button type="button" class="close" data-testid="spectrum-close" onclick={onClose} aria-label="Close">
         <IconX aria-hidden="true" />
       </button>
@@ -232,6 +317,36 @@
     color: var(--accent-strong, var(--accent));
     font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  .lpc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+
+  .lpc-toggle.on {
+    color: var(--text);
+    border-color: color-mix(in srgb, #f2a33c 60%, var(--chrome-strong));
+  }
+
+  .lpc-toggle .dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    opacity: 0.35;
+  }
+
+  .lpc-toggle.on .dot {
+    opacity: 1;
   }
 
   .close {

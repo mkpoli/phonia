@@ -307,6 +307,10 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'spectrumSlice', audioId: id, t0, t1 });
   }
 
+  lpcSpectrum(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData> {
+    return this.#call({ method: 'lpcSpectrum', audioId: id, t0, t1 });
+  }
+
   ltas(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData> {
     return this.#call({ method: 'ltas', audioId: id, t0, t1 });
   }

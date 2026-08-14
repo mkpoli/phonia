@@ -1361,6 +1361,12 @@
     return client.harmonicityTrack(audio.id, t0, t1);
   }
 
+  // Resolves the LPC-smoothed spectral envelope for the spectrum card overlay.
+  async function lpcEnvelope(t0: number, t1: number): Promise<{ freqs: number[]; db: number[] }> {
+    if (!client || !audio) return { freqs: [], db: [] };
+    return client.lpcSpectrum(audio.id, t0, t1);
+  }
+
   // Normalizes a span so its peak reaches 0.99 and stores it as a new recording.
   async function scalePeakSelection(t0: number, t1: number) {
     if (!client || !audio || !recording || !(t1 > t0)) return;
@@ -1684,6 +1690,7 @@
       onResample16k={resampleTo16k}
       onNearestZero={nearestZero}
       onHarmonicityTrack={harmonicityTrack}
+      onLpcEnvelope={lpcEnvelope}
       onExtractIntervals={extractIntervals}
       onConcatenate={concatenateProject}
       onStartRecording={recordingSupported ? startRecording : undefined}
