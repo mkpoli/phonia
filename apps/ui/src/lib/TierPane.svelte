@@ -300,7 +300,21 @@
   }
 
   async function mergeActive() {
-    if (!client || annotationId === null || activeTier?.kind !== 'interval') return;
+    if (!client || annotationId === null) return;
+    if (activeTier?.kind === 'point') {
+      const point = activePoints[activeIndex];
+      if (!point) return;
+      try {
+        await client.removePoint(annotationId, point.id);
+        status = '';
+        await refresh();
+        clampActiveIndex();
+      } catch (error) {
+        status = error instanceof Error ? error.message : String(error);
+      }
+      return;
+    }
+    if (activeTier?.kind !== 'interval') return;
     const ivs = activeIntervals;
     if (ivs.length < 2) return;
     const interval = ivs[activeIndex];
@@ -695,12 +709,14 @@
     },
     {
       id: 'removeBoundary',
-      title: 'Merge intervals',
+      title: 'Merge intervals / remove point',
       group: 'Annotation',
-      api: ['removeBoundary'],
+      api: ['removeBoundary', 'removePoint'],
       shortcut: () => keyBindings?.labelFor('removeBoundary') ?? 'M',
-      keywords: ['boundary', 'join'],
-      enabled: () => onIntervalTier() && activeIntervals.length >= 2,
+      keywords: ['boundary', 'join', 'point', 'delete', 'remove'],
+      enabled: () =>
+        (onIntervalTier() && activeIntervals.length >= 2) ||
+        (onPointTier() && activePoints.length >= 1),
       run: () => void mergeActive()
     },
     {

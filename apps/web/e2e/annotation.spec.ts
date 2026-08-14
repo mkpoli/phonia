@@ -157,6 +157,33 @@ test('point tier: S adds a point at the cursor, undo removes it, label commits',
   await expect.poll(() => stateHash(page)).toBe(afterPoint);
 });
 
+test('point tier: M removes the active point, undo restores it', async ({ page }) => {
+  await loadFixture(page);
+
+  await page.getByTestId('add-point-tier').focus();
+  await page.keyboard.press('Enter');
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
+
+  // Drop two points at different cursor times.
+  await pane(page).focus();
+  await playFor(page, 600);
+  await page.keyboard.press('s');
+  await playFor(page, 500);
+  await page.keyboard.press('s');
+  await expect(page.getByTestId('point')).toHaveCount(2);
+  const afterTwo = await stateHash(page);
+
+  // M removes the active point.
+  await pane(page).focus();
+  await page.keyboard.press('m');
+  await expect(page.getByTestId('point')).toHaveCount(1);
+
+  // Undo brings it back, hash-identically.
+  await page.keyboard.press('Control+z');
+  await expect(page.getByTestId('point')).toHaveCount(2);
+  await expect.poll(() => stateHash(page)).toBe(afterTwo);
+});
+
 test('arrow nudge moves the active boundary; Alt steps one frame', async ({ page }) => {
   await loadFixture(page);
   await page.getByTestId('add-interval-tier').focus();

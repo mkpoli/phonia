@@ -194,6 +194,7 @@ export interface AnnotationClientLike {
     linked: boolean
   ): Promise<AppliedChange>;
   removeBoundary(annotationId: AnnotationId, boundaryId: BoundaryId): Promise<AppliedChange>;
+  removePoint(annotationId: AnnotationId, pointId: PointId): Promise<AppliedChange>;
   setIntervalLabel(
     annotationId: AnnotationId,
     tierId: TierId,

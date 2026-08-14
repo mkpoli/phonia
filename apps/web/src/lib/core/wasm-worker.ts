@@ -163,6 +163,7 @@ type RequestMessage =
       linked: boolean;
     }
   | { id: number; method: 'removeBoundary'; annotationId: AnnotationId; boundaryId: BoundaryId }
+  | { id: number; method: 'removePoint'; annotationId: AnnotationId; pointId: PointId }
   | {
       id: number;
       method: 'setIntervalLabel';
@@ -916,6 +917,11 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'removeBoundary': {
         const result = appliedToPlain(wasm.removeBoundary(message.annotationId, message.boundaryId));
+        postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
+        return;
+      }
+      case 'removePoint': {
+        const result = appliedToPlain(wasm.removePoint(message.annotationId, message.pointId));
         postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
         return;
       }

@@ -392,6 +392,10 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'removeBoundary', annotationId, boundaryId });
   }
 
+  removePoint(annotationId: AnnotationId, pointId: PointId): Promise<AppliedChange> {
+    return this.#call({ method: 'removePoint', annotationId, pointId });
+  }
+
   setIntervalLabel(
     annotationId: AnnotationId,
     tierId: TierId,

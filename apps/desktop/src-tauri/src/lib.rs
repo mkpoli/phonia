@@ -98,6 +98,7 @@ pub fn run() {
             engine_cmds::insert_point,
             engine_cmds::move_boundary,
             engine_cmds::remove_boundary,
+            engine_cmds::remove_point,
             engine_cmds::set_interval_label,
             engine_cmds::set_point_label,
             engine_cmds::undo,
