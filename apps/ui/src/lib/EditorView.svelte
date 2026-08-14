@@ -326,6 +326,12 @@
   let selection = $state<Selection | null>(null);
   let readout = $state<SelectionReadout | null>(null);
   let formantMeans = $state<number[] | null>(null);
+  let intensityStats = $state<{
+    maxDb: number;
+    maxTime: number;
+    minDb: number;
+    minTime: number;
+  } | null>(null);
 
   // Glottal pulses for the waveform overlay, fetched once per (recording, pitch
   // range) while the overlay is on. Whole-signal, like the other contours.
@@ -476,6 +482,48 @@
       .formantSpanMeans(id, formant.ceilingHz, formant.maxFormants, true, sel.t0, sel.t1)
       .then((means) => {
         if (!cancelled) formantMeans = Array.from(means);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  // Intensity extrema over the selection — the loudest and quietest frames and
+  // when they fall — read from the same track the overlay draws.
+  $effect(() => {
+    const sel = selection;
+    const id = audio?.id;
+    const floor = overlayParams.intensity.floorHz;
+    if (!client || id === undefined || !sel) {
+      intensityStats = null;
+      return;
+    }
+    let cancelled = false;
+    client
+      .intensityTrack(id, floor)
+      .then((track) => {
+        if (cancelled) return;
+        let maxDb = -Infinity;
+        let minDb = Infinity;
+        let maxTime = sel.t0;
+        let minTime = sel.t0;
+        let found = false;
+        for (let i = 0; i < track.times.length; i += 1) {
+          const time = track.times[i];
+          const level = track.db[i];
+          if (time < sel.t0 || time > sel.t1 || !Number.isFinite(level)) continue;
+          found = true;
+          if (level > maxDb) {
+            maxDb = level;
+            maxTime = time;
+          }
+          if (level < minDb) {
+            minDb = level;
+            minTime = time;
+          }
+        }
+        intensityStats = found ? { maxDb, maxTime, minDb, minTime } : null;
       })
       .catch(() => {});
     return () => {
@@ -1507,6 +1555,7 @@
         stats={overlayStats}
         {readout}
         {formantMeans}
+        {intensityStats}
         cursor={cursorSample}
         {cursorTime}
         onClose={() => (inspectorOpen = false)}

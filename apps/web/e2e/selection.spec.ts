@@ -347,6 +347,23 @@ test('copy formant contour writes CSV rows to the clipboard', async ({ page, con
   expect(Number(cells[1])).toBeGreaterThan(0);
 });
 
+test('intensity extrema show the max and min over the selection', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  const max = page.getByTestId('intensity-max');
+  const min = page.getByTestId('intensity-min');
+  await expect(max).toContainText('dB', { timeout: 20_000 });
+  await expect(max).toContainText('s');
+  await expect(min).toContainText('dB');
+
+  const parse = async (loc: ReturnType<typeof page.getByTestId>) =>
+    Number((await loc.textContent())!.match(/(-?\d+\.\d+)\s*dB/)![1]);
+  const maxDb = await parse(max);
+  const minDb = await parse(min);
+  expect(maxDb).toBeGreaterThanOrEqual(minDb);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

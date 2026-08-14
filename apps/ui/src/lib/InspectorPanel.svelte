@@ -17,6 +17,13 @@
     readout?: SelectionReadout | null;
     /** Provisional tracked-formant means over the selection (F1, F2, …). */
     formantMeans?: number[] | null;
+    /** Intensity extrema over the selection, or null with no selection. */
+    intensityStats?: {
+      maxDb: number;
+      maxTime: number;
+      minDb: number;
+      minTime: number;
+    } | null;
     /** Track values at the playhead; each layer's live value when no
      *  selection readout supplies one. */
     cursor?: TrackSample | null;
@@ -30,6 +37,7 @@
     stats,
     readout = null,
     formantMeans = null,
+    intensityStats = null,
     cursor = null,
     cursorTime = 0,
     onClose
@@ -363,6 +371,16 @@
         >{db(readout ? readout.intensityMeanDb : cursor?.intensityDb)}</span
       >
     </div>
+    {#if intensityStats}
+      <div class="extrema" data-testid="intensity-extrema">
+        <span data-testid="intensity-max"
+          >Max {db(intensityStats.maxDb)} at {intensityStats.maxTime.toFixed(3)} s</span
+        >
+        <span data-testid="intensity-min"
+          >Min {db(intensityStats.minDb)} at {intensityStats.minTime.toFixed(3)} s</span
+        >
+      </div>
+    {/if}
     {#if expanded.intensity}
       <div class="params">
         <div class="field">
@@ -654,6 +672,16 @@
     color: var(--muted);
     font-size: 0.72rem;
     line-height: 1.35;
+  }
+
+  .extrema {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.05rem 0 0.3rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .badge {
