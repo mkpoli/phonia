@@ -38,7 +38,7 @@ use phx_spectrogram::{analysis_axes_dims, select_axis_indices};
 use tile_cache::{BlockKey, TILE_COLS, TileCache, params_hash};
 
 use phx_audio::Audio;
-use phx_dsp::{RealFftPlan, Window};
+use phx_dsp::{RealFftPlan, Window, window_samples};
 
 use std::sync::Arc;
 
@@ -767,25 +767,17 @@ impl Engine {
         let span = TimeSpan::new(lo, hi);
         let view = audio.slice_samples(0..audio.frames());
 
-        // Spectral moments from the slice at the span midpoint, weighted by
-        // power — the same construction as `spectral_moments_in_span`.
+        // Spectral moments from a single windowed FFT over the whole selection.
         let moments = {
-            let midpoint = 0.5 * (lo + hi);
-            let slice = phx_spectrogram::spectral_slice(
-                view.clone(),
-                midpoint,
-                &SpectrogramParams::default(),
-            );
-            let values = slice
-                .db
-                .iter()
-                .map(|&db| 10.0_f64.powf(f64::from(db) / 10.0))
-                .collect();
-            let spectrum = phx_voice::SpectrumSlice {
-                frequencies_hz: slice.f_axis,
-                values,
-            };
-            phx_voice::spectral_moments(&spectrum, 2.0)
+            let sr = audio.sample_rate();
+            let start = (lo * sr).floor().max(0.0) as usize;
+            let end = ((hi * sr).ceil() as usize).min(audio.frames());
+            if end > start {
+                let mono = audio.slice_samples(start..end).mono_mix();
+                windowed_span_moments(mono.as_ref(), sr, 2.0)
+            } else {
+                windowed_span_moments(&[], sr, 2.0)
+            }
         };
 
         let pitch_params = PitchParams {
@@ -902,19 +894,16 @@ impl Engine {
         }
         let access = self.store.whole(id)?;
         let audio = access.audio();
-        let midpoint = 0.5 * (t0.min(t1) + t0.max(t1));
-        let view = audio.slice_samples(0..audio.frames());
-        let slice = phx_spectrogram::spectral_slice(view, midpoint, &SpectrogramParams::default());
-        let values = slice
-            .db
-            .iter()
-            .map(|&db| 10.0_f64.powf(f64::from(db) / 10.0))
-            .collect();
-        let spectrum = phx_voice::SpectrumSlice {
-            frequencies_hz: slice.f_axis,
-            values,
-        };
-        Ok(phx_voice::spectral_moments(&spectrum, power))
+        let duration = audio.duration();
+        let (lo, hi) = ordered_clamped(t0, t1, 0.0, duration);
+        let sr = audio.sample_rate();
+        let start = (lo * sr).floor().max(0.0) as usize;
+        let end = ((hi * sr).ceil() as usize).min(audio.frames());
+        if end <= start {
+            return Ok(windowed_span_moments(&[], sr, power));
+        }
+        let mono = audio.slice_samples(start..end).mono_mix();
+        Ok(windowed_span_moments(mono.as_ref(), sr, power))
     }
 
     /// The spectral slice at time `at`: parallel `(frequencies_hz, db)` vectors
@@ -1921,6 +1910,45 @@ fn span_frames(sample_rate: f64, duration: f64, t0: f64, t1: f64) -> (usize, usi
 }
 
 /// Mean of the values whose time falls inside `span`, or `None` when none do.
+/// Spectral moments from a single Hann-windowed FFT over the whole span, the
+/// way Praat's `Spectrum` takes them — one transform of the selection, weighted
+/// by magnitude to the `power` (2.0 is the power spectrum). This supersedes the
+/// earlier single-frame slice at the span midpoint, which biased fricative
+/// centre-of-gravity toward whichever frame the midpoint happened to land on.
+fn windowed_span_moments(mono: &[f32], sample_rate: f64, power: f64) -> Moments {
+    let n = mono.len();
+    if n < 4 || sample_rate <= 0.0 {
+        return phx_voice::spectral_moments(
+            &phx_voice::SpectrumSlice {
+                frequencies_hz: Vec::new(),
+                values: Vec::new(),
+            },
+            power,
+        );
+    }
+    let window = window_samples(Window::Hanning, n);
+    let mut buffer: Vec<f64> = mono
+        .iter()
+        .zip(&window)
+        .map(|(&s, &w)| f64::from(s) * w)
+        .collect();
+    let mut plan = RealFftPlan::new();
+    let spectrum = plan.rfft(&mut buffer);
+    let mut frequencies_hz = Vec::with_capacity(spectrum.len());
+    let mut values = Vec::with_capacity(spectrum.len());
+    for (k, bin) in spectrum.iter().enumerate() {
+        frequencies_hz.push(k as f64 * sample_rate / n as f64);
+        values.push(bin.norm());
+    }
+    phx_voice::spectral_moments(
+        &phx_voice::SpectrumSlice {
+            frequencies_hz,
+            values,
+        },
+        power,
+    )
+}
+
 /// Merges adjacent segments of the same class, so a run stays one interval.
 fn coalesce_segments(segs: Vec<(f64, f64, bool)>) -> Vec<(f64, f64, bool)> {
     let mut out: Vec<(f64, f64, bool)> = Vec::new();
