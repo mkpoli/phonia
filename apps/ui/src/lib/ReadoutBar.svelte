@@ -120,6 +120,9 @@
     <span class="field" data-testid="readout-f0-range">
       <span class="k">F0 min/max</span><span class="v">{formatPitch(readout?.f0MinHz, pitchUnit)} / {formatPitch(readout?.f0MaxHz, pitchUnit)}</span>
     </span>
+    <span class="field" data-testid="readout-f0-sd" data-value={readout?.f0SdHz ?? ''}>
+      <span class="k">F0 SD</span><span class="v">{hz(readout?.f0SdHz, 1)}</span>
+    </span>
     <span class="field" data-testid="readout-band-energy" data-value={readout?.bandEnergyDb ?? ''}>
       <span class="k">Band energy</span><span class="v">{db(readout?.bandEnergyDb)}</span>
     </span>
@@ -137,6 +140,9 @@
     </span>
     <span class="field" data-testid="readout-intensity">
       <span class="k">Intensity</span><span class="v">{db(readout?.intensityMeanDb)}</span>
+    </span>
+    <span class="field" data-testid="readout-intensity-sd" data-value={readout?.intensitySdDb ?? ''}>
+      <span class="k">Int. SD</span><span class="v">{db(readout?.intensitySdDb)}</span>
     </span>
     <span class="field" data-testid="readout-hnr">
       <span class="k">HNR</span><span class="v">{db(readout?.hnrMeanDb)}</span>

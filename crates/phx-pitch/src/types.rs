@@ -101,6 +101,13 @@ impl PitchTrack {
         max(&values)
     }
 
+    /// Sample standard deviation of the voiced frequencies in hertz over `span`,
+    /// absent when fewer than two voiced frames fall inside it.
+    #[must_use]
+    pub fn sd_hz(&self, span: TimeSpan) -> Option<f64> {
+        std_dev(&self.voiced_hz(span))
+    }
+
     /// Mean selected voiced frequency in semitones re 1 Hz over `span`.
     #[must_use]
     pub fn mean_semitones(&self, span: TimeSpan) -> Option<f64> {
@@ -154,6 +161,16 @@ pub fn hz_to_semitones(f0_hz: f64) -> f64 {
 
 fn mean(values: &[f64]) -> Option<f64> {
     (!values.is_empty()).then(|| values.iter().sum::<f64>() / values.len() as f64)
+}
+
+fn std_dev(values: &[f64]) -> Option<f64> {
+    if values.len() < 2 {
+        return None;
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance =
+        values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
+    Some(variance.sqrt())
 }
 
 fn median(values: &mut [f64]) -> Option<f64> {

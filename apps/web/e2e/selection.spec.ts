@@ -82,6 +82,14 @@ test('spectrogram box selection: readout values are present and finite', async (
   expect(peak).toBeGreaterThanOrEqual(rms);
   expect(peak).toBeLessThanOrEqual(1.0001);
 
+  // F0 and intensity spread over the selection: both finite and non-negative.
+  const f0Sd = Number(await page.getByTestId('readout-f0-sd').getAttribute('data-value'));
+  const intSd = Number(await page.getByTestId('readout-intensity-sd').getAttribute('data-value'));
+  expect(Number.isFinite(f0Sd)).toBe(true);
+  expect(Number.isFinite(intSd)).toBe(true);
+  expect(f0Sd).toBeGreaterThanOrEqual(0);
+  expect(intSd).toBeGreaterThanOrEqual(0);
+
   await expect(page.getByTestId('readout-duration')).toContainText('s');
 });
 

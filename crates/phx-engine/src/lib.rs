@@ -109,10 +109,16 @@ pub struct SelectionReadout {
     pub f0_min_hz: Option<f64>,
     /// Maximum voiced fundamental over the span, in hertz.
     pub f0_max_hz: Option<f64>,
+    /// Sample standard deviation of the voiced fundamental over the span, in
+    /// hertz, absent with fewer than two voiced frames.
+    pub f0_sd_hz: Option<f64>,
     /// Mean raw band energy inside the box, in decibels.
     pub band_energy_db: f64,
     /// Mean intensity over the span, in dB SPL, absent when the span is empty.
     pub intensity_mean_db: Option<f64>,
+    /// Sample standard deviation of intensity over the span, in decibels, absent
+    /// with fewer than two frames.
+    pub intensity_sd_db: Option<f64>,
     /// Mean harmonics-to-noise ratio over the span, in decibels.
     pub hnr_mean_db: Option<f64>,
     /// Root-mean-square amplitude over the span, absent when the span is empty.
@@ -885,6 +891,7 @@ impl Engine {
         };
         let intensity = phx_intensity::intensity_track(view.clone(), &intensity_params);
         let intensity_mean_db = mean_in_span(intensity.iter(), span);
+        let intensity_sd_db = sd_in_span(intensity.iter(), span);
 
         let harmonicity_params = HarmonicityParams {
             floor_hz: pitch_floor_hz,
@@ -902,8 +909,10 @@ impl Engine {
             f0_mean_hz: pitch.mean_hz(span),
             f0_min_hz: pitch.min_hz(span),
             f0_max_hz: pitch.max_hz(span),
+            f0_sd_hz: pitch.sd_hz(span),
             band_energy_db: self.band_energy(id, lo, hi, flo, fhi)?,
             intensity_mean_db,
+            intensity_sd_db,
             hnr_mean_db,
             rms,
             peak,
@@ -2701,6 +2710,22 @@ fn mean_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Opt
     (count > 0).then(|| sum / count as f64)
 }
 
+/// Sample standard deviation of the frame values inside `span`, absent when
+/// fewer than two frames fall in it.
+fn sd_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Option<f64> {
+    let values: Vec<f64> = frames
+        .filter(|(time, _)| span.contains(*time))
+        .map(|(_, value)| value)
+        .collect();
+    if values.len() < 2 {
+        return None;
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance =
+        values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
+    Some(variance.sqrt())
+}
+
 /// Validates a [`FormantParams`] before it reaches `phx_formant`.
 ///
 /// `phx_formant::formant_track` asserts these same properties and panics on
@@ -2865,6 +2890,20 @@ mod tests {
         let rms = readout.rms.expect("non-empty span has an rms");
         assert!((peak - 1.0).abs() < 0.01, "peak {peak}");
         assert!((rms - 0.5_f64.sqrt()).abs() < 0.02, "rms {rms}");
+
+        // A steady sine holds a near-constant F0 and intensity, so both spreads
+        // are present and small.
+        let f0_sd = readout
+            .f0_sd_hz
+            .expect("steady sine is voiced across frames");
+        let intensity_sd = readout
+            .intensity_sd_db
+            .expect("steady sine has intensity frames");
+        assert!(f0_sd < 5.0, "steady F0 SD {f0_sd} should be small");
+        assert!(
+            intensity_sd < 3.0,
+            "steady intensity SD {intensity_sd} should be small"
+        );
     }
 
     #[test]

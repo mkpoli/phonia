@@ -405,8 +405,12 @@ export interface SelectionReadout {
   f0MeanHz: number | null;
   f0MinHz: number | null;
   f0MaxHz: number | null;
+  /** Sample standard deviation of the voiced F0 over the span, in hertz. */
+  f0SdHz: number | null;
   bandEnergyDb: number;
   intensityMeanDb: number | null;
+  /** Sample standard deviation of intensity over the span, in decibels. */
+  intensitySdDb: number | null;
   hnrMeanDb: number | null;
   /** Root-mean-square amplitude over the span. */
   rms: number | null;
