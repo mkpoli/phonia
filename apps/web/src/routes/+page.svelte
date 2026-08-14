@@ -76,6 +76,10 @@
   }
 
   let annotationId = $state<bigint | null>(null);
+  // Bumped when a host action mutates the active annotation without changing its
+  // id (e.g. copying cropped tiers into a freshly opened extract), so the tier
+  // pane re-fetches.
+  let tierRefreshToken = $state(0);
   let cursorTime = $state(0);
   // The editor's live time selection, so Plots can scope a figure to it.
   let editorSelection = $state<{ t0: number; t1: number } | null>(null);
@@ -1349,6 +1353,72 @@
     }
   }
 
+  // Extracts the selection like `extractSelection`, but also carries each source
+  // tier's labels across, cropped and shifted so the new recording starts at 0.
+  async function extractSelectionWithTiers(t0: number, t1: number) {
+    if (!client || !audio || !recording || annotationId === null || !(t1 > t0)) return;
+    const c = client;
+    const audioId = audio.id;
+    const sourceAnnId = annotationId;
+    const dur = t1 - t0;
+    try {
+      // Snapshot the source tiers' content in [t0, t1] before the extract opens
+      // a different annotation as the active one.
+      const tiers = await c.annotationTiers(sourceAnnId);
+      const snapshots = await Promise.all(
+        tiers.map(async (tier) =>
+          tier.kind === 'interval'
+            ? {
+                name: tier.name,
+                kind: 'interval' as const,
+                intervals: await c.intervalsInRange(sourceAnnId, tier.id, t0, t1)
+              }
+            : {
+                name: tier.name,
+                kind: 'point' as const,
+                points: await c.pointsInRange(sourceAnnId, tier.id, t0, t1)
+              }
+        )
+      );
+
+      const wav = await c.exportSpanWav(audioId, t0, t1, 'Float32');
+      const label = `${recording.name} [${t0.toFixed(2)}–${t1.toFixed(2)} s]`;
+      await persistWavAsRecording(wav, label);
+      const newAnnId = annotationId;
+      if (newAnnId === null) return;
+
+      for (const snap of snapshots) {
+        if (snap.kind === 'interval') {
+          const ivs = snap.intervals.filter((iv) => iv.xmax > t0 && iv.xmin < t1);
+          if (ivs.length === 0) continue;
+          const tierId = await c.addIntervalTier(newAnnId, snap.name);
+          for (const iv of ivs) {
+            const start = iv.xmin - t0;
+            if (start > 0 && start < dur) await c.insertBoundary(newAnnId, tierId, start);
+          }
+          const newIvs = await c.intervalsInRange(newAnnId, tierId, -1, dur + 1);
+          for (let i = 0; i < newIvs.length && i < ivs.length; i += 1) {
+            if (ivs[i].label) {
+              await c.setIntervalLabel(newAnnId, tierId, newIvs[i].id, ivs[i].label);
+            }
+          }
+        } else {
+          const pts = snap.points.filter((p) => p.time >= t0 && p.time <= t1);
+          if (pts.length === 0) continue;
+          const tierId = await c.addPointTier(newAnnId, snap.name);
+          for (const p of pts) {
+            await c.insertPoint(newAnnId, tierId, p.time - t0, p.label);
+          }
+        }
+      }
+      resetAutosaveBaseline();
+      await refreshProjects();
+      tierRefreshToken += 1;
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Scales a span to Praat's default 70 dB average intensity and stores it as a
   // new library recording.
   async function scaleSelection(t0: number, t1: number) {
@@ -1717,6 +1787,7 @@
       {client}
       {audio}
       {annotationId}
+      {tierRefreshToken}
       {cursorTime}
       {isPlaying}
       {theme}
@@ -1765,6 +1836,7 @@
       }}
       onExportAudio={exportEditorAudio}
       onExtractSelection={extractSelection}
+      onExtractSelectionWithTiers={extractSelectionWithTiers}
       onFilterSelection={filterSelection}
       onNotchSelection={notchSelection}
       onPreemphasisSelection={preemphasisSelection}

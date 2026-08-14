@@ -62,6 +62,9 @@
     client: CoreClientLike | null;
     audio: AudioInfo | null;
     annotationId: bigint | null;
+    /** Bumped by the host when the active annotation is mutated without an id
+     *  change, forcing the tier pane to re-fetch. */
+    tierRefreshToken?: number;
     cursorTime: number;
     isPlaying: boolean;
     theme: 'light' | 'dark';
@@ -106,6 +109,9 @@
     /** Copies the time selection into a new recording in the library and opens
      *  it; absent hides the extract affordances. */
     onExtractSelection?: (t0: number, t1: number) => void;
+    /** Extracts the selection to a new recording, carrying its tiers across
+     *  cropped and time-shifted; absent hides the affordance. */
+    onExtractSelectionWithTiers?: (t0: number, t1: number) => void;
     /** Passes a box selection through the engine's Hann band filter into a new
      *  library recording; absent hides the filter affordance. */
     onFilterSelection?: (t0: number, t1: number, f0: number, f1: number) => void;
@@ -177,6 +183,7 @@
     client,
     audio,
     annotationId,
+    tierRefreshToken = 0,
     cursorTime,
     isPlaying,
     theme,
@@ -206,6 +213,7 @@
     onPlayFilteredSelection,
     onExportAudio,
     onExtractSelection,
+    onExtractSelectionWithTiers,
     onFilterSelection,
     onNotchSelection,
     onPreemphasisSelection,
@@ -756,6 +764,11 @@
   // frequency bounds are ignored — extraction is a time operation).
   function extractCurrentSelection() {
     if (selection) onExtractSelection?.(selection.t0, selection.t1);
+  }
+
+  // Extracts the selection and carries its tier labels across, cropped.
+  function extractWithTiersCurrentSelection() {
+    if (selection) onExtractSelectionWithTiers?.(selection.t0, selection.t1);
   }
 
   // Pre-emphasizes the selection's time span into a new recording (a time
@@ -1565,6 +1578,16 @@
       run: extractCurrentSelection
     },
     {
+      id: 'extractSelectionWithTiers',
+      title: 'Extract selection with tiers (new recording)',
+      group: 'Selection',
+      api: ['exportSpanWav', 'importAudio', 'addIntervalTier'],
+      keywords: ['extract', 'crop', 'clip', 'tiers', 'textgrid', 'labels', 'part', 'trim'],
+      enabled: () =>
+        hasSelection() && annotationId !== null && onExtractSelectionWithTiers !== undefined,
+      run: extractWithTiersCurrentSelection
+    },
+    {
       id: 'filterSelection',
       title: 'Filter selection (pass Hann band)',
       group: 'Selection',
@@ -1959,7 +1982,7 @@
         sampleRate={audio?.sampleRate ?? 0}
         {viewport}
         {cursorTime}
-        revision={tierRevision}
+        revision={tierRevision + tierRefreshToken}
         onSeek={(time) => onCursorChange?.(time)}
         {onAnnotationChange}
         onIntervalActivate={handleTierInterval}

@@ -453,6 +453,50 @@ test('annotate by voicing lays down a V/U tier', async ({ page }) => {
   ).toBeVisible({ timeout: 20_000 });
 });
 
+test('extract selection with tiers crops the labelled tier into the new recording', async ({
+  page
+}) => {
+  await loadFixture(page);
+
+  // A labelled interval tier: split once, name the first interval.
+  await page.getByTestId('add-interval-tier').focus();
+  await page.keyboard.press('Enter');
+  await pane(page).focus();
+  await playFor(page, 700);
+  await page.keyboard.press('s');
+  await expect(page.getByTestId('interval')).toHaveCount(2);
+  await page.keyboard.press('1');
+  await page.keyboard.press('Enter');
+  await page.getByTestId('label-editor').fill('aa');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('interval').nth(0)).toHaveAttribute('data-label', 'aa');
+
+  // Drag a time–frequency box that spans the labelled interval.
+  const canvas = page.getByTestId('spectrogram-canvas');
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.4);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height * 0.6, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByTestId('readout-bar')).toBeVisible();
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('extract selection with tiers');
+  const cmd = page.locator(
+    '[data-testid="command-item"][data-command-id="extractSelectionWithTiers"]'
+  );
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  // The new extract opens with its tier carried across, still labelled.
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[', { timeout: 20_000 });
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '1', { timeout: 20_000 });
+  await expect(
+    page.getByTestId('interval').filter({ hasText: 'aa' }).first()
+  ).toBeVisible({ timeout: 20_000 });
+});
+
 test('the vowel chart plots F1-F2 for labelled intervals', async ({ page }) => {
   await loadFixture(page);
   await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);
