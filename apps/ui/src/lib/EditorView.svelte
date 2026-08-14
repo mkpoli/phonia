@@ -139,6 +139,9 @@
     /** Saves each labelled interval of a tier as its own library recording;
      *  absent hides the affordance. */
     onExtractIntervals?: (spans: { t0: number; t1: number; label: string }[]) => Promise<void>;
+    /** Writes each channel of a multichannel recording as its own mono
+     *  recording; absent, or on a mono take, hides the affordance. */
+    onExtractChannels?: () => Promise<void>;
     /** Resolves the LPC-smoothed spectral envelope over a span, for the
      *  spectrum card's formant-tracing overlay; absent hides it. */
     onLpcEnvelope?: (t0: number, t1: number) => Promise<SpectrumSliceData>;
@@ -201,6 +204,7 @@
     onHarmonicityTrack,
     onCppTrack,
     onExtractIntervals,
+    onExtractChannels,
     onLpcEnvelope,
     onConcatenate,
     onStartRecording,
@@ -850,6 +854,19 @@
     }
   }
 
+  async function extractChannelsAll() {
+    if (!onExtractChannels) return;
+    // Snapshot the count now: extracting opens a mono channel, so reading it
+    // afterwards would report 1.
+    const count = audio?.channels ?? 0;
+    try {
+      await onExtractChannels();
+      flashToast(`Extracted ${count} ${count === 1 ? 'channel' : 'channels'}`);
+    } catch {
+      flashToast('Could not extract the channels');
+    }
+  }
+
   // Transport Play / Space plays what the user is looking at, in priority order:
   // an active selection's time span, else the visible viewport when zoomed in,
   // else the whole file from the cursor. A box selection plays its time span
@@ -1430,6 +1447,15 @@
       keywords: ['concatenate', 'join', 'merge', 'combine', 'append', 'new sound'],
       enabled: () => (recordings?.length ?? 0) >= 2 && onConcatenate !== undefined,
       run: () => void concatenateAll()
+    },
+    {
+      id: 'extractChannels',
+      title: 'Extract each channel (new recordings)',
+      group: 'Project',
+      api: ['exportChannelWav', 'importAudio'],
+      keywords: ['extract', 'channel', 'stereo', 'left', 'right', 'split', 'mono', 'deinterleave'],
+      enabled: () => (audio?.channels ?? 1) > 1 && onExtractChannels !== undefined,
+      run: () => void extractChannelsAll()
     },
     {
       id: 'snapSelectionZero',

@@ -250,6 +250,7 @@ type RequestMessage =
       fHigh: number;
       bits: WavBitDepth;
     }
+  | { id: number; method: 'exportChannelWav'; audioId: AudioId; channel: number; bits: WavBitDepth }
   | { id: number; method: 'buildFigure'; spec: FigureSpec }
   | { id: number; method: 'renderFigureSvg'; figureJson: string }
   | { id: number; method: 'exportFigure'; figureJson: string; format: FigureExportFormat };
@@ -1112,6 +1113,17 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           message.t1,
           message.fLow,
           message.fHigh,
+          WasmBitDepth[message.bits]
+        );
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'exportChannelWav': {
+        const bytes = wasm.exportChannelWav(
+          message.audioId,
+          message.channel,
           WasmBitDepth[message.bits]
         );
         const copy = new Uint8Array(bytes.length);

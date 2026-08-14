@@ -6,6 +6,7 @@ import { openEditorWithFixture } from './helpers';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
 const vowelFixture = path.join(root, 'tests/fixtures/audio/synth_vowel_a.wav');
+const stereoFixture = path.join(root, 'tests/fixtures/audio/synth_stereo.wav');
 const screenshots = path.join(here, 'screenshots');
 
 interface BoxCoords {
@@ -504,6 +505,35 @@ test('notch filter stores a band-stopped copy as a new recording', async ({ page
   await expect(
     page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
   ).toHaveCount(2);
+});
+
+test('extract channels: the command is hidden for a mono recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('extract each channel');
+  await expect(
+    page.locator('[data-testid="command-item"][data-command-id="extractChannels"]')
+  ).toHaveCount(0);
+});
+
+test('extract channels: a stereo take splits into per-channel recordings', async ({ page }) => {
+  await openEditorWithFixture(page, stereoFixture);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('extract each channel');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="extractChannels"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[ch', {
+    timeout: 20_000
+  });
+  await page.getByTestId('recording-switcher').click();
+  // The stereo original plus one recording per channel.
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(3);
 });
 
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {

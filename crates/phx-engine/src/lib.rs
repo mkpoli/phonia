@@ -1653,6 +1653,33 @@ impl Engine {
         Ok(audio.to_wav_bytes(bits)?)
     }
 
+    /// Encodes a single `channel` of `id` as its own mono WAV at `bits` — Praat's
+    /// Sound "Extract one channel", the way one takes the left or right of a
+    /// stereo take into a separate recording.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when `channel` is out of range, and
+    /// [`EngineError::Audio`] when the channel cannot be encoded.
+    pub fn export_channel_wav(
+        &self,
+        id: AudioId,
+        channel: usize,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let channel_count = audio.channel_count();
+        if channel >= channel_count {
+            return Err(EngineError::InvalidRequest {
+                reason: format!("channel {channel} is out of range for {channel_count} channels"),
+            });
+        }
+        let samples = audio.channel(channel).to_vec();
+        let mono = Audio::new(vec![samples], audio.sample_rate())?;
+        Ok(mono.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the time span `[t0, t1]` of `id` with the `[f_low, f_high]` band
     /// attenuated as mono WAV bytes at `bits` — Praat's Sound "Filter (stop Hann
     /// band)", the complement of [`Engine::export_band_filtered_span_wav`].
@@ -3946,6 +3973,39 @@ mod tests {
             .map(|&s| f64::from(s) * f64::from(s))
             .sum();
         assert!(notched < 0.7 * raw, "notched {notched} vs raw {raw}");
+    }
+
+    #[test]
+    fn export_channel_wav_splits_a_stereo_take_into_its_channels() {
+        let sr = 8_000.0;
+        let left: Vec<f32> = (0..800).map(|i| 0.5 * (i as f32 * 0.01).sin()).collect();
+        let right: Vec<f32> = (0..800).map(|i| -0.3 * (i as f32 * 0.02).cos()).collect();
+        let mut engine = Engine::new();
+        let audio = engine
+            .store
+            .insert(Audio::new(vec![left.clone(), right.clone()], sr).unwrap());
+
+        let ch0 = Audio::from_wav_bytes(
+            &engine
+                .export_channel_wav(audio, 0, BitDepth::Float32)
+                .unwrap(),
+        )
+        .unwrap();
+        let ch1 = Audio::from_wav_bytes(
+            &engine
+                .export_channel_wav(audio, 1, BitDepth::Float32)
+                .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(ch0.channel_count(), 1);
+        assert_eq!(ch1.channel_count(), 1);
+        assert_eq!(ch0.channel(0), left.as_slice());
+        assert_eq!(ch1.channel(0), right.as_slice());
+        assert!(matches!(
+            engine.export_channel_wav(audio, 2, BitDepth::Float32),
+            Err(EngineError::InvalidRequest { .. })
+        ));
     }
 
     #[test]

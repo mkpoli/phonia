@@ -1439,6 +1439,26 @@
     }
   }
 
+  // Writes each channel of a multichannel recording as its own mono recording,
+  // in channel order, then opens the first so the split is visible.
+  async function extractChannels() {
+    if (!client || !audio || !recording || audio.channels < 2) return;
+    const base = recording.name;
+    try {
+      let first: RecordingEntry | null = null;
+      for (let channel = 0; channel < audio.channels; channel += 1) {
+        const wav = await client.exportChannelWav(audio.id, channel, 'Float32');
+        const entry = await addWavRecording(wav, `${base} [ch ${channel + 1}]`);
+        if (entry && !first) first = entry;
+      }
+      resetAutosaveBaseline();
+      await refreshProjects();
+      if (first) await openRecording(first);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   async function cancelRecording() {
     if (!recorder || !capturing) return;
     const recId = recordingId;
@@ -1702,6 +1722,7 @@
       onCppTrack={cppTrack}
       onLpcEnvelope={lpcEnvelope}
       onExtractIntervals={extractIntervals}
+      onExtractChannels={extractChannels}
       onConcatenate={concatenateProject}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}

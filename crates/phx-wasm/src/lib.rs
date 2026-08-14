@@ -2215,6 +2215,25 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes a single `channel` of `id` as its own mono WAV bytes at `bits` —
+    /// the "extract one channel to a recording" path.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live store entry, when `channel` is out of
+    /// range, or when the channel cannot be encoded.
+    #[wasm_bindgen(js_name = exportChannelWav)]
+    pub fn export_channel_wav(
+        &self,
+        id: u64,
+        channel: usize,
+        bits: WasmBitDepth,
+    ) -> Result<Uint8Array, JsError> {
+        let wav = self
+            .inner
+            .export_channel_wav(AudioId::from_u64(id), channel, bits.into())?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Encodes the band-attenuated (notch) time span `[t0, t1]` of `id` as mono
     /// WAV bytes at `bits` — the "save a notch-filtered selection" path.
     ///

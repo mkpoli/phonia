@@ -618,6 +618,11 @@ export class WasmCoreClient implements CoreClient {
     });
   }
 
+  /** Encodes a single `channel` of `id` as its own mono WAV bytes at `bits`. */
+  exportChannelWav(id: AudioId, channel: number, bits: WavBitDepth): Promise<Uint8Array> {
+    return this.#call({ method: 'exportChannelWav', audioId: id, channel, bits });
+  }
+
   buildFigure(spec: FigureSpec): Promise<string> {
     return this.#call({ method: 'buildFigure', spec });
   }
