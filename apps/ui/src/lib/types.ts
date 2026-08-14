@@ -385,6 +385,14 @@ export interface SelectionReadout {
   bandEnergyDb: number;
   intensityMeanDb: number | null;
   hnrMeanDb: number | null;
+  /** Power-weighted spectral centre of gravity in hertz. */
+  spectralCogHz: number | null;
+  /** Power-weighted spectral standard deviation in hertz. */
+  spectralSdHz: number | null;
+  /** Power-weighted spectral skewness. */
+  spectralSkewness: number | null;
+  /** Power-weighted spectral kurtosis. */
+  spectralKurtosis: number | null;
 }
 
 /** The aggregate voice report over a span, as the report card renders it. */

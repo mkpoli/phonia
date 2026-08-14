@@ -115,6 +115,15 @@ pub struct SelectionReadout {
     pub intensity_mean_db: Option<f64>,
     /// Mean harmonics-to-noise ratio over the span, in decibels.
     pub hnr_mean_db: Option<f64>,
+    /// Power-weighted spectral centre of gravity in hertz, from the spectral
+    /// slice at the span midpoint.
+    pub spectral_cog_hz: Option<f64>,
+    /// Power-weighted spectral standard deviation in hertz.
+    pub spectral_sd_hz: Option<f64>,
+    /// Power-weighted spectral skewness.
+    pub spectral_skewness: Option<f64>,
+    /// Power-weighted spectral kurtosis.
+    pub spectral_kurtosis: Option<f64>,
 }
 
 /// Session engine: the audio store plus the pure functions that read it.
@@ -758,6 +767,27 @@ impl Engine {
         let span = TimeSpan::new(lo, hi);
         let view = audio.slice_samples(0..audio.frames());
 
+        // Spectral moments from the slice at the span midpoint, weighted by
+        // power — the same construction as `spectral_moments_in_span`.
+        let moments = {
+            let midpoint = 0.5 * (lo + hi);
+            let slice = phx_spectrogram::spectral_slice(
+                view.clone(),
+                midpoint,
+                &SpectrogramParams::default(),
+            );
+            let values = slice
+                .db
+                .iter()
+                .map(|&db| 10.0_f64.powf(f64::from(db) / 10.0))
+                .collect();
+            let spectrum = phx_voice::SpectrumSlice {
+                frequencies_hz: slice.f_axis,
+                values,
+            };
+            phx_voice::spectral_moments(&spectrum, 2.0)
+        };
+
         let pitch_params = PitchParams {
             floor_hz: pitch_floor_hz,
             ceiling_hz: pitch_ceiling_hz,
@@ -791,6 +821,10 @@ impl Engine {
             band_energy_db: self.band_energy(id, lo, hi, flo, fhi)?,
             intensity_mean_db,
             hnr_mean_db,
+            spectral_cog_hz: moments.centre_of_gravity_hz,
+            spectral_sd_hz: moments.standard_deviation_hz,
+            spectral_skewness: moments.skewness,
+            spectral_kurtosis: moments.kurtosis,
         })
     }
 

@@ -310,6 +310,10 @@ pub fn selection_readout(
         "bandEnergyDb": r.band_energy_db,
         "intensityMeanDb": r.intensity_mean_db,
         "hnrMeanDb": r.hnr_mean_db,
+        "spectralCogHz": r.spectral_cog_hz,
+        "spectralSdHz": r.spectral_sd_hz,
+        "spectralSkewness": r.spectral_skewness,
+        "spectralKurtosis": r.spectral_kurtosis,
     }))
 }
 

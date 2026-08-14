@@ -65,6 +65,12 @@ test('spectrogram box selection: readout values are present and finite', async (
   expect(Number.isFinite(f0Mean)).toBe(true);
   expect(f0Mean).toBeGreaterThan(0);
 
+  // Spectral centre of gravity is surfaced from the core's spectral moments and
+  // is a positive frequency over a voiced vowel.
+  const cog = Number(await page.getByTestId('readout-cog').getAttribute('data-value'));
+  expect(Number.isFinite(cog)).toBe(true);
+  expect(cog).toBeGreaterThan(0);
+
   await expect(page.getByTestId('readout-duration')).toContainText('s');
 });
 

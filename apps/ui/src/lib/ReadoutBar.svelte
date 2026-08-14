@@ -47,6 +47,12 @@
       : `${value.toFixed(1)} dB`;
   }
 
+  function num(value: number | null | undefined, digits = 2): string {
+    return value === null || value === undefined || !Number.isFinite(value)
+      ? '—'
+      : value.toFixed(digits);
+  }
+
   const visibleFormants = $derived(
     (formantMeans ?? []).slice(0, 3).map((value, index) => ({ index: index + 1, value }))
   );
@@ -92,6 +98,14 @@
     </span>
     <span class="field" data-testid="readout-hnr">
       <span class="k">HNR</span><span class="v">{db(readout?.hnrMeanDb)}</span>
+    </span>
+    <span
+      class="field"
+      data-testid="readout-cog"
+      data-value={readout?.spectralCogHz ?? ''}
+      title={`Spectral centre of gravity. SD ${hz(readout?.spectralSdHz, 0)}, skewness ${num(readout?.spectralSkewness)}, kurtosis ${num(readout?.spectralKurtosis)}`}
+    >
+      <span class="k">CoG</span><span class="v">{hz(readout?.spectralCogHz, 0)}</span>
     </span>
     {#if showFormants}
       <span class="field provisional" data-testid="readout-formants" title="Formant tracking weights are provisional (T2.6 open)">

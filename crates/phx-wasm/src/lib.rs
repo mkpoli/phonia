@@ -1379,6 +1379,10 @@ impl WasmEngine {
             "bandEnergyDb": readout.band_energy_db,
             "intensityMeanDb": readout.intensity_mean_db,
             "hnrMeanDb": readout.hnr_mean_db,
+            "spectralCogHz": readout.spectral_cog_hz,
+            "spectralSdHz": readout.spectral_sd_hz,
+            "spectralSkewness": readout.spectral_skewness,
+            "spectralKurtosis": readout.spectral_kurtosis,
         });
         serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
     }
@@ -2819,6 +2823,9 @@ mod tests {
             direct.to_bits()
         );
         assert!(readout["f0MeanHz"].as_f64().unwrap() > 0.0);
+        // Spectral moments cross the boundary too; centre of gravity is a
+        // positive frequency for a voiced span.
+        assert!(readout["spectralCogHz"].as_f64().unwrap() > 0.0);
 
         let means = engine
             .formant_span_means(id, 5000.0, 5, false, t0, t1)
