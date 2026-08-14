@@ -133,6 +133,9 @@
       t0: number,
       t1: number
     ) => Promise<{ times: Float64Array; hnr: Float64Array }>;
+    /** Resolves the per-frame CPP track over a span, for the contour export;
+     *  absent hides it. */
+    onCppTrack?: (t0: number, t1: number) => Promise<{ times: Float64Array; cpp: Float64Array }>;
     /** Saves each labelled interval of a tier as its own library recording;
      *  absent hides the affordance. */
     onExtractIntervals?: (spans: { t0: number; t1: number; label: string }[]) => Promise<void>;
@@ -196,6 +199,7 @@
     onResample16k,
     onNearestZero,
     onHarmonicityTrack,
+    onCppTrack,
     onExtractIntervals,
     onLpcEnvelope,
     onConcatenate,
@@ -800,6 +804,25 @@
     }
   }
 
+  async function copyCppContour() {
+    if (!audio || !onCppTrack) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (!(t1 > t0)) return;
+    try {
+      const track = await onCppTrack(t0, t1);
+      const rows = ['time_s,cpp_db'];
+      for (let i = 0; i < track.times.length; i += 1) {
+        const cpp = track.cpp[i];
+        if (Number.isFinite(cpp)) rows.push(`${track.times[i].toFixed(4)},${cpp.toFixed(2)}`);
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`CPP copied · ${rows.length - 1} frames`);
+    } catch {
+      flashToast('Could not copy the CPP');
+    }
+  }
+
   // Saves a tier's labelled intervals as recordings, capped so an over-long
   // tier cannot spawn hundreds of takes in one click.
   const MAX_EXTRACTED_INTERVALS = 50;
@@ -1205,6 +1228,15 @@
       run: () => void copyHarmonicityContour()
     },
     {
+      id: 'copyCppContour',
+      title: 'Copy CPP contour (CSV)',
+      group: 'Analysis',
+      api: ['cppTrack'],
+      keywords: ['cpp', 'cepstral', 'peak', 'prominence', 'contour', 'csv', 'export', 'copy'],
+      enabled: () => hasAudio() && onCppTrack !== undefined,
+      run: () => void copyCppContour()
+    },
+    {
       id: 'toggleFormantTrack',
       title: 'Toggle formant track',
       group: 'Analysis',
@@ -1232,6 +1264,16 @@
       keywords: ['overlay', 'hnr', 'harmonics', 'noise'],
       run: () => {
         overlayParams.harmonicity.show = !overlayParams.harmonicity.show;
+      }
+    },
+    {
+      id: 'toggleCppTrack',
+      title: 'Toggle CPP track',
+      group: 'Analysis',
+      api: ['cppTrack'],
+      keywords: ['overlay', 'cpp', 'cepstral', 'peak', 'prominence', 'breathiness'],
+      run: () => {
+        overlayParams.cpp.show = !overlayParams.cpp.show;
       }
     },
     {

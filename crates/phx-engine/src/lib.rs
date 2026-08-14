@@ -625,6 +625,46 @@ impl Engine {
             .collect())
     }
 
+    /// Computes a per-frame cepstral-peak-prominence (CPP) track over `[t0, t1]`
+    /// as `(time, cpp_db)` pairs — a voice-quality contour where a high value
+    /// marks strong harmonic organization and a low value marks breathiness or
+    /// aperiodicity. Frames without a usable cepstral peak carry `None`; times
+    /// are absolute.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry and [`EngineError::InvalidRequest`] when a bound is not finite.
+    pub fn cpp_track_span(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+    ) -> Result<Vec<(f64, Option<f64>)>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "cpp_track_span t0/t1 must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let sample_rate = info.sample_rate;
+        let frames = (info.duration * sample_rate).round() as usize;
+        let lo = t0.min(t1).clamp(0.0, info.duration);
+        let hi = t0.max(t1).clamp(0.0, info.duration);
+        let start = ((lo * sample_rate).floor() as usize).min(frames);
+        let end = ((hi * sample_rate).ceil() as usize).clamp(start, frames);
+        let window = self.store.range_owned(id, start, end)?;
+        let offset = start as f64 / sample_rate;
+        let track = phx_voice::cpp_track(
+            window.slice_samples(0..window.frames()),
+            &CppParams::default(),
+        );
+        Ok(track
+            .frames
+            .iter()
+            .map(|frame| (offset + frame.time, frame.cpp_db))
+            .collect())
+    }
+
     /// Computes the raw Burg formant candidates of `id` over its whole signal.
     ///
     /// These are the frequency-gated LPC roots per frame, before any tracking
@@ -3764,6 +3804,21 @@ mod tests {
         // A clean sine is near-perfectly periodic, so its HNR runs very high.
         let peak = voiced.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         assert!(peak > 20.0, "peak HNR {peak} dB too low for a clean sine");
+    }
+
+    #[test]
+    fn cpp_track_span_reports_positive_prominence_for_a_sine() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(44_100, 1.0, 150.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+
+        let frames = engine.cpp_track_span(audio, 0.2, 0.8).unwrap();
+        let values: Vec<f64> = frames.iter().filter_map(|&(_, db)| db).collect();
+        assert!(!values.is_empty(), "no cpp frames");
+        // A periodic sine places a cepstral rahmonic at 1/f0 that clears the
+        // regression baseline; noise would leave the peak near zero.
+        let peak = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(peak > 2.0, "peak CPP {peak} dB too low for a clean sine");
     }
 
     #[test]

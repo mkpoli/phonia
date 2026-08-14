@@ -1361,6 +1361,15 @@
     return client.harmonicityTrack(audio.id, t0, t1);
   }
 
+  // Resolves the per-frame CPP track for the editor's overlay and contour export.
+  async function cppTrack(
+    t0: number,
+    t1: number
+  ): Promise<{ times: Float64Array; cpp: Float64Array }> {
+    if (!client || !audio) return { times: new Float64Array(), cpp: new Float64Array() };
+    return client.cppTrack(audio.id, t0, t1);
+  }
+
   // Resolves the LPC-smoothed spectral envelope for the spectrum card overlay.
   async function lpcEnvelope(t0: number, t1: number): Promise<{ freqs: number[]; db: number[] }> {
     if (!client || !audio) return { freqs: [], db: [] };
@@ -1690,6 +1699,7 @@
       onResample16k={resampleTo16k}
       onNearestZero={nearestZero}
       onHarmonicityTrack={harmonicityTrack}
+      onCppTrack={cppTrack}
       onLpcEnvelope={lpcEnvelope}
       onExtractIntervals={extractIntervals}
       onConcatenate={concatenateProject}

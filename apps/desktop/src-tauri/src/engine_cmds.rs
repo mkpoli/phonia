@@ -13,8 +13,8 @@ use tauri::State;
 use tauri::ipc::Response;
 
 use crate::state::{
-    AppState, AppliedDto, ExportBundleDto, FormantTrackDto, HarmonicityTrackDto, IntensityTrackDto,
-    IntervalDto, LabelHitDto, PitchTrackDto, PointDto, SidecarDto, TierInfoDto,
+    AppState, AppliedDto, CppTrackDto, ExportBundleDto, FormantTrackDto, HarmonicityTrackDto,
+    IntensityTrackDto, IntervalDto, LabelHitDto, PitchTrackDto, PointDto, SidecarDto, TierInfoDto,
 };
 
 /// Maps an [`EngineError`] to the string the IPC layer rejects with.
@@ -275,6 +275,21 @@ pub fn harmonicity_track(
         hnr.push(db.unwrap_or(f64::NAN));
     }
     Ok(HarmonicityTrackDto { times, hnr })
+}
+
+#[tauri::command]
+pub fn cpp_track(state: State<AppState>, id: u64, t0: f64, t1: f64) -> Result<CppTrackDto, String> {
+    let engine = lock(&state)?;
+    let frames = engine
+        .cpp_track_span(AudioId::from_u64(id), t0, t1)
+        .map_err(err)?;
+    let mut times = Vec::with_capacity(frames.len());
+    let mut cpp = Vec::with_capacity(frames.len());
+    for (time, db) in frames {
+        times.push(time);
+        cpp.push(db.unwrap_or(f64::NAN));
+    }
+    Ok(CppTrackDto { times, cpp })
 }
 
 #[tauri::command]

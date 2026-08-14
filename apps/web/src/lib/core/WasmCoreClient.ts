@@ -5,6 +5,7 @@ import type {
   AudioInfo,
   BoundaryId,
   CoreClient,
+  CppTrackData,
   FigureExportFormat,
   FigureExportResult,
   FigureSpec,
@@ -225,6 +226,13 @@ export class WasmCoreClient implements CoreClient {
   harmonicityTrack(id: AudioId, t0: number, t1: number): Promise<HarmonicityTrackData> {
     return this.#memoTrack(`harmonicity:${id}:${t0}:${t1}`, () =>
       this.#call({ method: 'harmonicityTrack', audioId: id, t0, t1 })
+    );
+  }
+
+  /** Per-frame cepstral peak prominence over `[t0, t1]`; NaN where undefined. */
+  cppTrack(id: AudioId, t0: number, t1: number): Promise<CppTrackData> {
+    return this.#memoTrack(`cpp:${id}:${t0}:${t1}`, () =>
+      this.#call({ method: 'cppTrack', audioId: id, t0, t1 })
     );
   }
 

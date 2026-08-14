@@ -85,6 +85,7 @@ type RequestMessage =
     }
   | { id: number; method: 'nearestZeroCrossing'; audioId: AudioId; t: number }
   | { id: number; method: 'harmonicityTrack'; audioId: AudioId; t0: number; t1: number }
+  | { id: number; method: 'cppTrack'; audioId: AudioId; t0: number; t1: number }
   | {
       id: number;
       method: 'bandFilteredSpan';
@@ -709,6 +710,16 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
         postMessage(
           { id: message.id, ok: true, result: { times, hnr } },
           { transfer: [times.buffer, hnr.buffer] }
+        );
+        return;
+      }
+      case 'cppTrack': {
+        const track = wasm.cppTrack(message.audioId, message.t0, message.t1);
+        const times = new Float64Array(track.times);
+        const cpp = new Float64Array(track.cpp);
+        postMessage(
+          { id: message.id, ok: true, result: { times, cpp } },
+          { transfer: [times.buffer, cpp.buffer] }
         );
         return;
       }

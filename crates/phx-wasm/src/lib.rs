@@ -300,6 +300,29 @@ impl WasmHarmonicityTrack {
     }
 }
 
+/// A cepstral-peak-prominence (CPP) track flattened for JavaScript. Frames
+/// without a usable cepstral peak carry `NaN` so the caller can skip them.
+#[wasm_bindgen]
+pub struct WasmCppTrack {
+    times: Vec<f64>,
+    cpp: Vec<f64>,
+}
+
+#[wasm_bindgen]
+impl WasmCppTrack {
+    /// Frame-centre times in seconds.
+    #[wasm_bindgen(getter)]
+    pub fn times(&self) -> Float64Array {
+        Float64Array::from(self.times.as_slice())
+    }
+
+    /// Cepstral peak prominence per frame in dB, `NaN` where undefined.
+    #[wasm_bindgen(getter)]
+    pub fn cpp(&self) -> Float64Array {
+        Float64Array::from(self.cpp.as_slice())
+    }
+}
+
 /// What a successful command, undo, or redo changed, flattened for JavaScript.
 ///
 /// `kind` names the effect (`"boundaryInserted"`, `"labelSet"`, …); the id
@@ -1363,6 +1386,22 @@ impl WasmEngine {
             hnr.push(db.unwrap_or(f64::NAN));
         }
         Ok(WasmHarmonicityTrack { times, hnr })
+    }
+
+    /// The per-frame cepstral peak prominence over `[t0, t1]` of `id`.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live store entry or when a bound is not finite.
+    #[wasm_bindgen(js_name = cppTrack)]
+    pub fn cpp_track(&self, id: u64, t0: f64, t1: f64) -> Result<WasmCppTrack, JsError> {
+        let frames = self.inner.cpp_track_span(AudioId::from_u64(id), t0, t1)?;
+        let mut times = Vec::with_capacity(frames.len());
+        let mut cpp = Vec::with_capacity(frames.len());
+        for (time, db) in frames {
+            times.push(time);
+            cpp.push(db.unwrap_or(f64::NAN));
+        }
+        Ok(WasmCppTrack { times, cpp })
     }
 
     /// Returns the mean raw band energy inside a time–frequency box, in decibels.

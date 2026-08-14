@@ -6,6 +6,7 @@ import type {
   AudioInfo,
   BoundaryId,
   CoreClientLike,
+  CppTrackData,
   FigureExportFormat,
   FigureExportResult,
   FigureSpec,
@@ -175,6 +176,15 @@ export class TauriCoreClient implements CoreClientLike {
       t1
     });
     return { times: new Float64Array(raw.times), hnr: new Float64Array(raw.hnr) };
+  }
+
+  async cppTrack(id: AudioId, t0: number, t1: number): Promise<CppTrackData> {
+    const raw = await invoke<{ times: number[]; cpp: number[] }>('cpp_track', {
+      id: num(id),
+      t0,
+      t1
+    });
+    return { times: new Float64Array(raw.times), cpp: new Float64Array(raw.cpp) };
   }
 
   bandEnergy(id: AudioId, t0: number, t1: number, f0: number, f1: number): Promise<number> {

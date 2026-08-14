@@ -108,6 +108,15 @@ pub struct HarmonicityTrackDto {
     pub hnr: Vec<f64>,
 }
 
+/// A cepstral-peak-prominence contour as parallel arrays of frame times and CPP
+/// values in dB; `cpp` is NaN where the frame is undefined.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CppTrackDto {
+    pub times: Vec<f64>,
+    pub cpp: Vec<f64>,
+}
+
 /// One tier's identity and kind, in document order.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

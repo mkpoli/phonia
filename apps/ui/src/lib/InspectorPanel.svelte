@@ -91,13 +91,20 @@
     }
   });
 
-  let expanded = $state({ pitch: true, formant: true, intensity: true, harmonicity: false });
+  let expanded = $state({
+    pitch: true,
+    formant: true,
+    intensity: true,
+    harmonicity: false,
+    cpp: false
+  });
 
   let visibleCount = $derived(
     Number(params.pitch.show) +
       Number(params.formant.show) +
       Number(params.intensity.show) +
-      Number(params.harmonicity.show)
+      Number(params.harmonicity.show) +
+      Number(params.cpp.show)
   );
 
   function hz(value: number | null | undefined, digits = 0): string {
@@ -130,7 +137,7 @@
 <aside class="inspector" data-testid="inspector" aria-label="Analysis layers">
   <header class="head">
     <h2><IconLayers aria-hidden="true" />Layers</h2>
-    <span class="count">{visibleCount}/4 visible</span>
+    <span class="count">{visibleCount}/5 visible</span>
     <button
       type="button"
       class="copy-cursor"
@@ -456,6 +463,45 @@
       </div>
     {/if}
   </section>
+
+  <section class="layer" class:off={!params.cpp.show} data-testid="inspector-cpp">
+    <div class="layer-head">
+      <button
+        type="button"
+        class="eye"
+        data-testid="toggle-cpp"
+        aria-pressed={params.cpp.show}
+        aria-label={params.cpp.show ? 'Hide CPP' : 'Show CPP'}
+        title={params.cpp.show ? 'Hide CPP' : 'Show CPP'}
+        onclick={() => (params.cpp.show = !params.cpp.show)}
+      >
+        {#if params.cpp.show}<IconEye aria-hidden="true" />{:else}<IconEyeOff
+            aria-hidden="true"
+          />{/if}
+      </button>
+      <span class="swatch cpp"></span>
+      <button
+        type="button"
+        class="layer-name"
+        aria-expanded={expanded.cpp}
+        onclick={() => (expanded.cpp = !expanded.cpp)}
+      >
+        <span class="chev" class:open={expanded.cpp}><IconChevronRight aria-hidden="true" /></span>
+        CPP
+      </button>
+      <span class="live-value" title="Cepstral peak prominence at the cursor"
+        >{db(cursor?.cppDb)}</span
+      >
+    </div>
+    {#if expanded.cpp}
+      <div class="params">
+        <p class="note">
+          Cepstral peak prominence — the harmonic peak's height over the cepstral
+          baseline. Higher marks clearer voicing; lower marks breathiness.
+        </p>
+      </div>
+    {/if}
+  </section>
 </aside>
 
 <style>
@@ -590,6 +636,10 @@
 
   .swatch.harmonicity {
     background: var(--overlay-harmonicity);
+  }
+
+  .swatch.cpp {
+    background: var(--overlay-cpp);
   }
 
   .layer-name {

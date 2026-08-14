@@ -109,6 +109,12 @@ export interface HarmonicityTrackData {
   hnr: Float64Array;
 }
 
+/** A cepstral-peak-prominence track; `cpp` is NaN where the frame is undefined. */
+export interface CppTrackData {
+  times: Float64Array;
+  cpp: Float64Array;
+}
+
 /** Stable annotation-document handle. */
 export type AnnotationId = bigint;
 /** Stable tier handle within a document. */
@@ -538,6 +544,7 @@ export interface CoreClientLike extends AnnotationClientLike {
   ): Promise<FormantTrackData>;
   intensityTrack(id: AudioId, floorHz: number): Promise<IntensityTrackData>;
   harmonicityTrack(id: AudioId, t0: number, t1: number): Promise<HarmonicityTrackData>;
+  cppTrack(id: AudioId, t0: number, t1: number): Promise<CppTrackData>;
   buildFigure(spec: FigureSpec): Promise<string>;
   renderFigureSvg(figureJson: string): Promise<string>;
   exportFigure(figureJson: string, format: FigureExportFormat): Promise<FigureExportResult>;
@@ -657,6 +664,8 @@ export interface OverlayParams {
   intensity: { show: boolean; floorHz: number };
   /** Harmonics-to-noise ratio contour, off by default. */
   harmonicity: { show: boolean; floorHz: number };
+  /** Cepstral peak prominence contour, off by default. */
+  cpp: { show: boolean };
   /** Glottal pulse ticks on the waveform, off by default. */
   pulses: { show: boolean };
 }
@@ -673,6 +682,7 @@ export function defaultOverlayParams(): OverlayParams {
     formant: { show: true, ceilingHz: 5500, maxFormants: 5, smoothed: false, mark: 'speckle' },
     intensity: { show: true, floorHz: 100 },
     harmonicity: { show: false, floorHz: 75 },
+    cpp: { show: false },
     pulses: { show: false }
   };
 }

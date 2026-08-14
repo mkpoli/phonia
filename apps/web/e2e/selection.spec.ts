@@ -430,6 +430,37 @@ test('harmonicity overlay: the layer toggles on', async ({ page }) => {
   await expect(page.getByTestId('inspector-harmonicity')).not.toHaveClass(/\boff\b/);
 });
 
+test('cpp overlay: the layer toggles on', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  const eye = page.getByTestId('toggle-cpp');
+  await expect(eye).toHaveAttribute('aria-pressed', 'false');
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('inspector-cpp')).not.toHaveClass(/\boff\b/);
+});
+
+test('copy CPP contour writes CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('cpp');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyCppContour"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('CPP copied', { timeout: 20_000 });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('time_s,cpp_db')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const [t, cpp] = lines[1].split(',').map(Number);
+  expect(Number.isFinite(t)).toBe(true);
+  expect(Number.isFinite(cpp)).toBe(true);
+});
+
 test('concatenate joins the project recordings into a new one', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   // A second recording, so concatenate has something to join.

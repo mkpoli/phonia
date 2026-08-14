@@ -3,6 +3,7 @@
   import type {
     AudioInfo,
     CoreClientLike,
+    CppTrackData,
     FormantTrackData,
     HarmonicityTrackData,
     IntensityTrackData,
@@ -35,6 +36,7 @@
   let formant = $state<FormantTrackData | null>(null);
   let intensity = $state<IntensityTrackData | null>(null);
   let harmonicity = $state<HarmonicityTrackData | null>(null);
+  let cpp = $state<CppTrackData | null>(null);
   // Highest voiced value from the authoritative whole-signal track, not the
   // span preview, so the clipping badge never flickers on a partial window.
   let pitchMaxHz = $state(0);
@@ -43,7 +45,7 @@
   let pitchDataToken = $state(0);
 
   $effect(() => {
-    onTracks?.({ pitch, formant, intensity, harmonicity });
+    onTracks?.({ pitch, formant, intensity, harmonicity, cpp });
   });
 
   // Track colours carry their own dark halo, so they read over any colormap
@@ -52,6 +54,7 @@
   const FORMANT_COLOR = '#ff5a52';
   const INTENSITY_COLOR = '#ffcc33';
   const HARMONICITY_COLOR = '#5ee0a0';
+  const CPP_COLOR = '#c08cff';
   const HALO = 'rgba(4, 8, 16, 0.7)';
 
   // Whole-signal analysis (pitch especially) is proportional to duration; past
@@ -201,6 +204,30 @@
   });
 
   $effect(() => {
+    const id = audio?.id;
+    const show = params.cpp.show;
+    const duration = audio?.duration ?? 0;
+    if (!client || id === undefined || !show || tooLong || duration <= 0) {
+      cpp = null;
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      client
+        .cppTrack(id, 0, duration)
+        .then((track) => {
+          if (cancelled) return;
+          cpp = track;
+        })
+        .catch(() => {});
+    }, WHOLE_SIGNAL_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  });
+
+  $effect(() => {
     if (!canvas) return;
     const observer = new ResizeObserver(() => scheduleDraw());
     observer.observe(canvas);
@@ -219,10 +246,12 @@
     formant;
     intensity;
     harmonicity;
+    cpp;
     params.pitch.ceilingHz;
     params.pitch.floorHz;
     params.pitch.unit;
     params.harmonicity.show;
+    params.cpp.show;
     params.formant.mark;
     scheduleDraw();
   });
@@ -258,6 +287,7 @@
 
     if (params.intensity.show && intensity) drawIntensity(ctx, width, height);
     if (params.harmonicity.show && harmonicity) drawHarmonicity(ctx, width, height);
+    if (params.cpp.show && cpp) drawCpp(ctx, width, height);
     if (params.formant.show && formant) drawFormants(ctx, width, height);
     if (params.pitch.show && pitch) {
       drawPitch(ctx, width, height);
@@ -595,6 +625,62 @@
     ctx.strokeText(label, width - 4, top);
     ctx.fillStyle = HARMONICITY_COLOR;
     ctx.fillText(label, width - 4, top);
+  }
+
+  function drawCpp(ctx: CanvasRenderingContext2D, width: number, height: number) {
+    const times = cpp!.times;
+    const values = cpp!.cpp;
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 0; i < values.length; i += 1) {
+      if (!Number.isFinite(values[i])) continue;
+      if (values[i] < min) min = values[i];
+      if (values[i] > max) max = values[i];
+    }
+    if (!Number.isFinite(min) || max - min < 1e-6) return;
+    const top = height * 0.1;
+    const bottom = height * 0.9;
+    const yFor = (value: number) => bottom - ((value - min) / (max - min)) * (bottom - top);
+
+    const stroke = (color: string, lineWidth: number) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      let drawing = false;
+      ctx.beginPath();
+      for (let i = 0; i < times.length; i += 1) {
+        const time = times[i];
+        if (time < viewport.t0 || time > viewport.t1 || !Number.isFinite(values[i])) {
+          drawing = false;
+          continue;
+        }
+        const x = timeToX(time, width);
+        const y = yFor(values[i]);
+        if (!drawing) {
+          ctx.moveTo(x, y);
+          drawing = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+    };
+
+    stroke(HALO, 3.2);
+    stroke(CPP_COLOR, 1.4);
+
+    // The label sits a line below the HNR band's so both read when shown together.
+    ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    const label = `${Math.round(max)} dB CPP`;
+    const labelY = params.harmonicity.show ? top + 15 : top;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = HALO;
+    ctx.strokeText(label, width - 4, labelY);
+    ctx.fillStyle = CPP_COLOR;
+    ctx.fillText(label, width - 4, labelY);
   }
 </script>
 

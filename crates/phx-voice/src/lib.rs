@@ -222,6 +222,25 @@ impl Default for CppParams {
     }
 }
 
+/// One cepstral-peak-prominence frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CppFrame {
+    /// Frame centre time in seconds.
+    pub time: f64,
+    /// Cepstral peak prominence in decibels, absent for frames without a usable
+    /// cepstral peak.
+    pub cpp_db: Option<f64>,
+}
+
+/// Cepstral-peak-prominence track over a frame grid.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CppTrack {
+    /// Frames in ascending time order.
+    pub frames: Vec<CppFrame>,
+    /// Parameters used to compute the track.
+    pub params: CppParams,
+}
+
 /// A local spectrum slice for spectral moments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpectrumSlice {
@@ -513,6 +532,42 @@ pub fn cpps(audio: AudioView<'_>, span: TimeSpan, params: &CppParams) -> Option<
     }
     smooth_in_place(&mut averaged, params.quefrency_smoothing_bins);
     cpp_from_cepstrum(&averaged, audio.sample_rate(), params)
+}
+
+/// Computes a per-frame cepstral-peak-prominence track.
+///
+/// Frames follow the same grid CPPS uses — a `frame_length_seconds` Hann window
+/// stepped by `time_step`. Each frame carries `Some(cpp_db)` where the cepstrum
+/// yields a peak over the F0 quefrency range, and `None` where the frame cannot
+/// support the configured quefrency or regression ranges.
+#[must_use]
+pub fn cpp_track(audio: AudioView<'_>, params: &CppParams) -> CppTrack {
+    if !valid_cpp_params(params) || audio.frames() == 0 {
+        return CppTrack {
+            frames: Vec::new(),
+            params: *params,
+        };
+    }
+
+    let signal = mono_as_f64(&audio);
+    let grid = FrameGrid::new(
+        audio.duration(),
+        params.frame_length_seconds,
+        params.time_step,
+    );
+    let mut plan = RealFftPlan::new();
+    let frames = grid
+        .centers()
+        .map(|time| CppFrame {
+            time,
+            cpp_db: cpp_from_frame(&signal, audio.sample_rate(), time, params, &mut plan),
+        })
+        .collect();
+
+    CppTrack {
+        frames,
+        params: *params,
+    }
 }
 
 /// Computes power-weighted spectral moments.
@@ -1396,6 +1451,52 @@ mod tests {
         assert!(
             (actual - target_hnr_db).abs() <= 0.5,
             "got {actual}, want {target_hnr_db}"
+        );
+    }
+
+    #[test]
+    fn cpp_track_is_higher_for_a_periodic_signal_than_for_noise() {
+        let sample_rate: f64 = 44_100.0;
+        let duration = 0.6;
+        let f0 = 150.0;
+        let n = (duration * sample_rate) as usize;
+
+        // A pulse train excites a strong cepstral rahmonic at 1/f0; white noise
+        // has no periodic structure, so its cepstral peak barely clears the
+        // regression baseline.
+        let period = (sample_rate / f0).round() as usize;
+        let periodic = (0..n)
+            .map(|i| if i % period == 0 { 1.0_f32 } else { 0.0 })
+            .collect::<Vec<_>>();
+
+        let mut seed = 0x2545_f491_4f6c_dd1d_u64;
+        let noise = (0..n)
+            .map(|_| {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                let unit = (seed >> 11) as f64 / ((1_u64 << 53) as f64);
+                (2.0 * unit - 1.0) as f32
+            })
+            .collect::<Vec<_>>();
+
+        let params = CppParams::default();
+        let mean_cpp = |signal: Vec<f32>| {
+            let audio = audio_from_signal(signal, sample_rate);
+            let track = cpp_track(audio.slice_samples(0..audio.frames()), &params);
+            let values = track
+                .frames
+                .iter()
+                .filter_map(|frame| frame.cpp_db)
+                .collect::<Vec<_>>();
+            values.iter().sum::<f64>() / values.len() as f64
+        };
+
+        let periodic_cpp = mean_cpp(periodic);
+        let noise_cpp = mean_cpp(noise);
+        assert!(
+            periodic_cpp > noise_cpp + 1.0,
+            "periodic CPP {periodic_cpp} dB should exceed noise CPP {noise_cpp} dB"
         );
     }
 
