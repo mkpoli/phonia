@@ -160,7 +160,11 @@
         <span class="chev" class:open={expanded.pitch}><IconChevronRight aria-hidden="true" /></span>
         Pitch
       </button>
-      <span class="live-value">{formatPitch(readout ? readout.f0MeanHz : cursor?.f0Hz, params.pitch.unit)}</span>
+      <span
+        class="live-value"
+        title={readout ? 'Mean F0 over the selection' : 'F0 interpolated at the cursor time'}
+        >{formatPitch(readout ? readout.f0MeanHz : cursor?.f0Hz, params.pitch.unit)}</span
+      >
     </div>
     {#if expanded.pitch}
       <div class="params">
@@ -353,7 +357,11 @@
         <span class="chev" class:open={expanded.intensity}><IconChevronRight aria-hidden="true" /></span>
         Intensity
       </button>
-      <span class="live-value">{db(readout ? readout.intensityMeanDb : cursor?.intensityDb)}</span>
+      <span
+        class="live-value"
+        title={readout ? 'Mean intensity over the selection' : 'Intensity interpolated at the cursor time'}
+        >{db(readout ? readout.intensityMeanDb : cursor?.intensityDb)}</span
+      >
     </div>
     {#if expanded.intensity}
       <div class="params">

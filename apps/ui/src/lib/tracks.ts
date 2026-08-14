@@ -15,12 +15,14 @@ export interface FormantReading {
 
 /** Values the drawn overlay tracks attest at one instant. */
 export interface TrackSample {
+  /** F0 linearly interpolated between the bracketing voiced frames. */
   f0Hz: number | null;
   /** Formants at the nearest frame, lowest first (read as F1, F2, …), with the
    *  bandwidth Burg's roots give each pole. */
   formants: FormantReading[];
   /** Centre frequencies only, for consumers that ignore bandwidth. */
   formantsHz: number[];
+  /** Intensity linearly interpolated between the bracketing frames. */
   intensityDb: number | null;
 }
 
@@ -41,8 +43,38 @@ function nearestIndex(times: Float64Array, t: number): number {
   return lo;
 }
 
+/**
+ * The two frame indices bracketing `t` and the fraction of the way from the
+ * first to the second. Before the first frame or after the last, both indices
+ * collapse to the edge frame (fraction 0), leaving edge reads to nearest-frame.
+ */
+function bracket(times: Float64Array, t: number): [number, number, number] {
+  const n = times.length;
+  if (n === 0 || t <= times[0]) return [0, 0, 0];
+  if (t >= times[n - 1]) return [n - 1, n - 1, 0];
+  let lo = 0;
+  let hi = n - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] < t) lo = mid + 1;
+    else hi = mid;
+  }
+  const i0 = lo - 1;
+  const span = times[lo] - times[i0];
+  return [i0, lo, span > 0 ? (t - times[i0]) / span : 0];
+}
+
+// Praat's "Get value at time … linear": a straight-line blend of the two
+// bracketing frames. Pitch stays undefined across a voicing boundary, so it
+// interpolates only between two voiced frames and otherwise reads the nearest.
 function samplePitch(track: PitchTrackData | null, t: number, tolerance: number): number | null {
   if (!track || track.times.length === 0) return null;
+  const [i0, i1, frac] = bracket(track.times, t);
+  const a = track.f0[i0];
+  const b = track.f0[i1];
+  const aOk = Number.isFinite(a) && a > 0;
+  const bOk = Number.isFinite(b) && b > 0;
+  if (i0 !== i1 && aOk && bOk) return a + (b - a) * frac;
   const i = nearestIndex(track.times, t);
   if (Math.abs(track.times[i] - t) > tolerance) return null;
   const f0 = track.f0[i];
@@ -55,6 +87,10 @@ function sampleIntensity(
   tolerance: number
 ): number | null {
   if (!track || track.times.length === 0) return null;
+  const [i0, i1, frac] = bracket(track.times, t);
+  const a = track.db[i0];
+  const b = track.db[i1];
+  if (i0 !== i1 && Number.isFinite(a) && Number.isFinite(b)) return a + (b - a) * frac;
   const i = nearestIndex(track.times, t);
   if (Math.abs(track.times[i] - t) > tolerance) return null;
   const db = track.db[i];
