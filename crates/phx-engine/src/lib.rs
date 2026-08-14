@@ -586,6 +586,45 @@ impl Engine {
         Ok((track, start as f64 / sample_rate))
     }
 
+    /// Per-frame harmonics-to-noise ratio (dB) over the span `[t0, t1]` of `id`,
+    /// as `(time, hnr_db)` pairs — Praat's Sound → To Harmonicity, one value per
+    /// frame instead of a single mean. Silent or aperiodic frames carry `None`;
+    /// times are absolute.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry and [`EngineError::InvalidRequest`] when a bound is not finite.
+    pub fn harmonicity_track_span(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+    ) -> Result<Vec<(f64, Option<f64>)>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "harmonicity_track_span t0/t1 must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let sample_rate = info.sample_rate;
+        let frames = (info.duration * sample_rate).round() as usize;
+        let lo = t0.min(t1).clamp(0.0, info.duration);
+        let hi = t0.max(t1).clamp(0.0, info.duration);
+        let start = ((lo * sample_rate).floor() as usize).min(frames);
+        let end = ((hi * sample_rate).ceil() as usize).clamp(start, frames);
+        let window = self.store.range_owned(id, start, end)?;
+        let offset = start as f64 / sample_rate;
+        let track = phx_voice::hnr_track(
+            window.slice_samples(0..window.frames()),
+            &HarmonicityParams::default(),
+        );
+        Ok(track
+            .frames
+            .iter()
+            .map(|frame| (offset + frame.time, frame.hnr_db))
+            .collect())
+    }
+
     /// Computes the raw Burg formant candidates of `id` over its whole signal.
     ///
     /// These are the frequency-gated LPC roots per frame, before any tracking
@@ -3561,6 +3600,20 @@ mod tests {
             "duration {}",
             decoded.duration()
         );
+    }
+
+    #[test]
+    fn harmonicity_track_span_reports_high_hnr_for_a_sine() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(8_000, 1.0, 220.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+
+        let frames = engine.harmonicity_track_span(audio, 0.2, 0.8).unwrap();
+        let voiced: Vec<f64> = frames.iter().filter_map(|&(_, db)| db).collect();
+        assert!(!voiced.is_empty(), "no voiced frames");
+        // A clean sine is near-perfectly periodic, so its HNR runs very high.
+        let peak = voiced.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(peak > 20.0, "peak HNR {peak} dB too low for a clean sine");
     }
 
     #[test]

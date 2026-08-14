@@ -388,6 +388,30 @@ test('copy spectrum writes CSV rows to the clipboard', async ({ page, context })
   expect(Number.isFinite(d)).toBe(true);
 });
 
+test('copy harmonicity contour writes CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('harmonicity');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyHarmonicityContour"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('Harmonicity copied', {
+    timeout: 20_000
+  });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('time_s,hnr_db')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const [t, hnr] = lines[1].split(',').map(Number);
+  expect(Number.isFinite(t)).toBe(true);
+  expect(Number.isFinite(hnr)).toBe(true);
+});
+
 test('batch equals GUI: readout band energy equals a direct engine query', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const coords = await dragSpectrogramBox(page);

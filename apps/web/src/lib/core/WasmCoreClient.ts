@@ -220,6 +220,15 @@ export class WasmCoreClient implements CoreClient {
     );
   }
 
+  /** Per-frame harmonics-to-noise ratio over `[t0, t1]`; NaN where undefined. */
+  harmonicityTrack(
+    id: AudioId,
+    t0: number,
+    t1: number
+  ): Promise<{ times: Float64Array; hnr: Float64Array }> {
+    return this.#call({ method: 'harmonicityTrack', audioId: id, t0, t1 });
+  }
+
   bandEnergy(id: AudioId, t0: number, t1: number, f0: number, f1: number): Promise<number> {
     return this.#call({ method: 'bandEnergy', audioId: id, t0, t1, f0, f1 });
   }

@@ -1313,6 +1313,15 @@
     return client.nearestZeroCrossing(audio.id, t);
   }
 
+  // Resolves the per-frame harmonicity track for the editor's contour export.
+  async function harmonicityTrack(
+    t0: number,
+    t1: number
+  ): Promise<{ times: Float64Array; hnr: Float64Array }> {
+    if (!client || !audio) return { times: new Float64Array(), hnr: new Float64Array() };
+    return client.harmonicityTrack(audio.id, t0, t1);
+  }
+
   // Normalizes a span so its peak reaches 0.99 and stores it as a new recording.
   async function scalePeakSelection(t0: number, t1: number) {
     if (!client || !audio || !recording || !(t1 > t0)) return;
@@ -1621,6 +1630,7 @@
       onScalePeakSelection={scalePeakSelection}
       onResample16k={resampleTo16k}
       onNearestZero={nearestZero}
+      onHarmonicityTrack={harmonicityTrack}
       onStartRecording={recordingSupported ? startRecording : undefined}
       recording={capturing}
       recordingElapsedSeconds={recordElapsed}

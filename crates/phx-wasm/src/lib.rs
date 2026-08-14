@@ -277,6 +277,29 @@ impl WasmIntensityTrack {
     }
 }
 
+/// A harmonicity (HNR) track flattened for JavaScript. Aperiodic or silent
+/// frames carry `NaN` so the caller can skip them.
+#[wasm_bindgen]
+pub struct WasmHarmonicityTrack {
+    times: Vec<f64>,
+    hnr: Vec<f64>,
+}
+
+#[wasm_bindgen]
+impl WasmHarmonicityTrack {
+    /// Frame-centre times in seconds.
+    #[wasm_bindgen(getter)]
+    pub fn times(&self) -> Float64Array {
+        Float64Array::from(self.times.as_slice())
+    }
+
+    /// Harmonics-to-noise ratio per frame in dB, `NaN` where undefined.
+    #[wasm_bindgen(getter)]
+    pub fn hnr(&self) -> Float64Array {
+        Float64Array::from(self.hnr.as_slice())
+    }
+}
+
 /// What a successful command, undo, or redo changed, flattened for JavaScript.
 ///
 /// `kind` names the effect (`"boundaryInserted"`, `"labelSet"`, …); the id
@@ -1317,6 +1340,29 @@ impl WasmEngine {
         let track = self.inner.intensity_track(AudioId::from_u64(id), &params)?;
         let (times, db) = track.iter().unzip();
         Ok(WasmIntensityTrack { times, db })
+    }
+
+    /// The per-frame harmonics-to-noise ratio over `[t0, t1]` of `id`.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live store entry or when a bound is not finite.
+    #[wasm_bindgen(js_name = harmonicityTrack)]
+    pub fn harmonicity_track(
+        &self,
+        id: u64,
+        t0: f64,
+        t1: f64,
+    ) -> Result<WasmHarmonicityTrack, JsError> {
+        let frames = self
+            .inner
+            .harmonicity_track_span(AudioId::from_u64(id), t0, t1)?;
+        let mut times = Vec::with_capacity(frames.len());
+        let mut hnr = Vec::with_capacity(frames.len());
+        for (time, db) in frames {
+            times.push(time);
+            hnr.push(db.unwrap_or(f64::NAN));
+        }
+        Ok(WasmHarmonicityTrack { times, hnr })
     }
 
     /// Returns the mean raw band energy inside a time–frequency box, in decibels.

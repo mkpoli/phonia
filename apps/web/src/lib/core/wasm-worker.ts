@@ -83,6 +83,7 @@ type RequestMessage =
       f1: number;
     }
   | { id: number; method: 'nearestZeroCrossing'; audioId: AudioId; t: number }
+  | { id: number; method: 'harmonicityTrack'; audioId: AudioId; t0: number; t1: number }
   | {
       id: number;
       method: 'bandFilteredSpan';
@@ -678,6 +679,16 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
         postMessage(
           { id: message.id, ok: true, result: { times, db } },
           { transfer: [times.buffer, db.buffer] }
+        );
+        return;
+      }
+      case 'harmonicityTrack': {
+        const track = wasm.harmonicityTrack(message.audioId, message.t0, message.t1);
+        const times = new Float64Array(track.times);
+        const hnr = new Float64Array(track.hnr);
+        postMessage(
+          { id: message.id, ok: true, result: { times, hnr } },
+          { transfer: [times.buffer, hnr.buffer] }
         );
         return;
       }

@@ -123,6 +123,12 @@
     /** Resolves the zero crossing nearest a time, for snapping selection edges;
      *  absent hides the snap affordance. */
     onNearestZero?: (t: number) => Promise<number>;
+    /** Resolves the per-frame harmonicity (HNR) track over a span, for the
+     *  contour export; absent hides it. */
+    onHarmonicityTrack?: (
+      t0: number,
+      t1: number
+    ) => Promise<{ times: Float64Array; hnr: Float64Array }>;
     /** Starts a microphone recording; absent when the browser cannot capture. */
     onStartRecording?: () => void;
     /** Whether a take is currently being captured. */
@@ -176,6 +182,7 @@
     onScalePeakSelection,
     onResample16k,
     onNearestZero,
+    onHarmonicityTrack,
     onStartRecording,
     recording = false,
     recordingElapsedSeconds = 0,
@@ -749,6 +756,27 @@
     }
   }
 
+  // Copies the harmonics-to-noise ratio over the selection (or the whole file)
+  // as CSV, one `time_s,hnr_db` row per voiced frame.
+  async function copyHarmonicityContour() {
+    if (!audio || !onHarmonicityTrack) return;
+    const t0 = selection ? selection.t0 : 0;
+    const t1 = selection ? selection.t1 : audio.duration;
+    if (!(t1 > t0)) return;
+    try {
+      const track = await onHarmonicityTrack(t0, t1);
+      const rows = ['time_s,hnr_db'];
+      for (let i = 0; i < track.times.length; i += 1) {
+        const hnr = track.hnr[i];
+        if (Number.isFinite(hnr)) rows.push(`${track.times[i].toFixed(4)},${hnr.toFixed(2)}`);
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`Harmonicity copied · ${rows.length - 1} frames`);
+    } catch {
+      flashToast('Could not copy the harmonicity');
+    }
+  }
+
   // Transport Play / Space plays what the user is looking at, in priority order:
   // an active selection's time span, else the visible viewport when zoomed in,
   // else the whole file from the cursor. A box selection plays its time span
@@ -1116,6 +1144,15 @@
       keywords: ['spectrum', 'fft', 'frequency', 'db', 'csv', 'export', 'copy', 'slice'],
       enabled: hasSelection,
       run: () => void copySpectrum()
+    },
+    {
+      id: 'copyHarmonicityContour',
+      title: 'Copy harmonicity contour (CSV)',
+      group: 'Analysis',
+      api: ['harmonicityTrack'],
+      keywords: ['harmonicity', 'hnr', 'harmonics', 'noise', 'contour', 'csv', 'export', 'copy'],
+      enabled: () => hasAudio() && onHarmonicityTrack !== undefined,
+      run: () => void copyHarmonicityContour()
     },
     {
       id: 'toggleFormantTrack',
