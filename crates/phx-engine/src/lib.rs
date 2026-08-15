@@ -1591,7 +1591,7 @@ impl Engine {
         let sr = audio.sample_rate();
         let frames = audio.frames();
         let channels = audio.channel_count();
-        if frames < 2 || channels == 0 || !(sr > 0.0) {
+        if frames < 2 || channels == 0 || sr.is_nan() || sr <= 0.0 {
             return Ok(t);
         }
         let duration = audio.duration();

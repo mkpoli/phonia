@@ -1123,7 +1123,6 @@ impl WasmEngine {
                 time_step,
                 frequency_step,
                 window: window_from_shape(&window_shape),
-                ..SpectrogramParams::default()
             },
         };
         let display = DisplayMapping {
@@ -1202,7 +1201,6 @@ impl WasmEngine {
                 time_step,
                 frequency_step,
                 window: window_from_shape(&window_shape),
-                ..SpectrogramParams::default()
             },
         };
         let display = DisplayMapping {

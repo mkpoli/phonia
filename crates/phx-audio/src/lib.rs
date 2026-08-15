@@ -247,7 +247,7 @@ impl Audio {
             return;
         }
         let mean_sq = sum_sq / count as f64;
-        if !(mean_sq > 0.0) {
+        if mean_sq.is_nan() || mean_sq <= 0.0 {
             return;
         }
         const PREF: f64 = 2e-5;

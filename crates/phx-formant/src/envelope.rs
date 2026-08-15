@@ -22,7 +22,7 @@ pub fn lpc_envelope_db(
     order: usize,
     points: usize,
 ) -> Option<Vec<(f64, f64)>> {
-    if order == 0 || points < 2 || !(sample_rate > 0.0) || !sample_rate.is_finite() {
+    if order == 0 || points < 2 || !sample_rate.is_finite() || sample_rate <= 0.0 {
         return None;
     }
 
@@ -35,7 +35,7 @@ pub fn lpc_envelope_db(
     for (n, &sample) in samples.iter().enumerate() {
         let mut error = sample;
         for (k, &coeff) in coeffs.iter().enumerate() {
-            if let Some(&past) = samples.get(n.wrapping_sub(k + 1)).filter(|_| n >= k + 1) {
+            if let Some(&past) = samples.get(n.wrapping_sub(k + 1)).filter(|_| n > k) {
                 error += coeff * past;
             }
         }
