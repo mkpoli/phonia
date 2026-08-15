@@ -21,6 +21,7 @@
     onActivate: (index: number) => void;
     onEditRequest: (index: number) => void;
     onMoveBoundary: (boundaryId: bigint, toTime: number) => void;
+    onMovePoint: (pointId: bigint, toTime: number) => void;
     onEditInput: (value: string) => void;
     onEditCommit: () => void;
     onEditCancel: () => void;
@@ -39,6 +40,7 @@
     onActivate,
     onEditRequest,
     onMoveBoundary,
+    onMovePoint,
     onEditInput,
     onEditCommit,
     onEditCancel
@@ -116,6 +118,46 @@
     if (draggingBoundary === boundaryId) return pct(dragTime);
     return pct(fallbackTime);
   }
+
+  let draggingPoint = $state<bigint | null>(null);
+  let dragPointTime = $state(0);
+  let pointGrabX = 0;
+
+  // A point stays between its neighbours so a drag never reorders the tier; the
+  // outer edges fall back to the visible span. move_point still validates the
+  // committed time, so this only keeps the live drag well-behaved.
+  function pointRange(index: number): { lo: number; hi: number } {
+    const here = points[index].time;
+    const lo = index > 0 ? points[index - 1].time : Math.min(viewport.t0, here);
+    const hi = index < points.length - 1 ? points[index + 1].time : Math.max(viewport.t1, here);
+    return { lo, hi };
+  }
+
+  function grabPoint(index: number, clientX: number) {
+    const range = pointRange(index);
+    draggingPoint = points[index].id;
+    dragPointTime = clampToRange(xToTime(clientX), range);
+    pointGrabX = clientX;
+  }
+
+  function dragPoint(index: number, clientX: number) {
+    if (draggingPoint !== points[index].id) return;
+    dragPointTime = clampToRange(snap(xToTime(clientX), pointRange(index)), pointRange(index));
+  }
+
+  function releasePoint(index: number, clientX: number) {
+    if (draggingPoint !== points[index].id) return;
+    const range = pointRange(index);
+    draggingPoint = null;
+    // A press without real movement is a click (select/edit), not a move.
+    if (Math.abs(clientX - pointGrabX) < 3) return;
+    onMovePoint(points[index].id, clampToRange(snap(xToTime(clientX), range), range));
+  }
+
+  function pointLeftPct(pointId: bigint, fallbackTime: number) {
+    if (draggingPoint === pointId) return pct(dragPointTime);
+    return pct(fallbackTime);
+  }
 </script>
 
 <div class="lane" class:active data-testid="tier-lane" data-tier-name={tier.name} data-tier-kind={tier.kind} bind:this={laneEl}>
@@ -157,13 +199,26 @@
       <div
         class="point"
         class:selected={active && index === activeIndex}
+        class:dragging={draggingPoint === point.id}
         data-testid="point"
         data-label={point.label}
         data-time={point.time.toFixed(6)}
-        style={`left:${pct(point.time)}%`}
+        style={`left:${pointLeftPct(point.id, point.time)}%`}
         role="button"
         tabindex="-1"
-        onpointerdown={() => onActivate(index)}
+        onpointerdown={(event) => {
+          onActivate(index);
+          if (event.button !== 0) return;
+          event.stopPropagation();
+          (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+          grabPoint(index, event.clientX);
+        }}
+        onpointermove={(event) => dragPoint(index, event.clientX)}
+        onpointerup={(event) => {
+          const el = event.currentTarget as HTMLElement;
+          if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
+          releasePoint(index, event.clientX);
+        }}
         ondblclick={() => onEditRequest(index)}
       >
         <span class="point-line"></span>
@@ -242,30 +297,57 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    cursor: ew-resize;
+    touch-action: none;
   }
 
   .point-line {
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 2px;
-    margin-left: -1px;
-    background: var(--accent);
+    width: 9px;
+    margin-left: -4.5px;
+    background: linear-gradient(
+      to right,
+      transparent calc(50% - 1px),
+      var(--accent) calc(50% - 1px),
+      var(--accent) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+    cursor: ew-resize;
+    touch-action: none;
     transition: background var(--t-fast);
   }
 
   .point:hover .point-line {
-    background: var(--accent-strong);
+    background: linear-gradient(
+      to right,
+      transparent calc(50% - 1px),
+      var(--accent-strong) calc(50% - 1px),
+      var(--accent-strong) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
   }
 
-  .point.selected .point-line {
-    background: var(--accent-strong);
-    width: 3px;
-    margin-left: -1.5px;
+  .point.dragging .point-line {
+    background: linear-gradient(
+      to right,
+      transparent calc(50% - 1.5px),
+      var(--accent-strong) calc(50% - 1.5px),
+      var(--accent-strong) calc(50% + 1.5px),
+      transparent calc(50% + 1.5px)
+    );
   }
 
+  .point.selected .point-line,
   .point.selected:hover .point-line {
-    background: var(--accent-strong);
+    background: linear-gradient(
+      to right,
+      transparent calc(50% - 1.5px),
+      var(--accent-strong) calc(50% - 1.5px),
+      var(--accent-strong) calc(50% + 1.5px),
+      transparent calc(50% + 1.5px)
+    );
   }
 
   .point-label {

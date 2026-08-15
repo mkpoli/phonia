@@ -195,6 +195,8 @@ export interface AnnotationClientLike {
   ): Promise<AppliedChange>;
   removeBoundary(annotationId: AnnotationId, boundaryId: BoundaryId): Promise<AppliedChange>;
   removePoint(annotationId: AnnotationId, pointId: PointId): Promise<AppliedChange>;
+  /** Moves a point to `to` seconds, keeping its stable identifier. */
+  movePoint(annotationId: AnnotationId, pointId: PointId, to: number): Promise<AppliedChange>;
   setIntervalLabel(
     annotationId: AnnotationId,
     tierId: TierId,

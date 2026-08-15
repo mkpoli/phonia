@@ -433,6 +433,20 @@ export class TauriCoreClient implements CoreClientLike {
     ) as AppliedChange;
   }
 
+  async movePoint(
+    annotationId: AnnotationId,
+    pointId: PointId,
+    to: number
+  ): Promise<AppliedChange> {
+    return appliedFrom(
+      await invoke('move_point', {
+        annotationId: num(annotationId),
+        pointId: num(pointId),
+        to
+      })
+    ) as AppliedChange;
+  }
+
   async setIntervalLabel(
     annotationId: AnnotationId,
     tierId: TierId,

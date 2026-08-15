@@ -239,6 +239,42 @@ test('boundary drag moves the boundary through the journal and undoes', async ({
   await expect.poll(() => stateHash(page)).toBe(hashBefore);
 });
 
+test('point drag moves the point through the journal and undoes', async ({ page }) => {
+  await loadFixture(page);
+  await page.getByTestId('add-point-tier').focus();
+  await page.keyboard.press('Enter');
+
+  // Click seats the cursor mid-lane so the points land clear of the left-edge
+  // tier chip; two points give the dragged one a neighbour to stay ordered
+  // against.
+  await pane(page).click();
+  await playFor(page, 500);
+  await page.keyboard.press('s');
+  await playFor(page, 400);
+  await page.keyboard.press('s');
+  await expect(page.getByTestId('point')).toHaveCount(2);
+
+  const hashBefore = await stateHash(page);
+  const first = page.getByTestId('point').nth(0);
+  const timeBefore = Number(await first.getAttribute('data-time'));
+  const box = await first.boundingBox();
+  if (!box) throw new Error('point has no box');
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX - 60, startY, { steps: 8 });
+  await page.mouse.up();
+
+  // The point moved earlier in time; the move is a single journal entry.
+  await expect.poll(() => stateHash(page)).not.toBe(hashBefore);
+  const timeAfter = Number(await page.getByTestId('point').nth(0).getAttribute('data-time'));
+  expect(timeAfter).toBeLessThan(timeBefore);
+
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => stateHash(page)).toBe(hashBefore);
+});
+
 test('label search finds hits and navigates between them', async ({ page }) => {
   await loadFixture(page);
   await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);

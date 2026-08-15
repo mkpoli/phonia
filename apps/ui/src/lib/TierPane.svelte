@@ -376,6 +376,17 @@
     }
   }
 
+  async function movePointTo(pointId: bigint, toTime: number) {
+    if (!client || annotationId === null) return;
+    try {
+      await client.movePoint(annotationId, pointId, toTime);
+      status = '';
+      await refresh();
+    } catch (error) {
+      status = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   function selectByTime(time: number) {
     if (activeTier?.kind === 'interval') {
       const index = activeIntervals.findIndex((iv) => time >= iv.xmin && time < iv.xmax);
@@ -873,6 +884,7 @@
           onActivate={(index) => activateFromLane(tier, index)}
           onEditRequest={(index) => { activateTier(tier.id, index); openEditor(index); }}
           onMoveBoundary={moveBoundaryTo}
+          onMovePoint={movePointTo}
           onEditInput={(value) => { if (editing) editing = { ...editing, value }; }}
           onEditCommit={commitEdit}
           onEditCancel={cancelEdit}

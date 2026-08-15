@@ -184,6 +184,7 @@ type RequestMessage =
     }
   | { id: number; method: 'removeBoundary'; annotationId: AnnotationId; boundaryId: BoundaryId }
   | { id: number; method: 'removePoint'; annotationId: AnnotationId; pointId: PointId }
+  | { id: number; method: 'movePoint'; annotationId: AnnotationId; pointId: PointId; to: number }
   | {
       id: number;
       method: 'setIntervalLabel';
@@ -974,6 +975,13 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'removePoint': {
         const result = appliedToPlain(wasm.removePoint(message.annotationId, message.pointId));
+        postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
+        return;
+      }
+      case 'movePoint': {
+        const result = appliedToPlain(
+          wasm.movePoint(message.annotationId, message.pointId, message.to)
+        );
         postMessage({ id: message.id, ok: true, result } satisfies ResponseMessage);
         return;
       }

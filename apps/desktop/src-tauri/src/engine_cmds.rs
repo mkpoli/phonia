@@ -847,6 +847,25 @@ pub fn remove_point(
 }
 
 #[tauri::command]
+pub fn move_point(
+    state: State<AppState>,
+    annotation_id: u64,
+    point_id: u64,
+    to: f64,
+) -> Result<AppliedDto, String> {
+    let mut engine = lock(&state)?;
+    Ok(apply(
+        &mut engine,
+        Command::MovePoint {
+            annotation: AnnotationId::from_u64(annotation_id),
+            point: PointId::new(point_id),
+            to,
+        },
+    )?
+    .into())
+}
+
+#[tauri::command]
 pub fn set_interval_label(
     state: State<AppState>,
     annotation_id: u64,
