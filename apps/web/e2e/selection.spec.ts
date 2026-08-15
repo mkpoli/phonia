@@ -540,6 +540,23 @@ test('pitch voicing threshold re-renders the pitch overlay', async ({ page }) =>
   await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
 });
 
+test('intensity subtract-mean toggle re-renders the intensity overlay', async ({ page }) => {
+  // Real speech's short analysis windows carry a nonzero local mean, so removing
+  // it shifts the contour; a synthetic DC-free tone would not.
+  await openEditorWithFixture(page, speechFixture);
+  const overlay = page.getByTestId('track-overlay');
+  await expect(overlay).toBeVisible();
+  const toggle = page.getByTestId('intensity-subtract-mean');
+  await expect(toggle).toBeChecked();
+
+  const snapshot = () => overlay.evaluate((el: HTMLCanvasElement) => el.toDataURL());
+  await page.waitForTimeout(2000);
+  const before = await snapshot();
+
+  await toggle.uncheck();
+  await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
+});
+
 test('formant extrema: per-slot frequency range over the selection appears', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);

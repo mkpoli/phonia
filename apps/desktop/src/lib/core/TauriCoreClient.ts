@@ -179,10 +179,15 @@ export class TauriCoreClient implements CoreClientLike {
     return { points: new Float64Array(raw.points), maxHz: raw.maxHz };
   }
 
-  async intensityTrack(id: AudioId, floorHz: number): Promise<IntensityTrackData> {
+  async intensityTrack(
+    id: AudioId,
+    floorHz: number,
+    subtractMean: boolean
+  ): Promise<IntensityTrackData> {
     const raw = await invoke<{ times: number[]; db: number[] }>('intensity_track', {
       id: num(id),
-      floorHz
+      floorHz,
+      subtractMean
     });
     return { times: new Float64Array(raw.times), db: new Float64Array(raw.db) };
   }

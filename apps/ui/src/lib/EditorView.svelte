@@ -615,13 +615,14 @@
     const sel = selection;
     const id = audio?.id;
     const floor = overlayParams.intensity.floorHz;
+    const subtractMean = overlayParams.intensity.subtractMean;
     if (!client || id === undefined || !sel) {
       intensityStats = null;
       return;
     }
     let cancelled = false;
     client
-      .intensityTrack(id, floor)
+      .intensityTrack(id, floor, subtractMean)
       .then((track) => {
         if (cancelled) return;
         let maxDb = -Infinity;
@@ -1000,7 +1001,11 @@
     const t1 = selection ? selection.t1 : audio.duration;
     if (!(t1 > t0)) return;
     try {
-      const track = await client.intensityTrack(audio.id, overlayParams.intensity.floorHz);
+      const track = await client.intensityTrack(
+        audio.id,
+        overlayParams.intensity.floorHz,
+        overlayParams.intensity.subtractMean
+      );
       const rows = ['time_s,intensity_db'];
       for (let i = 0; i < track.times.length; i += 1) {
         const time = track.times[i];

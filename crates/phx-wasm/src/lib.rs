@@ -1376,9 +1376,11 @@ impl WasmEngine {
         &self,
         id: u64,
         pitch_floor_hz: f64,
+        subtract_mean: bool,
     ) -> Result<WasmIntensityTrack, JsError> {
         let params = IntensityParams {
             pitch_floor_hz,
+            subtract_mean,
             ..IntensityParams::default()
         };
         let track = self.inner.intensity_track(AudioId::from_u64(id), &params)?;

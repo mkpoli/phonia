@@ -160,6 +160,7 @@
     const id = audio?.id;
     const show = params.intensity.show;
     const floorHz = params.intensity.floorHz;
+    const subtractMean = params.intensity.subtractMean;
     if (!client || id === undefined || !show || tooLong) {
       intensity = null;
       return;
@@ -167,7 +168,7 @@
     let cancelled = false;
     const timer = setTimeout(() => {
       client
-        .intensityTrack(id, floorHz)
+        .intensityTrack(id, floorHz, subtractMean)
         .then((track) => {
           if (cancelled) return;
           intensity = track;

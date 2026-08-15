@@ -263,9 +263,11 @@ pub fn intensity_track(
     state: State<AppState>,
     id: u64,
     floor_hz: f64,
+    subtract_mean: bool,
 ) -> Result<IntensityTrackDto, String> {
     let params = IntensityParams {
         pitch_floor_hz: floor_hz,
+        subtract_mean,
         ..IntensityParams::default()
     };
     let engine = lock(&state)?;

@@ -598,7 +598,11 @@ export interface CoreClientLike extends AnnotationClientLike {
     maxFormants: number,
     smoothed: boolean
   ): Promise<FormantTrackData>;
-  intensityTrack(id: AudioId, floorHz: number): Promise<IntensityTrackData>;
+  intensityTrack(
+    id: AudioId,
+    floorHz: number,
+    subtractMean: boolean
+  ): Promise<IntensityTrackData>;
   harmonicityTrack(id: AudioId, t0: number, t1: number): Promise<HarmonicityTrackData>;
   cppTrack(id: AudioId, t0: number, t1: number): Promise<CppTrackData>;
   buildFigure(spec: FigureSpec): Promise<string>;
@@ -725,7 +729,7 @@ export interface OverlayParams {
     smoothed: boolean;
     mark: FormantMark;
   };
-  intensity: { show: boolean; floorHz: number };
+  intensity: { show: boolean; floorHz: number; subtractMean: boolean };
   /** Harmonics-to-noise ratio contour, off by default. */
   harmonicity: { show: boolean; floorHz: number };
   /** Cepstral peak prominence contour, off by default. */
@@ -752,7 +756,7 @@ export function defaultOverlayParams(): OverlayParams {
   return {
     pitch: { show: true, floorHz: 75, ceilingHz: 600, unit: 'hertz', voicingThreshold: 0.45 },
     formant: { show: true, ceilingHz: 5500, maxFormants: 5, smoothed: false, mark: 'speckle' },
-    intensity: { show: true, floorHz: 100 },
+    intensity: { show: true, floorHz: 100, subtractMean: true },
     harmonicity: { show: false, floorHz: 75 },
     cpp: { show: false },
     pulses: { show: false },

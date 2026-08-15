@@ -231,9 +231,9 @@ export class WasmCoreClient implements CoreClient {
     );
   }
 
-  intensityTrack(id: AudioId, floorHz: number): Promise<IntensityTrackData> {
-    return this.#memoTrack(`intensity:${id}:${floorHz}`, () =>
-      this.#call({ method: 'intensityTrack', audioId: id, floorHz })
+  intensityTrack(id: AudioId, floorHz: number, subtractMean: boolean): Promise<IntensityTrackData> {
+    return this.#memoTrack(`intensity:${id}:${floorHz}:${subtractMean}`, () =>
+      this.#call({ method: 'intensityTrack', audioId: id, floorHz, subtractMean })
     );
   }
 

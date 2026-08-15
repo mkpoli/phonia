@@ -91,7 +91,13 @@ type RequestMessage =
       maxFormants: number;
       smoothed: boolean;
     }
-  | { id: number; method: 'intensityTrack'; audioId: AudioId; floorHz: number }
+  | {
+      id: number;
+      method: 'intensityTrack';
+      audioId: AudioId;
+      floorHz: number;
+      subtractMean: boolean;
+    }
   | {
       id: number;
       method: 'bandEnergy';
@@ -767,7 +773,7 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
         return;
       }
       case 'intensityTrack': {
-        const track = wasm.intensityTrack(message.audioId, message.floorHz);
+        const track = wasm.intensityTrack(message.audioId, message.floorHz, message.subtractMean);
         const times = new Float64Array(track.times);
         const db = new Float64Array(track.db);
         postMessage(

@@ -579,6 +579,20 @@
           />
           <p class="note">Default 100 Hz — Praat pitch floor sets the intensity window length.</p>
         </div>
+        <div class="field">
+          <label class="toggle inline">
+            <input
+              type="checkbox"
+              data-testid="intensity-subtract-mean"
+              bind:checked={params.intensity.subtractMean}
+            />
+            <span>Subtract mean pressure</span>
+          </label>
+          <p class="note">
+            On is Praat's default: each window is centred before squaring. Off
+            reads intensity off the raw pressure, including any DC offset.
+          </p>
+        </div>
       </div>
     {/if}
   </section>

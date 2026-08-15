@@ -3726,6 +3726,39 @@ mod tests {
     }
 
     #[test]
+    fn subtract_mean_changes_intensity_on_a_dc_offset_signal() {
+        let sr = 16_000.0;
+        // A 200 Hz sine riding a large DC offset.
+        let samples: Vec<f32> = (0..8_000)
+            .map(|i| (0.3 * (TAU * 200.0 * i as f64 / sr).sin() + 0.5) as f32)
+            .collect();
+        let mut engine = Engine::new();
+        let id = engine.store.insert(Audio::new(vec![samples], sr).unwrap());
+        let mean_db = |subtract_mean: bool| {
+            let params = IntensityParams {
+                pitch_floor_hz: 100.0,
+                subtract_mean,
+                ..IntensityParams::default()
+            };
+            let track = engine.intensity_track(id, &params).unwrap();
+            let vals: Vec<f64> = track
+                .iter()
+                .map(|(_, db)| db)
+                .filter(|d| d.is_finite())
+                .collect();
+            vals.iter().sum::<f64>() / vals.len() as f64
+        };
+        // Keeping the DC offset inflates the mean-square power, so intensity
+        // reads higher with subtract-mean off than on.
+        let on = mean_db(true);
+        let off = mean_db(false);
+        assert!(
+            off > on + 1.0,
+            "subtract-mean off {off} should exceed on {on}"
+        );
+    }
+
+    #[test]
     fn formant_track_raw_and_smoothed_share_the_frame_grid() {
         let mut engine = Engine::new();
         let id = engine.import_audio_bytes(FIXTURE_WAV).unwrap();
