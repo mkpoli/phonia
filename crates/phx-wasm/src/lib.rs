@@ -1098,6 +1098,7 @@ impl WasmEngine {
         max_db: Option<f64>,
         colormap: WasmColormap,
         invert: bool,
+        preemphasis: bool,
     ) -> Result<Uint8Array, JsError> {
         let req = TileRequest {
             t0,
@@ -1124,6 +1125,7 @@ impl WasmEngine {
             &display,
             colormap.into(),
             invert,
+            preemphasis,
         )?;
         Ok(Uint8Array::from(rgba.as_slice()))
     }
@@ -1163,6 +1165,7 @@ impl WasmEngine {
         max_db: Option<f64>,
         lut: &[u8],
         invert: bool,
+        preemphasis: bool,
     ) -> Result<Uint8Array, JsError> {
         if lut.len() != 768 {
             return Err(JsError::new(&format!(
@@ -1199,6 +1202,7 @@ impl WasmEngine {
             &display,
             &table,
             invert,
+            preemphasis,
         )?;
         Ok(Uint8Array::from(rgba.as_slice()))
     }
@@ -3439,6 +3443,7 @@ mod tests {
                 None,
                 WasmColormap::Viridis,
                 false,
+                false,
             )
             .unwrap();
         assert_eq!(rgba.length(), 16 * 12 * 4);
@@ -3468,6 +3473,7 @@ mod tests {
                 None,
                 &lut,
                 false,
+                false,
             )
             .unwrap();
         assert_eq!(rgba_lut.length(), 16 * 12 * 4);
@@ -3488,6 +3494,7 @@ mod tests {
                     50.0,
                     None,
                     &[0u8; 10],
+                    false,
                     false,
                 )
                 .is_err()

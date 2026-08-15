@@ -48,6 +48,7 @@ pub struct TileReq {
     max_db: Option<f64>,
     colormap: String,
     invert: bool,
+    preemphasis: bool,
     lut: Option<Vec<u8>>,
 }
 
@@ -133,6 +134,7 @@ pub fn spectrogram_tile(state: State<AppState>, id: u64, req: TileReq) -> Result
                     &display,
                     &table,
                     req.invert,
+                    req.preemphasis,
                 )
                 .map_err(err)?
         }
@@ -143,6 +145,7 @@ pub fn spectrogram_tile(state: State<AppState>, id: u64, req: TileReq) -> Result
                 &display,
                 colormap_of(&req.colormap),
                 req.invert,
+                req.preemphasis,
             )
             .map_err(err)?,
     };

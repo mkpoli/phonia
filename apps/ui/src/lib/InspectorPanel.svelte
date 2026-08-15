@@ -244,6 +244,20 @@
           />
           <p class="note">Levels this far below the peak render as the floor colour.</p>
         </div>
+        <div class="field">
+          <label class="toggle inline">
+            <input
+              type="checkbox"
+              data-testid="spectrogram-preemphasis"
+              bind:checked={params.spectrogram.preemphasis}
+            />
+            <span>Pre-emphasis</span>
+          </label>
+          <p class="note">
+            Lifts the display +6 dB/octave above 1 kHz so the upper formants read
+            more clearly. The raw dB and cursor readouts are unchanged.
+          </p>
+        </div>
       </div>
     {/if}
   </section>

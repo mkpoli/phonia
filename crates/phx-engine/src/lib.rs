@@ -371,9 +371,10 @@ impl Engine {
         display: &DisplayMapping,
         colormap: Colormap,
         invert: bool,
+        preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
         validate_tile_request(req)?;
-        let tile_db = self.spectrogram_tile_db(id, req)?;
+        let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
         if tile_db.len() != expected_len {
@@ -420,9 +421,10 @@ impl Engine {
         display: &DisplayMapping,
         lut: &[[u8; 3]; 256],
         invert: bool,
+        preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
         validate_tile_request(req)?;
-        let tile_db = self.spectrogram_tile_db(id, req)?;
+        let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
         if tile_db.len() != expected_len {
@@ -457,7 +459,12 @@ impl Engine {
     /// change re-colorizes cached dB without recomputing the transform. The
     /// values are bit-for-bit identical to a direct `compute_tile`, since both
     /// read the same frame centres off the same grid.
-    fn spectrogram_tile_db(&self, id: AudioId, req: &TileRequest) -> Result<Vec<f32>, EngineError> {
+    fn spectrogram_tile_db(
+        &self,
+        id: AudioId,
+        req: &TileRequest,
+        preemphasis: bool,
+    ) -> Result<Vec<f32>, EngineError> {
         // Axes come from the header dimensions alone, so a streamed source picks
         // the same tile columns without decoding a sample; each needed block is
         // then computed bounded (whole-buffer for eager, ranged read for
@@ -517,10 +524,19 @@ impl Engine {
 
         let mut db = Vec::with_capacity(freq_indices.len() * time_indices.len());
         for &f in &freq_indices {
+            // Display pre-emphasis lifts the higher frequencies of the rendered
+            // tile by row; it never touches the cached block dB, so the cache
+            // key and the raw hover readouts stay unchanged.
+            let freq = axes.frequencies[f];
             for &t in &time_indices {
                 let block = &blocks[&(t / TILE_COLS)];
                 let local = t - block.first_col;
-                db.push(block.db[local * freq_len + f]);
+                let value = block.db[local * freq_len + f];
+                db.push(if preemphasis {
+                    phx_spectrogram::apply_display_preemphasis_db(f64::from(value), freq) as f32
+                } else {
+                    value
+                });
             }
         }
         Ok(db)
@@ -3108,13 +3124,13 @@ mod tests {
         };
         let display = DisplayMapping::default();
         let viridis = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false, false)
             .unwrap();
         let after_first = engine.spectrogram_cached_block_count();
         assert!(after_first > 0, "first tile populates the block cache");
 
         let magma = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Magma, false)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Magma, false, false)
             .unwrap();
         // Re-colorizing the same viewport reuses every cached block: no new STFT.
         assert_eq!(engine.spectrogram_cached_block_count(), after_first);
@@ -3129,20 +3145,52 @@ mod tests {
             *entry = [i as u8, (255 - i) as u8, i as u8];
         }
         let custom = engine
-            .spectrogram_tile_rgba_lut(id, &req, &display, &lut, false)
+            .spectrogram_tile_rgba_lut(id, &req, &display, &lut, false, false)
             .unwrap();
         assert_eq!(engine.spectrogram_cached_block_count(), after_first);
         assert_ne!(custom, magma, "a custom ramp produces its own pixels");
 
         // Deterministic through the cache: the same request twice is identical.
         let viridis_again = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false, false)
             .unwrap();
         assert_eq!(viridis, viridis_again);
         let custom_again = engine
-            .spectrogram_tile_rgba_lut(id, &req, &display, &lut, false)
+            .spectrogram_tile_rgba_lut(id, &req, &display, &lut, false, false)
             .unwrap();
         assert_eq!(custom, custom_again);
+    }
+
+    #[test]
+    fn display_preemphasis_recolorizes_without_recomputing() {
+        let mut engine = Engine::new();
+        let id = engine.import_audio_bytes(VOWEL_WAV).unwrap();
+        let info = engine.audio_info(id).unwrap();
+        let req = TileRequest {
+            t0: 0.0,
+            t1: info.duration,
+            f0: 0.0,
+            f1: 5000.0,
+            width_px: 220,
+            height_px: 128,
+            params: SpectrogramParams::default(),
+        };
+        let display = DisplayMapping::default();
+        let plain = engine
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false, false)
+            .unwrap();
+        let blocks = engine.spectrogram_cached_block_count();
+        let lifted = engine
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false, true)
+            .unwrap();
+        // Pre-emphasis is a post-cache display tilt: the rendered pixels change,
+        // but no new STFT block is computed.
+        assert_ne!(plain, lifted, "pre-emphasis changes the rendered tile");
+        assert_eq!(
+            engine.spectrogram_cached_block_count(),
+            blocks,
+            "pre-emphasis re-colorizes cached dB rather than recomputing"
+        );
     }
 
     #[test]
@@ -3161,7 +3209,7 @@ mod tests {
             params: SpectrogramParams::default(),
         };
         engine
-            .spectrogram_tile_rgba(id, &base, &display, Colormap::Viridis, false)
+            .spectrogram_tile_rgba(id, &base, &display, Colormap::Viridis, false, false)
             .unwrap();
         let after_base = engine.spectrogram_cached_block_count();
 
@@ -3173,7 +3221,7 @@ mod tests {
             ..base.clone()
         };
         engine
-            .spectrogram_tile_rgba(id, &widened, &display, Colormap::Viridis, false)
+            .spectrogram_tile_rgba(id, &widened, &display, Colormap::Viridis, false, false)
             .unwrap();
         // A different analysis parameter hashes to a different key, so the new
         // blocks sit alongside the old rather than colliding with them.
@@ -3330,6 +3378,7 @@ mod tests {
                 &DisplayMapping::default(),
                 Colormap::Viridis,
                 false,
+                false,
             ),
             Err(EngineError::UnknownAudioId(_))
         ));
@@ -3438,7 +3487,8 @@ mod tests {
                 &req,
                 &DisplayMapping::default(),
                 Colormap::Viridis,
-                false
+                false,
+                false,
             ),
             Err(EngineError::InvalidRequest { .. })
         ));
@@ -3547,10 +3597,10 @@ mod tests {
         };
         let display = DisplayMapping::default();
         let first = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false, false)
             .unwrap();
         let second = engine
-            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false)
+            .spectrogram_tile_rgba(id, &req, &display, Colormap::Viridis, false, false)
             .unwrap();
         assert_eq!(first.len(), 40 * 30 * 4);
         assert_eq!(first, second);
@@ -3699,7 +3749,8 @@ mod tests {
                 &req,
                 &DisplayMapping::default(),
                 Colormap::Viridis,
-                false
+                false,
+                false,
             ),
             Err(EngineError::InvalidRequest { .. })
         ));
@@ -5416,8 +5467,8 @@ mod tests {
             height_px: 90,
             params: SpectrogramParams::default(),
         };
-        let expected = eager.spectrogram_tile_db(eid, &req).unwrap();
-        let actual = streamed.spectrogram_tile_db(sid, &req).unwrap();
+        let expected = eager.spectrogram_tile_db(eid, &req, false).unwrap();
+        let actual = streamed.spectrogram_tile_db(sid, &req, false).unwrap();
         assert_eq!(actual.len(), expected.len());
         for (i, (x, y)) in actual.iter().zip(&expected).enumerate() {
             assert_eq!(x.to_bits(), y.to_bits(), "db cell {i}");

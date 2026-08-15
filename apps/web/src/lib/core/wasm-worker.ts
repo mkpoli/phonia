@@ -639,7 +639,8 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
               req.dynamicRangeDb,
               req.maxDb,
               req.lut,
-              req.invert
+              req.invert,
+              req.preemphasis
             )
           : wasm.spectrogramTileRgba(
               message.audioId,
@@ -656,7 +657,8 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
               req.dynamicRangeDb,
               req.maxDb,
               colormap(req.colormap),
-              req.invert
+              req.invert,
+              req.preemphasis
             );
         const copy = new Uint8Array(data.length);
         copy.set(data);
@@ -688,7 +690,8 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
             req.dynamicRangeDb,
             req.maxDb,
             colormap(cm),
-            req.invert
+            req.invert,
+            req.preemphasis
           );
         const cold0 = performance.now();
         run('Viridis');

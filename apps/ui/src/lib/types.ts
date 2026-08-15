@@ -77,6 +77,9 @@ export interface SpectrogramTileRequest {
   colormap: WasmColormapName;
   /** Samples the ramp reversed: the display floor renders in the ceiling color. */
   invert: boolean;
+  /** Lifts the higher frequencies of the rendered tile by +6 dB/octave above
+   *  1 kHz — a display-only tilt that leaves the raw dB and hover readouts. */
+  preemphasis: boolean;
   /**
    * A custom 768-byte ramp (256 `R, G, B` triples). When present it colorizes
    * the tile instead of `colormap`.
@@ -716,7 +719,7 @@ export interface OverlayParams {
   pulses: { show: boolean };
   /** Spectrogram analysis controls — the Gaussian window length (a short window
    *  gives a wideband view, a long one narrowband) and the dB dynamic range. */
-  spectrogram: { windowLength: number; dynamicRangeDb: number };
+  spectrogram: { windowLength: number; dynamicRangeDb: number; preemphasis: boolean };
 }
 
 /** Highest tracked value per track, for the inspector's clipping badges. */
@@ -733,7 +736,7 @@ export function defaultOverlayParams(): OverlayParams {
     harmonicity: { show: false, floorHz: 75 },
     cpp: { show: false },
     pulses: { show: false },
-    spectrogram: { windowLength: 0.005, dynamicRangeDb: 70 }
+    spectrogram: { windowLength: 0.005, dynamicRangeDb: 70, preemphasis: false }
   };
 }
 

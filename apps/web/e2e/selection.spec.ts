@@ -576,6 +576,25 @@ test('spectrogram settings: changing the window length re-renders the spectrogra
   await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
 });
 
+test('spectrogram settings: display pre-emphasis re-renders the spectrogram', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  const canvas = page.getByTestId('spectrogram-canvas');
+  await expect(canvas).toBeVisible();
+
+  await page
+    .getByTestId('inspector-spectrogram')
+    .getByRole('button', { name: 'Spectrogram' })
+    .click();
+  const preemphasis = page.getByTestId('spectrogram-preemphasis');
+  await expect(preemphasis).toBeVisible();
+  const snapshot = () => canvas.evaluate((el: HTMLCanvasElement) => el.toDataURL());
+  const before = await snapshot();
+
+  // Turning display pre-emphasis on lifts the higher frequencies; the raster changes.
+  await preemphasis.check();
+  await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
+});
+
 test('cpp overlay: the layer toggles on', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const eye = page.getByTestId('toggle-cpp');
