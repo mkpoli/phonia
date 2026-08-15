@@ -3542,7 +3542,7 @@ mod tests {
                 .is_err()
         );
 
-        let pitch = engine.pitch_track(id, 75.0, 600.0).unwrap();
+        let pitch = engine.pitch_track(id, 75.0, 600.0, 0.45).unwrap();
         assert_eq!(pitch.times().length(), pitch.f0().length());
         assert!(pitch.times().length() > 0);
         assert!(pitch.max_hz() > 0.0);
@@ -3554,7 +3554,7 @@ mod tests {
         let smoothed = engine.formant_track(id, 5000.0, 5, true).unwrap();
         assert_eq!(smoothed.points().length() % 3, 0);
 
-        let intensity = engine.intensity_track(id, 100.0).unwrap();
+        let intensity = engine.intensity_track(id, 100.0, true).unwrap();
         assert_eq!(intensity.times().length(), intensity.db().length());
         assert!(intensity.times().length() > 0);
     }
