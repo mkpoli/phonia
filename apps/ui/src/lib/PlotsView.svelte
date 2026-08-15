@@ -1372,7 +1372,7 @@
           {/if}
         </div>
         {/if}
-        {#if selected.kind === 'spectrogram' || selected.kind === 'formant'}
+        {#if selected.kind === 'spectrogram' || selected.kind === 'formant' || selected.kind === 'spectralSlice'}
           <label class="field">
             <span>Frequency ceiling (Hz)</span>
             <input

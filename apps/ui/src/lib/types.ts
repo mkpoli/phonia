@@ -617,6 +617,7 @@ export interface FigureLayerToggles {
   formant: boolean;
   intensity: boolean;
   tiers: boolean;
+  spectral_slice: boolean;
 }
 
 /**

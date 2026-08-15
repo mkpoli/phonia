@@ -59,6 +59,7 @@
     { key: 'pitch', label: 'Pitch' },
     { key: 'formant', label: 'Formants' },
     { key: 'intensity', label: 'Intensity' },
+    { key: 'spectral_slice', label: 'Spectral slice' },
     { key: 'tiers', label: 'Tiers' }
   ];
 
@@ -82,6 +83,7 @@
     pitch: true,
     formant: false,
     intensity: false,
+    spectral_slice: false,
     tiers: untrack(() => annotationId) !== null
   });
   let width = $state(16);

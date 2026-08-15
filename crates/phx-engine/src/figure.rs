@@ -14,12 +14,13 @@ use std::collections::BTreeMap;
 use phx_figure::{
     Axis, CodeExport, CodeLang, Figure, FigureBuilder, LayerKind, LengthUnit, LineStyle, Panel,
     PitchUnit, ProvenanceRecord, RgbaColor, SizeSpec, SpeckleStyle, TextExport, TierStyle,
-    formant_layer, intensity_layer, pitch_layer, spectrogram_layer, tiers_layer, to_code,
-    to_graphml, to_svg, to_tikz, to_typst, to_vega, waveform_layer, waveform_minmax,
+    formant_layer, intensity_layer, pitch_layer, spectral_slice_layer, spectrogram_layer,
+    tiers_layer, to_code, to_graphml, to_svg, to_tikz, to_typst, to_vega, waveform_layer,
+    waveform_minmax,
 };
 use phx_pitch::TimeSpan;
 use phx_render::{Colormap, DisplayMapping, Theme};
-use phx_spectrogram::{SpectrogramParams, TileRequest, compute_tile};
+use phx_spectrogram::{Slice, SpectrogramParams, TileRequest, compute_tile};
 use serde::Deserialize;
 
 use crate::document::AnnotationId;
@@ -42,6 +43,8 @@ pub struct LayerToggles {
     pub intensity: bool,
     /// Annotation tier panel.
     pub tiers: bool,
+    /// Spectral-slice panel: the FFT magnitude of the window against frequency.
+    pub spectral_slice: bool,
 }
 
 /// Physical length unit for a figure request.
@@ -455,6 +458,35 @@ impl Engine {
             sources.push(intensity_provenance(&params));
         }
 
+        if req.layers.spectral_slice {
+            let (f_axis, db) = self.spectrum_slice(audio_id, lo, hi)?;
+            let f_lo = req.f0.max(0.0);
+            let f_hi = req.f1.max(f_lo + 1.0);
+            let (mut db_lo, mut db_hi) = (f64::INFINITY, f64::NEG_INFINITY);
+            for (&f, &value) in f_axis.iter().zip(&db) {
+                if f >= f_lo && f <= f_hi {
+                    let value = f64::from(value);
+                    db_lo = db_lo.min(value);
+                    db_hi = db_hi.max(value);
+                }
+            }
+            if db_hi > db_lo {
+                let pad = (db_hi - db_lo) * 0.05;
+                let slice = Slice { db, f_axis };
+                panels.push(Panel {
+                    layers: vec![spectral_slice_layer(&slice, line_style(None))],
+                    time_axis: Axis::linear(f_lo, f_hi, Some("Frequency"), Some("Hz")),
+                    value_axis: Axis::linear(
+                        db_lo - pad,
+                        db_hi + pad,
+                        Some("Sound pressure level"),
+                        Some("dB"),
+                    ),
+                    height_share: 0.22,
+                });
+            }
+        }
+
         if req.layers.tiers
             && let Some(annotation_id) = req.annotation
         {
@@ -724,6 +756,7 @@ pub fn default_figure_request(
             formant: true,
             intensity: true,
             tiers: annotation.is_some(),
+            spectral_slice: false,
         },
         width: 16.0,
         height: 12.0,
@@ -804,9 +837,28 @@ mod tests {
             formant: false,
             intensity: false,
             tiers: false,
+            spectral_slice: false,
         };
         let figure = engine.build_figure(&req).unwrap();
         assert_eq!(layer_kinds(&figure), vec![LayerKind::Waveform]);
+    }
+
+    #[test]
+    fn build_figure_emits_the_spectral_slice_layer_when_toggled() {
+        let (engine, audio, duration) = engine_with_audio();
+        let mut req = default_figure_request(audio, None, 0.0, duration);
+        req.layers = LayerToggles {
+            waveform: false,
+            spectrogram: false,
+            pitch: false,
+            formant: false,
+            intensity: false,
+            tiers: false,
+            spectral_slice: true,
+        };
+        let figure = engine.build_figure(&req).unwrap();
+        figure.validate().unwrap();
+        assert_eq!(layer_kinds(&figure), vec![LayerKind::SpectralSlice]);
     }
 
     #[test]
@@ -837,6 +889,7 @@ mod tests {
             formant: false,
             intensity: false,
             tiers: true,
+            spectral_slice: false,
         };
         let figure = engine.build_figure(&req).unwrap();
         assert_eq!(layer_kinds(&figure), vec![LayerKind::Tiers]);

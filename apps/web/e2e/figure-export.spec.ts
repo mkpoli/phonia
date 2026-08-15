@@ -53,6 +53,23 @@ test('figure export: preview equals SVG export byte for byte', async ({ page }) 
   expect(buffer.toString('utf8')).toBe(preview);
 });
 
+test('figure export: the spectral-slice layer adds a frequency-vs-dB panel', async ({ page }) => {
+  await loadFixture(page);
+  await openDialog(page);
+
+  // The default figure has no spectral slice, so its sound-pressure-level axis
+  // is absent until the layer is turned on.
+  const base = await previewSource(page);
+  expect(base).not.toContain('Sound pressure level');
+
+  await page.getByTestId('figure-layer-spectral_slice').check();
+  await expect
+    .poll(async () => (await previewSource(page)).includes('Sound pressure level'), {
+      timeout: 15_000
+    })
+    .toBe(true);
+});
+
 test('figure export: preview re-renders on theme and format changes', async ({ page }) => {
   await loadFixture(page);
   await openDialog(page);
