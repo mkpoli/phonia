@@ -456,6 +456,52 @@ test('copy spectrum writes CSV rows to the clipboard', async ({ page, context })
   expect(Number.isFinite(d)).toBe(true);
 });
 
+test('copy LTAS writes CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('copy ltas');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyLtas"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('LTAS copied', { timeout: 20_000 });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('freq_hz,db')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const [f, d] = lines[1].split(',').map(Number);
+  expect(f).toBeGreaterThanOrEqual(0);
+  expect(Number.isFinite(d)).toBe(true);
+});
+
+test('copy cepstrum writes quefrency CSV rows to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('copy cepstrum');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyCepstrum"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('editor-toast')).toContainText('Cepstrum copied', {
+    timeout: 20_000
+  });
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('quefrency_s,amplitude')).toBe(true);
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(1);
+  const [q, a] = lines[1].split(',').map(Number);
+  expect(q).toBeGreaterThanOrEqual(0);
+  expect(Number.isFinite(a)).toBe(true);
+});
+
 test('copy harmonicity contour writes CSV rows to the clipboard', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await openEditorWithFixture(page, vowelFixture);

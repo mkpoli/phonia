@@ -1088,6 +1088,48 @@
     }
   }
 
+  async function copyLtas() {
+    const sel = selection;
+    if (!client || !audio || !sel || !(sel.t1 > sel.t0)) return;
+    try {
+      const data = await client.ltas(audio.id, sel.t0, sel.t1);
+      const rows = ['freq_hz,db'];
+      for (let i = 0; i < data.freqs.length; i += 1) {
+        const freq = data.freqs[i];
+        const level = data.db[i];
+        if (Number.isFinite(freq) && Number.isFinite(level)) {
+          rows.push(`${freq.toFixed(2)},${level.toFixed(2)}`);
+        }
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`LTAS copied · ${rows.length - 1} bins`);
+    } catch {
+      flashToast('Could not copy the LTAS');
+    }
+  }
+
+  async function copyCepstrum() {
+    const sel = selection;
+    if (!client || !audio || !sel || !(sel.t1 > sel.t0)) return;
+    try {
+      // The cepstrum's x-axis is quefrency in seconds and its ordinate is a
+      // cepstral amplitude, not a spectral level in dB.
+      const data = await client.cepstrumSlice(audio.id, sel.t0, sel.t1);
+      const rows = ['quefrency_s,amplitude'];
+      for (let i = 0; i < data.freqs.length; i += 1) {
+        const quefrency = data.freqs[i];
+        const amplitude = data.db[i];
+        if (Number.isFinite(quefrency) && Number.isFinite(amplitude)) {
+          rows.push(`${quefrency.toFixed(6)},${amplitude.toFixed(4)}`);
+        }
+      }
+      await navigator.clipboard.writeText(rows.join('\n'));
+      flashToast(`Cepstrum copied · ${rows.length - 1} points`);
+    } catch {
+      flashToast('Could not copy the cepstrum');
+    }
+  }
+
   // Copies the harmonics-to-noise ratio over the selection (or the whole file)
   // as CSV, one `time_s,hnr_db` row per voiced frame.
   async function copyHarmonicityContour() {
@@ -1555,6 +1597,24 @@
       keywords: ['spectrum', 'fft', 'frequency', 'db', 'csv', 'export', 'copy', 'slice'],
       enabled: hasSelection,
       run: () => void copySpectrum()
+    },
+    {
+      id: 'copyLtas',
+      title: 'Copy LTAS (CSV)',
+      group: 'Analysis',
+      api: ['ltas'],
+      keywords: ['ltas', 'long-term average spectrum', 'frequency', 'db', 'csv', 'export', 'copy'],
+      enabled: hasSelection,
+      run: () => void copyLtas()
+    },
+    {
+      id: 'copyCepstrum',
+      title: 'Copy cepstrum (CSV)',
+      group: 'Analysis',
+      api: ['cepstrumSlice'],
+      keywords: ['cepstrum', 'quefrency', 'cpp', 'csv', 'export', 'copy'],
+      enabled: hasSelection,
+      run: () => void copyCepstrum()
     },
     {
       id: 'copyHarmonicityContour',
