@@ -344,6 +344,49 @@ test('add on all tiers drops a boundary and a point on every tier at the cursor'
   await expect(page.getByTestId('tier-status')).toHaveText('Added on 3 tiers');
 });
 
+test('snap boundary to nearest zero crossing lands it on a crossing', async ({ page }) => {
+  await loadFixture(page);
+
+  await page.getByTestId('add-interval-tier').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('interval')).toHaveCount(1);
+
+  // Split at a mid-signal cursor to make an internal boundary off any crossing.
+  await pane(page).focus();
+  await playFor(page, 700);
+  await page.keyboard.press('s');
+  await expect(page.getByTestId('interval')).toHaveCount(2);
+
+  // Snap that boundary to the nearest zero crossing via the command palette.
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('zero crossing');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="snapBoundaryZero"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('tier-status')).toHaveText('Snapped to zero crossing');
+
+  // The boundary now sits on a zero crossing: re-querying the nearest crossing
+  // of the boundary time returns the same time (snap is idempotent).
+  await expect
+    .poll(
+      async () => {
+        const t = Number(await page.getByTestId('interval').first().getAttribute('data-xmax'));
+        if (!Number.isFinite(t)) return false;
+        const again = await page.evaluate(async (time) => {
+          const hook = (
+            globalThis as unknown as { __phonia?: { client: any; audioId: bigint | null } }
+          ).__phonia;
+          if (!hook || hook.audioId === null) throw new Error('no client hook');
+          return (await hook.client.nearestZeroCrossing(hook.audioId, time)) as number;
+        }, t);
+        return Math.abs(again - t) < 1e-6;
+      },
+      { timeout: 15_000 }
+    )
+    .toBe(true);
+});
+
 test('reorder tier moves it up or down in the stack', async ({ page }) => {
   await openEditorWithFixture(page, wavFixture);
   const lanes = page.getByTestId('tier-lane');

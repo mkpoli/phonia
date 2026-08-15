@@ -53,6 +53,9 @@
      * on Enter, double-click, and type-to-edit.
      */
     onIntervalActivate?: (t0: number, t1: number) => void;
+    /** Resolves the zero crossing nearest a time, for snapping the active
+     * boundary/point; absent (e.g. desktop) hides the snap affordance. */
+    onNearestZero?: (t: number) => Promise<number>;
   }
 
   let {
@@ -66,7 +69,8 @@
     onSeek,
     revision = 0,
     onAnnotationChange,
-    onIntervalActivate
+    onIntervalActivate,
+    onNearestZero
   }: Props = $props();
 
   let paneEl = $state<HTMLElement | null>(null);
@@ -410,6 +414,32 @@
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
     }
+  }
+
+  // Praat's "Move to nearest zero crossing": shift the active boundary (interval
+  // tier) or point (point tier) onto the waveform's nearest zero crossing.
+  async function snapActiveToZero() {
+    if (!client || annotationId === null || !onNearestZero) return;
+    if (activeTier?.kind === 'interval') {
+      const boundary = activeBoundaryId();
+      if (boundary === null) return;
+      const from = boundaryTime(boundary);
+      if (from === null) return;
+      const to = await onNearestZero(from);
+      if (!Number.isFinite(to)) return;
+      await moveBoundaryTo(boundary, to);
+      selectByTime(to);
+    } else if (activeTier?.kind === 'point') {
+      const point = activePoints[activeIndex];
+      if (!point) return;
+      const to = await onNearestZero(point.time);
+      if (!Number.isFinite(to)) return;
+      await movePointTo(point.id, to);
+      selectByTime(to);
+    } else {
+      return;
+    }
+    status = 'Snapped to zero crossing';
   }
 
   function selectByTime(time: number) {
@@ -823,6 +853,18 @@
         (onIntervalTier() && activeIntervals.length >= 2) ||
         (onPointTier() && activePoints.length >= 1),
       run: () => void mergeActive()
+    },
+    {
+      id: 'snapBoundaryZero',
+      title: 'Move boundary/point to nearest zero crossing',
+      group: 'Annotation',
+      api: ['nearestZeroCrossing', 'moveBoundary', 'movePoint'],
+      keywords: ['zero', 'crossing', 'snap', 'boundary', 'point', 'align'],
+      enabled: () =>
+        onNearestZero !== undefined &&
+        ((onIntervalTier() && activeBoundaryId() !== null) ||
+          (onPointTier() && activePoints.length >= 1)),
+      run: () => void snapActiveToZero()
     },
     {
       id: 'editLabel',

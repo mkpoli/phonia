@@ -2151,6 +2151,7 @@
         onSeek={(time) => onCursorChange?.(time)}
         {onAnnotationChange}
         onIntervalActivate={handleTierInterval}
+        {onNearestZero}
       />
 
       {#if audio && cursorTime >= viewport.t0 && cursorTime <= viewport.t1}
