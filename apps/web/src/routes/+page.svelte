@@ -1476,12 +1476,15 @@
     }
   }
 
-  // Resamples the whole recording to 16 kHz and stores it as a new recording.
-  async function resampleTo16k() {
+  // Resamples the whole recording to a chosen rate and stores it as a new recording.
+  async function resampleRecording(hz: number) {
     if (!client || !audio || !recording) return;
-    const label = `${recording.name} [16 kHz]`;
+    const rate = Math.round(hz);
+    if (!Number.isFinite(rate) || rate < 1) return;
+    const khz = parseFloat((rate / 1000).toFixed(3));
+    const label = `${recording.name} [resampled ${khz} kHz]`;
     try {
-      const wav = await client.resampleWav(audio.id, 16000, 'Float32');
+      const wav = await client.resampleWav(audio.id, rate, 'Float32');
       await persistWavAsRecording(wav, label);
     } catch (caught) {
       report(caught);
@@ -1872,7 +1875,7 @@
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
       onScalePeakSelection={scalePeakSelection}
-      onResample16k={resampleTo16k}
+      onResample={resampleRecording}
       onNearestZero={nearestZero}
       onHarmonicityTrack={harmonicityTrack}
       onCppTrack={cppTrack}

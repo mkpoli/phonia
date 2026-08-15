@@ -366,19 +366,26 @@ test('copy intensity contour writes CSV rows to the clipboard', async ({ page, c
   expect(Number.isFinite(db)).toBe(true);
 });
 
-test('resample to 16 kHz stores a downsampled copy as a new recording', async ({ page }) => {
+test('resample stores a copy at the chosen rate as a new recording', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
 
   await page.keyboard.press('Control+k');
   await page.getByTestId('command-palette-input').fill('resample');
-  const cmd = page.locator('[data-testid="command-item"][data-command-id="resample16k"]');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="resample"]');
   await expect(cmd).toBeVisible();
   await cmd.hover();
   await page.keyboard.press('Enter');
 
-  await expect(page.getByTestId('recording-switcher-name')).toContainText('[16 kHz]', {
+  // The dialog collects an arbitrary target rate.
+  await expect(page.getByTestId('resample-dialog')).toBeVisible();
+  await page.getByTestId('resample-rate').fill('12000');
+  await page.getByTestId('resample-apply').click();
+
+  // The new recording opens, labelled and carrying its actual new sample rate.
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[resampled 12 kHz]', {
     timeout: 20_000
   });
+  await expect(page.getByTestId('audio-meta')).toContainText('12 kHz');
   await page.getByTestId('recording-switcher').click();
   await expect(
     page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')

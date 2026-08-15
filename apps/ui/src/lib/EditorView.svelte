@@ -4,6 +4,7 @@
   import IconSun from '~icons/lucide/sun';
   import IconMoon from '~icons/lucide/moon';
   import AudioExportDialog from './AudioExportDialog.svelte';
+  import ResampleDialog from './ResampleDialog.svelte';
   import ExportDialog from './ExportDialog.svelte';
   import RecordingSwitcher from './RecordingSwitcher.svelte';
   import InlineRename from './InlineRename.svelte';
@@ -139,9 +140,9 @@
     /** Normalizes a span's peak into a new library recording; absent hides the
      *  scale-peak affordance. */
     onScalePeakSelection?: (t0: number, t1: number) => void;
-    /** Resamples the whole recording to 16 kHz into a new library recording;
-     *  absent hides the resample affordance. */
-    onResample16k?: () => void;
+    /** Resamples the whole recording to a chosen rate into a new library
+     *  recording; absent hides the resample affordance. */
+    onResample?: (hz: number) => void;
     /** Resolves the zero crossing nearest a time, for snapping selection edges;
      *  absent hides the snap affordance. */
     onNearestZero?: (t: number) => Promise<number>;
@@ -229,7 +230,7 @@
     onReverseSelection,
     onScaleSelection,
     onScalePeakSelection,
-    onResample16k,
+    onResample,
     onNearestZero,
     onHarmonicityTrack,
     onCppTrack,
@@ -300,6 +301,7 @@
   }
 
   let audioExportOpen = $state(false);
+  let resampleOpen = $state(false);
 
   // Gradient editor. While a draft is open the spectrogram previews it live, so
   // the pane shows the draft ramp (recolor path) rather than the committed
@@ -1814,13 +1816,13 @@
       run: scalePeakCurrent
     },
     {
-      id: 'resample16k',
-      title: 'Resample to 16 kHz (new recording)',
+      id: 'resample',
+      title: 'Resample… (new recording)',
       group: 'Selection',
       api: ['resampleWav', 'importAudio'],
-      keywords: ['resample', 'downsample', 'sample rate', '16000', 'convert', 'new sound'],
-      enabled: () => hasAudio() && onResample16k !== undefined,
-      run: () => onResample16k?.()
+      keywords: ['resample', 'downsample', 'upsample', 'sample rate', 'convert', 'new sound'],
+      enabled: () => hasAudio() && onResample !== undefined,
+      run: () => (resampleOpen = true)
     },
     {
       id: 'concatenateRecordings',
@@ -2228,6 +2230,17 @@
         audioExportOpen = false;
       }}
       onClose={() => (audioExportOpen = false)}
+    />
+  {/if}
+
+  {#if resampleOpen && audio && onResample}
+    <ResampleDialog
+      currentHz={audio.sampleRate}
+      onResample={(hz) => {
+        onResample?.(hz);
+        resampleOpen = false;
+      }}
+      onClose={() => (resampleOpen = false)}
     />
   {/if}
 
