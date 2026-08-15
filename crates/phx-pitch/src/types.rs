@@ -80,6 +80,23 @@ impl PitchTrack {
         mean(&values)
     }
 
+    /// Fraction of frames in `span` whose path is unvoiced — Praat's "Fraction
+    /// of locally unvoiced frames". `None` when the span holds no frames.
+    #[must_use]
+    pub fn unvoiced_fraction(&self, span: TimeSpan) -> Option<f64> {
+        let mut total = 0usize;
+        let mut unvoiced = 0usize;
+        for frame in &self.frames {
+            if span.contains(frame.time) {
+                total += 1;
+                if frame.f0.is_none() {
+                    unvoiced += 1;
+                }
+            }
+        }
+        (total > 0).then(|| unvoiced as f64 / total as f64)
+    }
+
     /// Median selected voiced frequency in hertz over `span`.
     #[must_use]
     pub fn median_hz(&self, span: TimeSpan) -> Option<f64> {
@@ -247,5 +264,27 @@ mod tests {
     fn quantile_hz_is_none_without_voiced_frames() {
         let track = ramp_track(&[]);
         assert_eq!(track.quantile_hz(TimeSpan::new(0.0, 1.0), 0.5), None);
+    }
+
+    #[test]
+    fn unvoiced_fraction_counts_unvoiced_frames_in_span() {
+        // Ten frames at 0.00..0.09 s: three unvoiced (f0 = None).
+        let frames = (0..10)
+            .map(|i| PitchFrame {
+                time: i as f64 * 0.01,
+                f0: if i % 4 == 0 { None } else { Some(150.0) },
+                strength: 0.9,
+                candidates: Vec::new(),
+            })
+            .collect();
+        let track = PitchTrack::new(frames);
+        // Frames at i = 0, 4, 8 are unvoiced → 3 of 10.
+        let all = track.unvoiced_fraction(TimeSpan::new(0.0, 0.09)).unwrap();
+        assert!((all - 0.3).abs() < 1e-9, "fraction {all}");
+        // Restricting the span narrows the denominator: frames 0..=4 → 2 of 5.
+        let head = track.unvoiced_fraction(TimeSpan::new(0.0, 0.04)).unwrap();
+        assert!((head - 0.4).abs() < 1e-9, "fraction {head}");
+        // A span with no frames yields None.
+        assert_eq!(track.unvoiced_fraction(TimeSpan::new(1.0, 2.0)), None);
     }
 }

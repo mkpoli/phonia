@@ -460,6 +460,9 @@ export interface VoiceReportData {
   cppDb: number;
   cppsDb: number | null;
   voiceBreaks: { thresholdSeconds: number; totalSeconds: number; count: number };
+  meanPeriodSeconds: number | null;
+  periodSdSeconds: number | null;
+  unvoicedFraction: number | null;
   moments: {
     centreOfGravityHz: number | null;
     standardDeviationHz: number | null;

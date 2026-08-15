@@ -348,6 +348,13 @@ pub struct VoiceReport {
     pub cpps_db: Option<f64>,
     /// Voice breaks from pulse gaps greater than `1.25 / pitch_floor`.
     pub voice_breaks: VoiceBreaks,
+    /// Mean glottal period over the requested span, in seconds.
+    pub mean_period_seconds: Option<f64>,
+    /// Sample standard deviation of the glottal period over the span, in
+    /// seconds — the absolute spread the normalized jitter figures derive from.
+    pub period_sd_seconds: Option<f64>,
+    /// Fraction of pitch frames in the span that are unvoiced.
+    pub unvoiced_fraction: Option<f64>,
 }
 
 /// Extracts glottal pulses by cross-correlation, per the Praat manual
@@ -703,6 +710,7 @@ pub fn voice_report(
     let pp = pulses(audio.clone(), &pitch, &pulse_params);
     let hnr = hnr_track(audio.clone(), &harmonicity_params);
     let midpoint = 0.5 * (span.start + span.end);
+    let periods = periods_in_span(&pp, span);
 
     VoiceReport {
         span,
@@ -735,8 +743,31 @@ pub fn voice_report(
         cpp_db: cpp(audio.clone(), midpoint, &cpp_params),
         cpps_db: cpps(audio, span, &cpp_params),
         voice_breaks: voice_breaks(&pp, span, 1.25 / pitch_params.floor_hz),
+        mean_period_seconds: positive_mean(&periods),
+        period_sd_seconds: period_sd(&periods),
+        unvoiced_fraction: pitch.unvoiced_fraction(span),
         pulses: pp,
     }
+}
+
+/// Sample standard deviation of the glottal periods (seconds). `None` when
+/// fewer than two positive periods are present.
+fn period_sd(periods: &[f64]) -> Option<f64> {
+    let usable: Vec<f64> = periods
+        .iter()
+        .copied()
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .collect();
+    if usable.len() < 2 {
+        return None;
+    }
+    let mean = usable.iter().sum::<f64>() / usable.len() as f64;
+    let variance = usable
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f64>()
+        / (usable.len() as f64 - 1.0);
+    Some(variance.sqrt())
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1601,5 +1632,15 @@ mod tests {
             jitter(&pp, TimeSpan::new(0.0, 0.02), JitterKind::Local),
             None
         );
+    }
+
+    #[test]
+    fn period_sd_is_the_sample_standard_deviation() {
+        // Periods 0.010, 0.012, 0.008 s: mean 0.010, sample SD 0.002.
+        let sd = period_sd(&[0.010, 0.012, 0.008]).unwrap();
+        assert!((sd - 0.002).abs() < 1e-9, "sd {sd}");
+        // Fewer than two positive periods yields no spread.
+        assert_eq!(period_sd(&[0.010]), None);
+        assert_eq!(period_sd(&[]), None);
     }
 }

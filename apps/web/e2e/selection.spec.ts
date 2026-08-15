@@ -949,6 +949,33 @@ test('voice report on the sustained vowel reports plausible values', async ({ pa
   expect(hnr).toBeGreaterThan(10);
 });
 
+test('voice report adds unvoiced fraction and period stats on real speech', async ({ page }) => {
+  await openEditorWithFixture(page, speechFixture);
+  await dragSpectrogramBox(page);
+
+  await page.getByTestId('selection-voice-report').click();
+  const values = page.getByTestId('voice-report-values');
+  await expect(values).toBeVisible({ timeout: 30_000 });
+
+  const meanPeriod = Number(await values.getAttribute('data-mean-period'));
+  const periodSd = Number(await values.getAttribute('data-period-sd'));
+  const unvoiced = Number(await values.getAttribute('data-unvoiced-fraction'));
+
+  // Real speech over a wide span: pulses give a positive, sub-50 ms mean period
+  // (F0 > 20 Hz), the period genuinely varies, and the span mixes voiced and
+  // unvoiced frames.
+  expect(meanPeriod).toBeGreaterThan(0);
+  expect(meanPeriod).toBeLessThan(0.05);
+  expect(periodSd).toBeGreaterThan(0);
+  expect(unvoiced).toBeGreaterThan(0);
+  expect(unvoiced).toBeLessThanOrEqual(1);
+
+  // The new rows render in the table.
+  await expect(values).toContainText('Unvoiced frames');
+  await expect(values).toContainText('Mean period');
+  await expect(values).toContainText('Period SD');
+});
+
 test('F fits the selection, 0 fits the file', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const editor = page.getByTestId('editor');

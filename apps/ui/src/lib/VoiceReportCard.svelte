@@ -35,6 +35,7 @@
       ['Median F0', num(report.pitch.medianHz, 2, ' Hz')],
       ['Min F0', num(report.pitch.minHz, 2, ' Hz')],
       ['Max F0', num(report.pitch.maxHz, 2, ' Hz')],
+      ['Unvoiced frames', pct(report.unvoicedFraction)],
       ['Jitter (local)', pct(report.jitter.local)],
       ['Jitter (local, abs)', num(report.jitter.localAbsolute ? report.jitter.localAbsolute * 1e6 : report.jitter.localAbsolute, 2, ' µs')],
       ['Jitter (rap)', pct(report.jitter.rap)],
@@ -54,7 +55,15 @@
       ['Spectral SD', num(report.moments.standardDeviationHz, 1, ' Hz')],
       ['Spectral skewness', num(report.moments.skewness, 3)],
       ['Spectral kurtosis', num(report.moments.kurtosis, 3)],
-      ['Pulses', String(report.pulseCount)]
+      ['Pulses', String(report.pulseCount)],
+      [
+        'Mean period',
+        num(report.meanPeriodSeconds != null ? report.meanPeriodSeconds * 1e3 : null, 3, ' ms')
+      ],
+      [
+        'Period SD',
+        num(report.periodSdSeconds != null ? report.periodSdSeconds * 1e3 : null, 3, ' ms')
+      ]
     ];
   });
 
@@ -90,6 +99,9 @@
         data-jitter-local={report.jitter.local ?? ''}
         data-shimmer-local={report.shimmer.local ?? ''}
         data-hnr={report.meanHnrDb ?? ''}
+        data-unvoiced-fraction={report.unvoicedFraction ?? ''}
+        data-mean-period={report.meanPeriodSeconds ?? ''}
+        data-period-sd={report.periodSdSeconds ?? ''}
       >
         {#each rows as [key, value] (key)}
           <div class="row">

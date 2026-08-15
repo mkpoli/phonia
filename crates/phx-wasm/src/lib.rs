@@ -1758,6 +1758,9 @@ impl WasmEngine {
                 "totalSeconds": report.voice_breaks.total_seconds,
                 "count": report.voice_breaks.gaps.len(),
             },
+            "meanPeriodSeconds": report.mean_period_seconds,
+            "periodSdSeconds": report.period_sd_seconds,
+            "unvoicedFraction": report.unvoiced_fraction,
             "moments": {
                 "centreOfGravityHz": moments.centre_of_gravity_hz,
                 "standardDeviationHz": moments.standard_deviation_hz,
