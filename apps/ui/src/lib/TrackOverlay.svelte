@@ -81,6 +81,7 @@
     const show = params.pitch.show;
     const floorHz = params.pitch.floorHz;
     const ceilingHz = params.pitch.ceilingHz;
+    const voicingThreshold = params.pitch.voicingThreshold;
     if (!client || id === undefined || !show || tooLong) {
       pitch = null;
       pitchMaxHz = 0;
@@ -96,7 +97,7 @@
     // Phase 1: the visible span, rendered first (pitch is the one contour whose
     // whole-signal cost grows with duration).
     client
-      .pitchTrackSpan(id, floorHz, ceilingHz, previewT0, previewT1)
+      .pitchTrackSpan(id, floorHz, ceilingHz, previewT0, previewT1, voicingThreshold)
       .then((track) => {
         if (cancelled || fullArrived) return;
         pitch = track;
@@ -110,7 +111,7 @@
     // queued behind it stays blank for that long.
     const fullTimer = setTimeout(() => {
       client
-        .pitchTrack(id, floorHz, ceilingHz)
+        .pitchTrack(id, floorHz, ceilingHz, voicingThreshold)
         .then((track) => {
           if (cancelled) return;
           fullArrived = true;
@@ -249,6 +250,7 @@
     cpp;
     params.pitch.ceilingHz;
     params.pitch.floorHz;
+    params.pitch.voicingThreshold;
     params.pitch.unit;
     params.harmonicity.show;
     params.cpp.show;

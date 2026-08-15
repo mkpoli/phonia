@@ -744,7 +744,7 @@
     }
     let cancelled = false;
     client
-      .pitchTrackSpan(id, pitch.floorHz, pitch.ceilingHz, sel.t0, sel.t1)
+      .pitchTrackSpan(id, pitch.floorHz, pitch.ceilingHz, sel.t0, sel.t1, pitch.voicingThreshold)
       .then((track) => {
         if (cancelled) return;
         let maxHz = -Infinity;
@@ -976,7 +976,8 @@
         overlayParams.pitch.floorHz,
         overlayParams.pitch.ceilingHz,
         t0,
-        t1
+        t1,
+        overlayParams.pitch.voicingThreshold
       );
       const rows = ['time_s,f0_hz'];
       for (let i = 0; i < track.times.length; i += 1) {

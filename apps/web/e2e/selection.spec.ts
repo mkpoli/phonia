@@ -7,6 +7,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
 const vowelFixture = path.join(root, 'tests/fixtures/audio/synth_vowel_a.wav');
 const stereoFixture = path.join(root, 'tests/fixtures/audio/synth_stereo.wav');
+const speechFixture = path.join(root, 'tests/fixtures/audio/arctic_bdl_a0001.wav');
 const screenshots = path.join(here, 'screenshots');
 
 interface BoxCoords {
@@ -518,6 +519,25 @@ test('pitch extrema: min/max F0 and their times over the selection appear', asyn
   await expect(page.getByTestId('pitch-max')).toContainText('Hz');
   await expect(page.getByTestId('pitch-max')).toContainText('s');
   await expect(page.getByTestId('pitch-min')).toContainText('Min');
+});
+
+test('pitch voicing threshold re-renders the pitch overlay', async ({ page }) => {
+  // Real speech has frames whose periodicity straddles the threshold, so raising
+  // it flips some to unvoiced and changes the drawn contour.
+  await openEditorWithFixture(page, speechFixture);
+  const overlay = page.getByTestId('track-overlay');
+  await expect(overlay).toBeVisible();
+  const threshold = page.getByTestId('pitch-voicing-threshold');
+  await expect(threshold).toBeVisible();
+
+  // Let the whole-signal pitch contour settle onto the overlay.
+  const snapshot = () => overlay.evaluate((el: HTMLCanvasElement) => el.toDataURL());
+  await page.waitForTimeout(2000);
+  const before = await snapshot();
+
+  await threshold.fill('0.95');
+  await threshold.blur();
+  await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
 });
 
 test('formant extrema: per-slot frequency range over the selection appears', async ({ page }) => {

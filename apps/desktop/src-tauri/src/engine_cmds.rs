@@ -170,10 +170,12 @@ pub fn pitch_track(
     id: u64,
     floor_hz: f64,
     ceiling_hz: f64,
+    voicing_threshold: f64,
 ) -> Result<PitchTrackDto, String> {
     let params = PitchParams {
         floor_hz,
         ceiling_hz,
+        voicing_threshold,
         ..PitchParams::default()
     };
     let engine = lock(&state)?;
@@ -191,10 +193,12 @@ pub fn pitch_track_span(
     ceiling_hz: f64,
     t0: f64,
     t1: f64,
+    voicing_threshold: f64,
 ) -> Result<PitchTrackDto, String> {
     let params = PitchParams {
         floor_hz,
         ceiling_hz,
+        voicing_threshold,
         ..PitchParams::default()
     };
     let engine = lock(&state)?;

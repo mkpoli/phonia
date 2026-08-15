@@ -578,13 +578,19 @@ export interface CoreClientLike extends AnnotationClientLike {
    *  waveform pane's sample-accurate polyline at high zoom. */
   samplesInRange(id: AudioId, t0: number, t1: number): Promise<Float32Array>;
   spectrogramTile(id: AudioId, req: SpectrogramTileRequest): Promise<ImageBitmap>;
-  pitchTrack(id: AudioId, floorHz: number, ceilingHz: number): Promise<PitchTrackData>;
+  pitchTrack(
+    id: AudioId,
+    floorHz: number,
+    ceilingHz: number,
+    voicingThreshold: number
+  ): Promise<PitchTrackData>;
   pitchTrackSpan(
     id: AudioId,
     floorHz: number,
     ceilingHz: number,
     t0: number,
-    t1: number
+    t1: number,
+    voicingThreshold: number
   ): Promise<PitchTrackData>;
   formantTrack(
     id: AudioId,
@@ -705,7 +711,13 @@ export type FormantMark = 'speckle' | 'track';
 
 /** Per-track visibility and analysis parameters edited in the inspector. */
 export interface OverlayParams {
-  pitch: { show: boolean; floorHz: number; ceilingHz: number; unit: PitchUnit };
+  pitch: {
+    show: boolean;
+    floorHz: number;
+    ceilingHz: number;
+    unit: PitchUnit;
+    voicingThreshold: number;
+  };
   formant: {
     show: boolean;
     ceilingHz: number;
@@ -738,7 +750,7 @@ export interface OverlayStats {
 
 export function defaultOverlayParams(): OverlayParams {
   return {
-    pitch: { show: true, floorHz: 75, ceilingHz: 600, unit: 'hertz' },
+    pitch: { show: true, floorHz: 75, ceilingHz: 600, unit: 'hertz', voicingThreshold: 0.45 },
     formant: { show: true, ceilingHz: 5500, maxFormants: 5, smoothed: false, mark: 'speckle' },
     intensity: { show: true, floorHz: 100 },
     harmonicity: { show: false, floorHz: 75 },

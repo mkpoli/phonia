@@ -190,9 +190,14 @@ export class WasmCoreClient implements CoreClient {
     this.#trackCache.clear();
   }
 
-  pitchTrack(id: AudioId, floorHz: number, ceilingHz: number): Promise<PitchTrackData> {
-    return this.#memoTrack(`pitch:${id}:${floorHz}:${ceilingHz}`, () =>
-      this.#call({ method: 'pitchTrack', audioId: id, floorHz, ceilingHz })
+  pitchTrack(
+    id: AudioId,
+    floorHz: number,
+    ceilingHz: number,
+    voicingThreshold: number
+  ): Promise<PitchTrackData> {
+    return this.#memoTrack(`pitch:${id}:${floorHz}:${ceilingHz}:${voicingThreshold}`, () =>
+      this.#call({ method: 'pitchTrack', audioId: id, floorHz, ceilingHz, voicingThreshold })
     );
   }
 
@@ -201,9 +206,18 @@ export class WasmCoreClient implements CoreClient {
     floorHz: number,
     ceilingHz: number,
     t0: number,
-    t1: number
+    t1: number,
+    voicingThreshold: number
   ): Promise<PitchTrackData> {
-    return this.#call({ method: 'pitchTrackSpan', audioId: id, floorHz, ceilingHz, t0, t1 });
+    return this.#call({
+      method: 'pitchTrackSpan',
+      audioId: id,
+      floorHz,
+      ceilingHz,
+      t0,
+      t1,
+      voicingThreshold
+    });
   }
 
   formantTrack(

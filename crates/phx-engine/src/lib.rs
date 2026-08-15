@@ -3696,6 +3696,36 @@ mod tests {
     }
 
     #[test]
+    fn raising_the_voicing_threshold_marks_more_frames_unvoiced() {
+        let mut engine = Engine::new();
+        let id = engine.import_audio_bytes(FIXTURE_WAV).unwrap();
+        let unvoiced = |voicing_threshold: f64| {
+            let params = PitchParams {
+                floor_hz: 75.0,
+                ceiling_hz: 600.0,
+                voicing_threshold,
+                ..PitchParams::default()
+            };
+            engine
+                .pitch_track(id, &params)
+                .unwrap()
+                .frames()
+                .iter()
+                .filter(|frame| frame.f0.is_none())
+                .count()
+        };
+        let lenient = unvoiced(0.1);
+        let strict = unvoiced(0.9);
+        // A stricter voicing threshold rejects weakly periodic frames, so it can
+        // only mark the same or more frames unvoiced.
+        assert!(
+            strict >= lenient,
+            "voicing_threshold 0.9 unvoiced {strict} < 0.1 unvoiced {lenient}"
+        );
+        assert!(strict > lenient, "a real signal should show a difference");
+    }
+
+    #[test]
     fn formant_track_raw_and_smoothed_share_the_frame_grid() {
         let mut engine = Engine::new();
         let id = engine.import_audio_bytes(FIXTURE_WAV).unwrap();

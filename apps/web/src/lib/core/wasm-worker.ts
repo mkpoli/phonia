@@ -43,7 +43,14 @@ type RequestMessage =
   | { id: number; method: 'samplesInRange'; audioId: AudioId; t0: number; t1: number }
   | { id: number; method: 'spectrogramTile'; audioId: AudioId; req: SpectrogramTileRequest }
   | { id: number; method: 'spectrogramProbe'; audioId: AudioId; req: SpectrogramTileRequest }
-  | { id: number; method: 'pitchTrack'; audioId: AudioId; floorHz: number; ceilingHz: number }
+  | {
+      id: number;
+      method: 'pitchTrack';
+      audioId: AudioId;
+      floorHz: number;
+      ceilingHz: number;
+      voicingThreshold: number;
+    }
   | { id: number; method: 'pulseTimes'; audioId: AudioId; floorHz: number; ceilingHz: number }
   | { id: number; method: 'spectrumSlice'; audioId: AudioId; t0: number; t1: number }
   | { id: number; method: 'lpcSpectrum'; audioId: AudioId; t0: number; t1: number }
@@ -74,6 +81,7 @@ type RequestMessage =
       ceilingHz: number;
       t0: number;
       t1: number;
+      voicingThreshold: number;
     }
   | {
       id: number;
@@ -713,7 +721,12 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
         return;
       }
       case 'pitchTrack': {
-        const track = wasm.pitchTrack(message.audioId, message.floorHz, message.ceilingHz);
+        const track = wasm.pitchTrack(
+          message.audioId,
+          message.floorHz,
+          message.ceilingHz,
+          message.voicingThreshold
+        );
         const times = new Float64Array(track.times);
         const f0 = new Float64Array(track.f0);
         postMessage(
@@ -728,7 +741,8 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           message.floorHz,
           message.ceilingHz,
           message.t0,
-          message.t1
+          message.t1,
+          message.voicingThreshold
         );
         const times = new Float64Array(track.times);
         const f0 = new Float64Array(track.f0);

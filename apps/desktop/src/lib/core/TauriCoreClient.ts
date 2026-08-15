@@ -133,8 +133,15 @@ export class TauriCoreClient implements CoreClientLike {
     return createImageBitmap(image, { imageOrientation: 'flipY' });
   }
 
-  async pitchTrack(id: AudioId, floorHz: number, ceilingHz: number): Promise<PitchTrackData> {
-    return toPitch(await invoke('pitch_track', { id: num(id), floorHz, ceilingHz }));
+  async pitchTrack(
+    id: AudioId,
+    floorHz: number,
+    ceilingHz: number,
+    voicingThreshold: number
+  ): Promise<PitchTrackData> {
+    return toPitch(
+      await invoke('pitch_track', { id: num(id), floorHz, ceilingHz, voicingThreshold })
+    );
   }
 
   async pitchTrackSpan(
@@ -142,9 +149,19 @@ export class TauriCoreClient implements CoreClientLike {
     floorHz: number,
     ceilingHz: number,
     t0: number,
-    t1: number
+    t1: number,
+    voicingThreshold: number
   ): Promise<PitchTrackData> {
-    return toPitch(await invoke('pitch_track_span', { id: num(id), floorHz, ceilingHz, t0, t1 }));
+    return toPitch(
+      await invoke('pitch_track_span', {
+        id: num(id),
+        floorHz,
+        ceilingHz,
+        t0,
+        t1,
+        voicingThreshold
+      })
+    );
   }
 
   async formantTrack(

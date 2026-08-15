@@ -1246,10 +1246,12 @@ impl WasmEngine {
         id: u64,
         floor_hz: f64,
         ceiling_hz: f64,
+        voicing_threshold: f64,
     ) -> Result<WasmPitchTrack, JsError> {
         let params = PitchParams {
             floor_hz,
             ceiling_hz,
+            voicing_threshold,
             ..PitchParams::default()
         };
         let track = self.inner.pitch_track(AudioId::from_u64(id), &params)?;
@@ -1288,10 +1290,12 @@ impl WasmEngine {
         ceiling_hz: f64,
         t0: f64,
         t1: f64,
+        voicing_threshold: f64,
     ) -> Result<WasmPitchTrack, JsError> {
         let params = PitchParams {
             floor_hz,
             ceiling_hz,
+            voicing_threshold,
             ..PitchParams::default()
         };
         let (track, start_time) =

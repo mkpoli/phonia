@@ -352,6 +352,21 @@
           <p class="note">Default 600 Hz — Praat. Lower toward 300 Hz for male speech.</p>
         </div>
         <div class="field">
+          <div class="label-row"><span>Voicing threshold</span></div>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.05"
+            data-testid="pitch-voicing-threshold"
+            bind:value={params.pitch.voicingThreshold}
+          />
+          <p class="note">
+            Default 0.45 — Praat. Raise it to mark more frames unvoiced (fewer
+            octave errors on creaky or breathy voice); lower it to keep faint pitch.
+          </p>
+        </div>
+        <div class="field">
           <div class="label-row"><span>Unit</span></div>
           <select data-testid="pitch-unit" bind:value={params.pitch.unit}>
             {#each PITCH_UNITS as u (u.value)}
