@@ -1611,6 +1611,19 @@ impl WasmEngine {
         serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
     }
 
+    /// The span-averaged real cepstrum of `[t0, t1]` as a JSON `{ freqs, db }` of
+    /// parallel arrays, where `freqs` carries quefrency in seconds and `db` the
+    /// cepstral amplitude — the curve whose peak at `1/F0` reads as periodicity.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, or when a bound is not finite.
+    #[wasm_bindgen(js_name = cepstrumSlice)]
+    pub fn cepstrum_slice(&self, id: u64, t0: f64, t1: f64) -> Result<String, JsError> {
+        let (freqs, db) = self.inner.cepstrum_slice(AudioId::from_u64(id), t0, t1)?;
+        let value = serde_json::json!({ "freqs": freqs, "db": db });
+        serde_json::to_string(&value).map_err(|err| JsError::new(&err.to_string()))
+    }
+
     /// Sounding/silent segmentation as a JSON array of `{ t0, t1, sounding }`,
     /// for annotating a recording by its silences.
     ///

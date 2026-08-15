@@ -534,6 +534,62 @@ pub fn cpps(audio: AudioView<'_>, span: TimeSpan, params: &CppParams) -> Option<
     cpp_from_cepstrum(&averaged, audio.sample_rate(), params)
 }
 
+/// The span-averaged real cepstrum as parallel `(quefrency_seconds, amplitude)`
+/// vectors — the same frame cepstra CPPS averages and smooths, exposed as the
+/// quefrency-domain curve the cepstrum view plots instead of reduced to a single
+/// prominence. The window runs from the first quefrency bin (the constant term
+/// is dropped) up to just past the lowest searched F0, where the rhamonic peak
+/// at `1/F0` sits.
+#[must_use]
+pub fn cepstrum_slice(
+    audio: AudioView<'_>,
+    span: TimeSpan,
+    params: &CppParams,
+) -> (Vec<f64>, Vec<f64>) {
+    if !valid_cpp_params(params) || span.end <= span.start {
+        return (Vec::new(), Vec::new());
+    }
+    let sample_rate = audio.sample_rate();
+    let signal = mono_as_f64(&audio);
+    let grid = FrameGrid::new(
+        audio.duration(),
+        params.frame_length_seconds,
+        params.time_step,
+    );
+    let mut plan = RealFftPlan::new();
+    let mut cepstra = Vec::new();
+    for time in grid.centers().filter(|&time| span.contains(time)) {
+        if let Some(cepstrum) = cepstrum_at(&signal, sample_rate, time, params, &mut plan) {
+            cepstra.push(cepstrum);
+        }
+    }
+    if cepstra.is_empty() {
+        return (Vec::new(), Vec::new());
+    }
+    let len = match cepstra.iter().map(Vec::len).min() {
+        Some(len) if len > 2 => len,
+        _ => return (Vec::new(), Vec::new()),
+    };
+    let mut averaged = vec![0.0; len];
+    for cepstrum in &cepstra {
+        for (dst, value) in averaged.iter_mut().zip(cepstrum) {
+            *dst += *value;
+        }
+    }
+    let scale = 1.0 / cepstra.len() as f64;
+    for value in &mut averaged {
+        *value *= scale;
+    }
+    smooth_in_place(&mut averaged, params.quefrency_smoothing_bins);
+    // Show quefrency from the first bin to just beyond the lowest searched F0, so
+    // the rhamonic peak dominates the plot rather than the near-DC spectral tilt.
+    let max_quefrency = 1.0 / params.min_f0_hz + 0.005;
+    let max_bin = ((max_quefrency * sample_rate).ceil() as usize).min(len - 1);
+    let quefrency = (1..=max_bin).map(|bin| bin as f64 / sample_rate).collect();
+    let amplitude = averaged[1..=max_bin].to_vec();
+    (quefrency, amplitude)
+}
+
 /// Computes a per-frame cepstral-peak-prominence track.
 ///
 /// Frames follow the same grid CPPS uses — a `frame_length_seconds` Hann window
@@ -1498,6 +1554,32 @@ mod tests {
             periodic_cpp > noise_cpp + 1.0,
             "periodic CPP {periodic_cpp} dB should exceed noise CPP {noise_cpp} dB"
         );
+    }
+
+    #[test]
+    fn cepstrum_slice_peaks_at_the_inverse_of_f0() {
+        let sample_rate: f64 = 44_100.0;
+        let duration = 0.6;
+        let f0 = 150.0;
+        let n = (duration * sample_rate) as usize;
+
+        // A pulse train's log-magnitude spectrum is a comb, so its cepstrum
+        // carries a strong rahmonic at the fundamental period 1/f0.
+        let period = (sample_rate / f0).round() as usize;
+        let periodic = (0..n)
+            .map(|i| if i % period == 0 { 1.0_f32 } else { 0.0 })
+            .collect::<Vec<_>>();
+        let audio = audio_from_signal(periodic, sample_rate);
+        let (quefrency, amplitude) = cepstrum_slice(
+            audio.slice_samples(0..audio.frames()),
+            TimeSpan::new(0.1, 0.5),
+            &CppParams::default(),
+        );
+        assert!(!quefrency.is_empty());
+        let peak = (0..amplitude.len())
+            .max_by(|&a, &b| amplitude[a].total_cmp(&amplitude[b]))
+            .expect("a peak bin");
+        assert_relative_close(quefrency[peak], 1.0 / f0, 0.02);
     }
 
     #[test]

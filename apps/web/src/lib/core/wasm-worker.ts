@@ -48,6 +48,7 @@ type RequestMessage =
   | { id: number; method: 'spectrumSlice'; audioId: AudioId; t0: number; t1: number }
   | { id: number; method: 'lpcSpectrum'; audioId: AudioId; t0: number; t1: number }
   | { id: number; method: 'ltas'; audioId: AudioId; t0: number; t1: number }
+  | { id: number; method: 'cepstrumSlice'; audioId: AudioId; t0: number; t1: number }
   | {
       id: number;
       method: 'silenceIntervals';
@@ -860,6 +861,11 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'ltas': {
         const json = wasm.ltas(message.audioId, message.t0, message.t1);
+        postMessage({ id: message.id, ok: true, result: JSON.parse(json) });
+        return;
+      }
+      case 'cepstrumSlice': {
+        const json = wasm.cepstrumSlice(message.audioId, message.t0, message.t1);
         postMessage({ id: message.id, ok: true, result: JSON.parse(json) });
         return;
       }

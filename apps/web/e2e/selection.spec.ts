@@ -152,6 +152,27 @@ test('the spectrum card plots the selection slice with a hover readout', async (
   await expect(lpc).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('the cepstrum card plots quefrency with a per-quefrency readout', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('cepstrum');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="cepstrum"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('spectrum-card')).toContainText('Cepstrum');
+  const canvas = page.getByTestId('spectrum-canvas');
+  await expect(canvas).toBeVisible({ timeout: 15_000 });
+
+  // Hovering the plot reads quefrency in milliseconds, not frequency.
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await expect(page.getByTestId('spectrum-readout')).toContainText('ms');
+});
+
 test('the pitch unit selector converts the F0 readout to semitones', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);

@@ -9,8 +9,11 @@
     /** Selection span in seconds to take the spectrum over. */
     t0: number;
     t1: number;
-    /** `spectrum` is one FFT over the span; `ltas` averages frame spectra. */
-    mode?: 'spectrum' | 'ltas';
+    /**
+     * `spectrum` is one FFT over the span; `ltas` averages frame spectra;
+     * `cepstrum` is the averaged quefrency-domain cepstrum.
+     */
+    mode?: 'spectrum' | 'ltas' | 'cepstrum';
     /**
      * Resolves the LPC-smoothed envelope over the span. When supplied and
      * `mode` is `spectrum`, the envelope overlays the FFT so its resonance
@@ -22,7 +25,8 @@
 
   let { client, audio, t0, t1, mode = 'spectrum', onLpcEnvelope = null, onClose }: Props = $props();
 
-  const title = $derived(mode === 'ltas' ? 'LTAS' : 'Spectrum');
+  const isCepstrum = $derived(mode === 'cepstrum');
+  const title = $derived(mode === 'ltas' ? 'LTAS' : mode === 'cepstrum' ? 'Cepstrum' : 'Spectrum');
   const LPC_COLOR = '#f2a33c';
 
   let data = $state<SpectrumSliceData | null>(null);
@@ -47,8 +51,11 @@
     }
     let cancelled = false;
     loading = true;
-    const request =
-      mode === 'ltas' ? client.ltas(audio.id, t0, t1) : client.spectrumSlice(audio.id, t0, t1);
+    const request = isCepstrum
+      ? client.cepstrumSlice(audio.id, t0, t1)
+      : mode === 'ltas'
+        ? client.ltas(audio.id, t0, t1)
+        : client.spectrumSlice(audio.id, t0, t1);
     request
       .then((result) => {
         if (!cancelled) {
@@ -145,21 +152,26 @@
     const xOf = (hz: number) => padL + (hz / range.maxHz) * plotW;
     const yOf = (db: number) => 8 + (1 - (db - range.lo) / (range.hi - range.lo)) * plotH;
 
-    // Grid + frequency ticks every 1 kHz.
+    // Grid + axis ticks: quefrency in ms for the cepstrum, else every 1 kHz.
     ctx.strokeStyle = cssVar('--chrome-strong', '#233');
     ctx.fillStyle = cssVar('--muted', '#8aa');
     ctx.lineWidth = 1;
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    for (let hz = 0; hz <= range.maxHz; hz += 1000) {
-      const x = xOf(hz);
+    const gridline = (x: number, label: string) => {
       ctx.globalAlpha = 0.25;
       ctx.beginPath();
       ctx.moveTo(x, 8);
       ctx.lineTo(x, 8 + plotH);
       ctx.stroke();
       ctx.globalAlpha = 1;
-      ctx.fillText(`${hz / 1000}k`, x, h - 8);
+      ctx.fillText(label, x, h - 8);
+    };
+    if (isCepstrum) {
+      const maxMs = range.maxHz * 1000;
+      for (let ms = 0; ms <= maxMs; ms += 5) gridline(xOf(ms / 1000), `${ms} ms`);
+    } else {
+      for (let hz = 0; hz <= range.maxHz; hz += 1000) gridline(xOf(hz), `${hz / 1000}k`);
     }
 
     // Spectrum curve.
@@ -228,12 +240,16 @@
 </script>
 
 <div class="backdrop" data-testid="spectrum-card">
-  <div class="card" role="dialog" aria-modal="true" aria-label="Spectrum">
+  <div class="card" role="dialog" aria-modal="true" aria-label={title}>
     <header>
       <h2><IconAudioWaveform aria-hidden="true" />{title}</h2>
       <span class="span">{t0.toFixed(3)}–{t1.toFixed(3)} s</span>
       <span class="readout" data-testid="spectrum-readout">
-        {#if hover}{Math.round(hover.hz)} Hz · {hover.db.toFixed(1)} dB{:else}hover to read{/if}
+        {#if hover}
+          {#if isCepstrum}{(hover.hz * 1000).toFixed(2)} ms · {hover.db.toFixed(3)}{:else}{Math.round(
+              hover.hz
+            )} Hz · {hover.db.toFixed(1)} dB{/if}
+        {:else}hover to read{/if}
       </span>
       {#if lpcActive}
         <button

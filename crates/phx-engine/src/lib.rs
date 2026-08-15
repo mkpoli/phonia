@@ -1104,6 +1104,38 @@ impl Engine {
         Ok((frequencies_hz, db))
     }
 
+    /// The span-averaged real cepstrum of `[t0, t1]` as parallel
+    /// `(quefrency_seconds, amplitude)` vectors — the quefrency-domain curve
+    /// whose rahmonic peak at `1/F0` is the periodicity CPP measures.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
+    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
+    /// finite.
+    pub fn cepstrum_slice(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+    ) -> Result<(Vec<f64>, Vec<f64>), EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "cepstrum_slice bounds must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let sample_rate = info.sample_rate;
+        let frames = (info.duration * sample_rate).round() as usize;
+        let lo = t0.min(t1).clamp(0.0, info.duration);
+        let hi = t0.max(t1).clamp(0.0, info.duration);
+        let start = ((lo * sample_rate).floor() as usize).min(frames);
+        let end = ((hi * sample_rate).ceil() as usize).clamp(start, frames);
+        let window = self.store.range_owned(id, start, end)?;
+        let view = window.slice_samples(0..window.frames());
+        let span = TimeSpan::new(0.0, view.duration());
+        Ok(phx_voice::cepstrum_slice(view, span, &CppParams::default()))
+    }
+
     /// The LPC-smoothed spectral envelope of the selection `[t0, t1]` as
     /// parallel `(frequencies_hz, db)` vectors — an all-pole Burg model sampled
     /// across `0..Nyquist`, the way Praat's `To LPC` then `To Spectrum (slice)`

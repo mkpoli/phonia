@@ -425,7 +425,7 @@
   let measureOpen = $state(false);
   let vowelChartOpen = $state(false);
   let spectrumOpen = $state(false);
-  let spectrumMode = $state<'spectrum' | 'ltas'>('spectrum');
+  let spectrumMode = $state<'spectrum' | 'ltas' | 'cepstrum'>('spectrum');
   let spectrumSpan = $state<{ t0: number; t1: number }>({ t0: 0, t1: 0 });
 
   function openSpectrum() {
@@ -439,6 +439,13 @@
     if (!selection) return;
     spectrumSpan = { t0: selection.t0, t1: selection.t1 };
     spectrumMode = 'ltas';
+    spectrumOpen = true;
+  }
+
+  function openCepstrum() {
+    if (!selection) return;
+    spectrumSpan = { t0: selection.t0, t1: selection.t1 };
+    spectrumMode = 'cepstrum';
     spectrumOpen = true;
   }
 
@@ -1533,6 +1540,15 @@
       keywords: ['ltas', 'long-term', 'average', 'spectrum', 'spectral tilt'],
       enabled: hasSelection,
       run: () => void openLtas()
+    },
+    {
+      id: 'cepstrum',
+      title: 'Cepstrum over selection',
+      group: 'Analysis',
+      api: ['cepstrumSlice'],
+      keywords: ['cepstrum', 'quefrency', 'rahmonic', 'cpp', 'pitch period', 'f0'],
+      enabled: hasSelection,
+      run: () => void openCepstrum()
     },
     {
       id: 'vowelChart',

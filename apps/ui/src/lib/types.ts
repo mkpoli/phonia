@@ -541,6 +541,9 @@ export interface CoreClientLike extends AnnotationClientLike {
   spectrumSlice(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData>;
   /** The long-term average spectrum of `[t0, t1]`: frequency (Hz) and dB arrays. */
   ltas(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData>;
+  /** The averaged cepstrum of `[t0, t1]`: `freqs` carries quefrency (s), `db` the
+   *  cepstral amplitude, with the rahmonic peak at `1/F0`. */
+  cepstrumSlice(id: AudioId, t0: number, t1: number): Promise<SpectrumSliceData>;
   /** Sounding/silent segmentation from the intensity contour. */
   silenceIntervals(
     id: AudioId,
