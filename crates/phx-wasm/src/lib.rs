@@ -1473,6 +1473,8 @@ impl WasmEngine {
             "f0MaxHz": readout.f0_max_hz,
             "bandEnergyDb": readout.band_energy_db,
             "f0SdHz": readout.f0_sd_hz,
+            "f0P5Hz": readout.f0_p5_hz,
+            "f0P95Hz": readout.f0_p95_hz,
             "intensityMeanDb": readout.intensity_mean_db,
             "intensitySdDb": readout.intensity_sd_db,
             "hnrMeanDb": readout.hnr_mean_db,

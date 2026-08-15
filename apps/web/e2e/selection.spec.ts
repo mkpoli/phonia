@@ -90,6 +90,17 @@ test('spectrogram box selection: readout values are present and finite', async (
   expect(f0Sd).toBeGreaterThanOrEqual(0);
   expect(intSd).toBeGreaterThanOrEqual(0);
 
+  // The 5–95% F0 quantiles bound the contour: both positive, the 5th below the
+  // 95th.
+  const quantile = page.getByTestId('readout-f0-quantile');
+  const p5 = Number(await quantile.getAttribute('data-value'));
+  expect(Number.isFinite(p5)).toBe(true);
+  expect(p5).toBeGreaterThan(0);
+  const quantileText = (await quantile.locator('.v').textContent()) ?? '';
+  const bounds = [...quantileText.matchAll(/[\d.]+/g)].map((m) => Number(m[0]));
+  expect(bounds.length).toBeGreaterThanOrEqual(2);
+  expect(bounds[0]).toBeLessThanOrEqual(bounds[1]);
+
   await expect(page.getByTestId('readout-duration')).toContainText('s');
 });
 

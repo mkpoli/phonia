@@ -123,6 +123,13 @@
     <span class="field" data-testid="readout-f0-sd" data-value={readout?.f0SdHz ?? ''}>
       <span class="k">F0 SD</span><span class="v">{hz(readout?.f0SdHz, 1)}</span>
     </span>
+    <span class="field" data-testid="readout-f0-quantile" data-value={readout?.f0P5Hz ?? ''}>
+      <span class="k">F0 5–95%</span
+      ><span class="v">{formatPitch(readout?.f0P5Hz, pitchUnit)} / {formatPitch(
+          readout?.f0P95Hz,
+          pitchUnit
+        )}</span>
+    </span>
     <span class="field" data-testid="readout-band-energy" data-value={readout?.bandEnergyDb ?? ''}>
       <span class="k">Band energy</span><span class="v">{db(readout?.bandEnergyDb)}</span>
     </span>

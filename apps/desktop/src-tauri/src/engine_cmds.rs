@@ -342,6 +342,8 @@ pub fn selection_readout(
         "f0MeanHz": r.f0_mean_hz,
         "f0MinHz": r.f0_min_hz,
         "f0MaxHz": r.f0_max_hz,
+        "f0P5Hz": r.f0_p5_hz,
+        "f0P95Hz": r.f0_p95_hz,
         "bandEnergyDb": r.band_energy_db,
         "intensityMeanDb": r.intensity_mean_db,
         "hnrMeanDb": r.hnr_mean_db,

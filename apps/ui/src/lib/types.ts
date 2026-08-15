@@ -407,6 +407,9 @@ export interface SelectionReadout {
   f0MaxHz: number | null;
   /** Sample standard deviation of the voiced F0 over the span, in hertz. */
   f0SdHz: number | null;
+  /** 5th / 95th percentile of the voiced F0 over the span, in hertz. */
+  f0P5Hz: number | null;
+  f0P95Hz: number | null;
   bandEnergyDb: number;
   intensityMeanDb: number | null;
   /** Sample standard deviation of intensity over the span, in decibels. */

@@ -87,6 +87,16 @@ impl PitchTrack {
         median(&mut values)
     }
 
+    /// The `q`-quantile (`0..=1`) of the voiced fundamentals in hertz over
+    /// `span`, by linear interpolation between order statistics — Praat's "Get
+    /// quantile". `q = 0.5` is the median; `0.05` and `0.95` bound the contour
+    /// against the octave errors the extrema catch.
+    #[must_use]
+    pub fn quantile_hz(&self, span: TimeSpan, q: f64) -> Option<f64> {
+        let mut values = self.voiced_hz(span);
+        quantile(&mut values, q)
+    }
+
     /// Minimum selected voiced frequency in hertz over `span`.
     #[must_use]
     pub fn min_hz(&self, span: TimeSpan) -> Option<f64> {
@@ -174,16 +184,21 @@ fn std_dev(values: &[f64]) -> Option<f64> {
 }
 
 fn median(values: &mut [f64]) -> Option<f64> {
-    if values.is_empty() {
+    quantile(values, 0.5)
+}
+
+fn quantile(values: &mut [f64], q: f64) -> Option<f64> {
+    if values.is_empty() || !q.is_finite() {
         return None;
     }
     values.sort_by(f64::total_cmp);
-    let mid = values.len() / 2;
-    if values.len().is_multiple_of(2) {
-        Some(0.5 * (values[mid - 1] + values[mid]))
-    } else {
-        Some(values[mid])
+    if values.len() == 1 {
+        return Some(values[0]);
     }
+    let h = (values.len() - 1) as f64 * q.clamp(0.0, 1.0);
+    let lo = h.floor() as usize;
+    let hi = (lo + 1).min(values.len() - 1);
+    Some(values[lo] + (h - lo as f64) * (values[hi] - values[lo]))
 }
 
 fn min(values: &[f64]) -> Option<f64> {
@@ -192,4 +207,45 @@ fn min(values: &[f64]) -> Option<f64> {
 
 fn max(values: &[f64]) -> Option<f64> {
     values.iter().copied().reduce(f64::max)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ramp_track(values: &[f64]) -> PitchTrack {
+        let frames = values
+            .iter()
+            .enumerate()
+            .map(|(i, &hz)| PitchFrame {
+                time: i as f64 * 0.01,
+                f0: Some(hz),
+                strength: 0.9,
+                candidates: Vec::new(),
+            })
+            .collect();
+        PitchTrack::new(frames)
+    }
+
+    #[test]
+    fn quantile_hz_interpolates_the_order_statistics() {
+        // F0 ramps 100..=200 Hz over 101 frames, so the p-quantile is 100 + 100p.
+        let values: Vec<f64> = (0..=100).map(|i| 100.0 + i as f64).collect();
+        let track = ramp_track(&values);
+        let span = TimeSpan::new(0.0, 100.0);
+        let p5 = track.quantile_hz(span, 0.05).unwrap();
+        let p50 = track.quantile_hz(span, 0.5).unwrap();
+        let p95 = track.quantile_hz(span, 0.95).unwrap();
+        assert!((p5 - 105.0).abs() < 1e-9, "p5 {p5}");
+        assert!((p50 - 150.0).abs() < 1e-9, "p50 {p50}");
+        assert!((p95 - 195.0).abs() < 1e-9, "p95 {p95}");
+        // The 50% quantile agrees with the median exactly.
+        assert_eq!(track.median_hz(span), Some(p50));
+    }
+
+    #[test]
+    fn quantile_hz_is_none_without_voiced_frames() {
+        let track = ramp_track(&[]);
+        assert_eq!(track.quantile_hz(TimeSpan::new(0.0, 1.0), 0.5), None);
+    }
 }

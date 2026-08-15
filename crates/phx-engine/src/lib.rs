@@ -112,6 +112,11 @@ pub struct SelectionReadout {
     /// Sample standard deviation of the voiced fundamental over the span, in
     /// hertz, absent with fewer than two voiced frames.
     pub f0_sd_hz: Option<f64>,
+    /// 5th-percentile voiced fundamental over the span, in hertz — the low bound
+    /// robust to the octave dips the minimum catches.
+    pub f0_p5_hz: Option<f64>,
+    /// 95th-percentile voiced fundamental over the span, in hertz.
+    pub f0_p95_hz: Option<f64>,
     /// Mean raw band energy inside the box, in decibels.
     pub band_energy_db: f64,
     /// Mean intensity over the span, in dB SPL, absent when the span is empty.
@@ -910,6 +915,8 @@ impl Engine {
             f0_min_hz: pitch.min_hz(span),
             f0_max_hz: pitch.max_hz(span),
             f0_sd_hz: pitch.sd_hz(span),
+            f0_p5_hz: pitch.quantile_hz(span, 0.05),
+            f0_p95_hz: pitch.quantile_hz(span, 0.95),
             band_energy_db: self.band_energy(id, lo, hi, flo, fhi)?,
             intensity_mean_db,
             intensity_sd_db,
