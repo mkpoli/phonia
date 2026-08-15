@@ -629,6 +629,7 @@ export interface FigureLayerToggles {
   intensity: boolean;
   tiers: boolean;
   spectral_slice: boolean;
+  ltas: boolean;
 }
 
 /**

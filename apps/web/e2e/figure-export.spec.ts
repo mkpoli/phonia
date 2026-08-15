@@ -70,6 +70,23 @@ test('figure export: the spectral-slice layer adds a frequency-vs-dB panel', asy
     .toBe(true);
 });
 
+test('figure export: the LTAS layer adds a frequency-vs-dB panel', async ({ page }) => {
+  await loadFixture(page);
+  await openDialog(page);
+
+  // The default figure has no LTAS, so its sound-pressure-level axis is absent
+  // until the layer is turned on.
+  const base = await previewSource(page);
+  expect(base).not.toContain('Sound pressure level');
+
+  await page.getByTestId('figure-layer-ltas').check();
+  await expect
+    .poll(async () => (await previewSource(page)).includes('Sound pressure level'), {
+      timeout: 15_000
+    })
+    .toBe(true);
+});
+
 test('figure export: preview re-renders on theme and format changes', async ({ page }) => {
   await loadFixture(page);
   await openDialog(page);

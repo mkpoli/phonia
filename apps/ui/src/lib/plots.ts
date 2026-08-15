@@ -15,6 +15,7 @@ export type PlotKind =
   | 'formant'
   | 'intensity'
   | 'spectralSlice'
+  | 'ltas'
   | 'tiers'
   | 'text';
 
@@ -26,6 +27,7 @@ export const PLOT_KINDS: { kind: PlotKind; label: string }[] = [
   { kind: 'formant', label: 'Formants' },
   { kind: 'intensity', label: 'Intensity' },
   { kind: 'spectralSlice', label: 'Spectral slice' },
+  { kind: 'ltas', label: 'LTAS' },
   { kind: 'tiers', label: 'Tiers' },
   { kind: 'text', label: 'Text' }
 ];
@@ -136,6 +138,7 @@ export function objectFigureSpec(
     formant: obj.kind === 'formant',
     intensity: obj.kind === 'intensity',
     spectral_slice: obj.kind === 'spectralSlice',
+    ltas: obj.kind === 'ltas',
     tiers: obj.kind === 'tiers'
   };
   const ink = obj.itemColor ? hexToRgb(obj.itemColor) : null;
