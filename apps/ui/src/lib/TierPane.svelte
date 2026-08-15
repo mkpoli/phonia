@@ -86,6 +86,7 @@
   let status = $state('');
 
   let query = $state('');
+  let replacement = $state('');
   let hits = $state<LabelHit[]>([]);
   let hitIndex = $state(0);
 
@@ -562,6 +563,66 @@
     goToHit();
   }
 
+  // The current label text of a search hit, looked up from the tier maps the
+  // pane already holds — no extra fetch.
+  function hitLabel(hit: LabelHit): string | null {
+    if (hit.kind === 'interval') {
+      return (intervalsByTier.get(hit.tier) ?? []).find((iv) => iv.id === hit.target)?.label ?? null;
+    }
+    return (pointsByTier.get(hit.tier) ?? []).find((pt) => pt.id === hit.target)?.label ?? null;
+  }
+
+  async function setHitLabel(hit: LabelHit, text: string) {
+    if (annotationId === null || !client) return;
+    if (hit.kind === 'interval') {
+      await client.setIntervalLabel(annotationId, hit.tier, hit.target, text);
+    } else {
+      await client.setPointLabel(annotationId, hit.tier, hit.target, text);
+    }
+  }
+
+  // Replaces every occurrence of the query inside a matched label with the
+  // replacement text.
+  function substitute(label: string): string {
+    return label.split(query).join(replacement);
+  }
+
+  async function replaceCurrentHit() {
+    if (!client || annotationId === null || !query) return;
+    const hit = hits[hitIndex];
+    if (!hit) return;
+    const current = hitLabel(hit);
+    if (current === null || !current.includes(query)) return;
+    try {
+      await setHitLabel(hit, substitute(current));
+      status = '';
+      await refresh();
+      await runSearch(query);
+    } catch (error) {
+      status = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async function replaceAllHits() {
+    if (!client || annotationId === null || !query || hits.length === 0) return;
+    try {
+      let changed = 0;
+      for (const hit of [...hits]) {
+        const current = hitLabel(hit);
+        if (current === null || !current.includes(query)) continue;
+        const next = substitute(current);
+        if (next === current) continue;
+        await setHitLabel(hit, next);
+        changed += 1;
+      }
+      status = changed ? `Replaced in ${changed} ${changed === 1 ? 'label' : 'labels'}` : '';
+      await refresh();
+      await runSearch(query);
+    } catch (error) {
+      status = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   async function exportTextGrid() {
     if (!client || annotationId === null) return;
     const bytes = await client.exportTextGrid(annotationId);
@@ -824,7 +885,18 @@
       <IconMapPin aria-hidden="true" /><span>Point tier</span>
     </button>
     <div class="spacer"></div>
-    <SearchBar query={query} count={hits.length} index={hitIndex} onQuery={runSearch} onNext={nextHit} onPrev={prevHit} />
+    <SearchBar
+      query={query}
+      count={hits.length}
+      index={hitIndex}
+      replacement={replacement}
+      onQuery={runSearch}
+      onNext={nextHit}
+      onPrev={prevHit}
+      onReplacement={(text) => (replacement = text)}
+      onReplace={replaceCurrentHit}
+      onReplaceAll={replaceAllHits}
+    />
     <button type="button" data-testid="import-textgrid" disabled={audioId === null} onclick={() => fileInput?.click()}>
       <IconFileUp aria-hidden="true" /><span>Import TextGrid</span>
     </button>

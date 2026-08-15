@@ -290,6 +290,24 @@ test('label search finds hits and navigates between them', async ({ page }) => {
   await expect(pane(page)).toHaveAttribute('data-active-index', String(first));
 });
 
+test('replace all rewrites every matching label', async ({ page }) => {
+  await loadFixture(page);
+  await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '3');
+
+  await page.getByTestId('search-input').fill('il');
+  await expect(page.getByTestId('search-count')).not.toHaveText('0');
+
+  await page.getByTestId('replace-input').fill('QZ');
+  await page.getByTestId('replace-all').click();
+
+  // The matched substring is gone, so the same query now finds nothing.
+  await expect(page.getByTestId('search-count')).toHaveText('0');
+  // The replacement text is now present in the tier.
+  await page.getByTestId('search-input').fill('QZ');
+  await expect(page.getByTestId('search-count')).not.toHaveText('0');
+});
+
 test('reorder tier moves it up or down in the stack', async ({ page }) => {
   await openEditorWithFixture(page, wavFixture);
   const lanes = page.getByTestId('tier-lane');

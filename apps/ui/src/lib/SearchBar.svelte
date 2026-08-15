@@ -7,12 +7,27 @@
     query: string;
     count: number;
     index: number;
+    replacement: string;
     onQuery: (text: string) => void;
     onNext: () => void;
     onPrev: () => void;
+    onReplacement: (text: string) => void;
+    onReplace: () => void;
+    onReplaceAll: () => void;
   }
 
-  let { query, count, index, onQuery, onNext, onPrev }: Props = $props();
+  let {
+    query,
+    count,
+    index,
+    replacement,
+    onQuery,
+    onNext,
+    onPrev,
+    onReplacement,
+    onReplace,
+    onReplaceAll
+  }: Props = $props();
 
   function handleKeydown(event: KeyboardEvent) {
     event.stopPropagation();
@@ -48,6 +63,31 @@
   <button type="button" aria-label="Next match" disabled={count === 0} onclick={onNext}>
     <IconChevronRight aria-hidden="true" />
   </button>
+  <div class="search-field replace-field">
+    <input
+      class="search-input"
+      data-testid="replace-input"
+      type="text"
+      placeholder="Replace with"
+      autocomplete="off"
+      autocapitalize="off"
+      autocorrect="off"
+      spellcheck="false"
+      value={replacement}
+      oninput={(event) => onReplacement(event.currentTarget.value)}
+      onkeydown={(event) => event.stopPropagation()}
+    />
+  </div>
+  <button type="button" class="text-btn" data-testid="replace-one" disabled={count === 0} onclick={onReplace}
+    >Replace</button
+  >
+  <button
+    type="button"
+    class="text-btn"
+    data-testid="replace-all"
+    disabled={count === 0}
+    onclick={onReplaceAll}>Replace all</button
+  >
   {#if query.trim() && count === 0}
     <span class="no-hits" data-testid="search-empty">No labels match.</span>
   {/if}
@@ -57,7 +97,11 @@
   .search {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.3rem;
+    /* Claim a full row in the annotation toolbar so the find and replace
+       controls have room instead of being squeezed off the right edge. */
+    flex: 1 1 100%;
   }
 
   .search-field {
@@ -100,6 +144,33 @@
     font-size: 0.76rem;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
+  }
+
+  .replace-field .search-input {
+    min-width: 7rem;
+  }
+
+  .text-btn {
+    flex: none;
+    width: auto;
+    height: auto;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel-soft);
+    color: var(--text);
+    padding: 0.2rem 0.5rem;
+    font-size: 0.76rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .text-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  .text-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .no-hits {
