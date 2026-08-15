@@ -404,6 +404,12 @@
     minDb: number;
     minTime: number;
   } | null>(null);
+  let pitchStats = $state<{
+    maxHz: number;
+    maxTime: number;
+    minHz: number;
+    minTime: number;
+  } | null>(null);
   let formantStats = $state<{ slot: number; minHz: number; maxHz: number }[] | null>(null);
 
   // Glottal pulses for the waveform overlay, fetched once per (recording, pitch
@@ -715,6 +721,47 @@
           }
         }
         cppStats = found ? { maxDb, maxTime, minDb, minTime } : null;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  // Pitch extrema over the selection — the highest and lowest voiced F0 and when
+  // they fall. Computed only while the pitch layer is on.
+  $effect(() => {
+    const sel = selection;
+    const id = audio?.id;
+    const pitch = overlayParams.pitch;
+    if (!client || id === undefined || !sel || !pitch.show) {
+      pitchStats = null;
+      return;
+    }
+    let cancelled = false;
+    client
+      .pitchTrackSpan(id, pitch.floorHz, pitch.ceilingHz, sel.t0, sel.t1)
+      .then((track) => {
+        if (cancelled) return;
+        let maxHz = -Infinity;
+        let minHz = Infinity;
+        let maxTime = sel.t0;
+        let minTime = sel.t0;
+        let found = false;
+        for (let i = 0; i < track.times.length; i += 1) {
+          const f0 = track.f0[i];
+          if (!Number.isFinite(f0) || f0 <= 0) continue;
+          found = true;
+          if (f0 > maxHz) {
+            maxHz = f0;
+            maxTime = track.times[i];
+          }
+          if (f0 < minHz) {
+            minHz = f0;
+            minTime = track.times[i];
+          }
+        }
+        pitchStats = found ? { maxHz, maxTime, minHz, minTime } : null;
       })
       .catch(() => {});
     return () => {
@@ -2103,6 +2150,7 @@
         {intensityStats}
         {harmonicityStats}
         {cppStats}
+        {pitchStats}
         cursor={cursorSample}
         {cursorTime}
         onClose={() => (inspectorOpen = false)}

@@ -507,6 +507,19 @@ test('cpp extrema: min/max CPP over the selection appear when the layer is on', 
   await expect(page.getByTestId('cpp-min')).toContainText('Min');
 });
 
+test('pitch extrema: min/max F0 and their times over the selection appear', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  // The pitch layer is on by default, so a selection populates the extrema.
+  const extrema = page.getByTestId('pitch-extrema');
+  await expect(extrema).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('pitch-max')).toContainText('Max');
+  await expect(page.getByTestId('pitch-max')).toContainText('Hz');
+  await expect(page.getByTestId('pitch-max')).toContainText('s');
+  await expect(page.getByTestId('pitch-min')).toContainText('Min');
+});
+
 test('formant extrema: per-slot frequency range over the selection appears', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);

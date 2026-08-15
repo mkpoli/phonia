@@ -46,6 +46,14 @@
       minDb: number;
       minTime: number;
     } | null;
+    /** Pitch (F0) extrema over the selection, or null when the layer is off or
+     *  no selection is active. */
+    pitchStats?: {
+      maxHz: number;
+      maxTime: number;
+      minHz: number;
+      minTime: number;
+    } | null;
     /** Track values at the playhead; each layer's live value when no
      *  selection readout supplies one. */
     cursor?: TrackSample | null;
@@ -64,6 +72,7 @@
     intensityStats = null,
     harmonicityStats = null,
     cppStats = null,
+    pitchStats = null,
     cursor = null,
     cursorTime = 0,
     onClose
@@ -268,6 +277,20 @@
         >{formatPitch(readout ? readout.f0MeanHz : cursor?.f0Hz, params.pitch.unit)}</span
       >
     </div>
+    {#if pitchStats}
+      <div class="extrema" data-testid="pitch-extrema">
+        <span data-testid="pitch-max"
+          >Max {formatPitch(pitchStats.maxHz, params.pitch.unit)} at {pitchStats.maxTime.toFixed(
+            3
+          )} s</span
+        >
+        <span data-testid="pitch-min"
+          >Min {formatPitch(pitchStats.minHz, params.pitch.unit)} at {pitchStats.minTime.toFixed(
+            3
+          )} s</span
+        >
+      </div>
+    {/if}
     {#if expanded.pitch}
       <div class="params">
         <div class="field">
