@@ -258,6 +258,17 @@
             more clearly. The raw dB and cursor readouts are unchanged.
           </p>
         </div>
+        <div class="field">
+          <div class="label-row"><span>Window shape</span></div>
+          <select data-testid="spectrogram-window-shape" bind:value={params.spectrogram.windowShape}>
+            <option value="gaussian">Gaussian</option>
+            <option value="hanning">Hanning</option>
+          </select>
+          <p class="note">
+            Gaussian is Praat's default. Hanning trades a little frequency
+            resolution for sharper time detail.
+          </p>
+        </div>
       </div>
     {/if}
   </section>

@@ -6,7 +6,8 @@ use phx_engine::{
     AlignMode, AnnotationId, Applied, AudioId, BoundaryId, Colormap, Command, DisplayMapping,
     Engine, EngineError, Figure, FigureFormat, FigureRequest, FormantParams, IntensityParams,
     IntervalId, LabelPattern, LabelQuery, LabelTarget, PitchParams, PointId, SpectrogramParams,
-    Tier, TierId, TierRelation, TileRequest, export_figure as engine_export_figure, figure_to_svg,
+    Tier, TierId, TierRelation, TileRequest, Window, export_figure as engine_export_figure,
+    figure_to_svg,
 };
 use serde::Deserialize;
 use tauri::State;
@@ -49,7 +50,17 @@ pub struct TileReq {
     colormap: String,
     invert: bool,
     preemphasis: bool,
+    window_shape: String,
     lut: Option<Vec<u8>>,
+}
+
+/// Maps a spectrogram window-shape name to a [`Window`]; anything but
+/// `"hanning"` is the default Praat Gaussian.
+fn window_of(shape: &str) -> Window {
+    match shape {
+        "hanning" => Window::Hanning,
+        _ => SpectrogramParams::default().window,
+    }
 }
 
 fn colormap_of(name: &str) -> Colormap {
@@ -101,6 +112,7 @@ pub fn spectrogram_tile(state: State<AppState>, id: u64, req: TileReq) -> Result
         width_px: req.width_px,
         height_px: req.height_px,
         params: SpectrogramParams {
+            window: window_of(&req.window_shape),
             window_length: req.window_length,
             max_frequency: req.max_frequency,
             time_step: req.time_step,

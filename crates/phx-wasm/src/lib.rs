@@ -7,9 +7,18 @@ use phx_engine::{
     Colormap as EngineColormap, Command, DisplayMapping, Engine, ExportBundle, Figure,
     FigureFormat, FigureRequest, FormantParams, IntensityParams, IntervalId, LabelPattern,
     LabelQuery, LabelTarget, PitchParams, PointId, RecordingId, SpectrogramParams, Tier, TierId,
-    TierRelation, TileRequest, export_figure as engine_export_figure, figure_to_svg,
+    TierRelation, TileRequest, Window, export_figure as engine_export_figure, figure_to_svg,
 };
 use phx_project::{ContentHash, LibraryNode, MediaId, MediaRef, Project};
+
+/// Maps a spectrogram window-shape name to a [`Window`]. Any value other than
+/// `"hanning"` (including `"gaussian"`) is the default Praat Gaussian.
+fn window_from_shape(shape: &str) -> Window {
+    match shape {
+        "hanning" => Window::Hanning,
+        _ => SpectrogramParams::default().window,
+    }
+}
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
@@ -1099,6 +1108,7 @@ impl WasmEngine {
         colormap: WasmColormap,
         invert: bool,
         preemphasis: bool,
+        window_shape: String,
     ) -> Result<Uint8Array, JsError> {
         let req = TileRequest {
             t0,
@@ -1112,6 +1122,7 @@ impl WasmEngine {
                 max_frequency,
                 time_step,
                 frequency_step,
+                window: window_from_shape(&window_shape),
                 ..SpectrogramParams::default()
             },
         };
@@ -1166,6 +1177,7 @@ impl WasmEngine {
         lut: &[u8],
         invert: bool,
         preemphasis: bool,
+        window_shape: String,
     ) -> Result<Uint8Array, JsError> {
         if lut.len() != 768 {
             return Err(JsError::new(&format!(
@@ -1189,6 +1201,7 @@ impl WasmEngine {
                 max_frequency,
                 time_step,
                 frequency_step,
+                window: window_from_shape(&window_shape),
                 ..SpectrogramParams::default()
             },
         };
@@ -3464,6 +3477,7 @@ mod tests {
                 WasmColormap::Viridis,
                 false,
                 false,
+                "gaussian".to_string(),
             )
             .unwrap();
         assert_eq!(rgba.length(), 16 * 12 * 4);
@@ -3494,6 +3508,7 @@ mod tests {
                 &lut,
                 false,
                 false,
+                "gaussian".to_string(),
             )
             .unwrap();
         assert_eq!(rgba_lut.length(), 16 * 12 * 4);
@@ -3516,6 +3531,7 @@ mod tests {
                     &[0u8; 10],
                     false,
                     false,
+                    "gaussian".to_string(),
                 )
                 .is_err()
         );

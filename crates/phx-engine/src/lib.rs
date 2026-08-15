@@ -38,7 +38,9 @@ use phx_spectrogram::{analysis_axes_dims, select_axis_indices};
 use tile_cache::{BlockKey, TILE_COLS, TileCache, params_hash};
 
 use phx_audio::{Audio, ResampleQuality};
-use phx_dsp::{RealFftPlan, Window, window_samples};
+use phx_dsp::{RealFftPlan, window_samples};
+// Re-exported so callers building a `SpectrogramParams` can name its window field.
+pub use phx_dsp::Window;
 
 use std::sync::Arc;
 

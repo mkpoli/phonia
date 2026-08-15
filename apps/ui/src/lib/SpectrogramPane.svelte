@@ -198,6 +198,7 @@
     overlayParams.spectrogram.windowLength;
     overlayParams.spectrogram.dynamicRangeDb;
     overlayParams.spectrogram.preemphasis;
+    overlayParams.spectrogram.windowShape;
     applyTransform();
     scheduleFetch();
   });
@@ -220,7 +221,8 @@
       paletteId,
       overlayParams.spectrogram.windowLength,
       overlayParams.spectrogram.dynamicRangeDb,
-      overlayParams.spectrogram.preemphasis
+      overlayParams.spectrogram.preemphasis,
+      overlayParams.spectrogram.windowShape
     ].join(':');
     const key = `${String(audio.id)}:spec:${paramsHash}`;
     const cached = cache.get(key);
@@ -240,6 +242,7 @@
       colormap: palette.kind === 'builtin' ? palette.name : 'Phonia',
       invert: paletteInvert,
       preemphasis: overlayParams.spectrogram.preemphasis,
+      windowShape: overlayParams.spectrogram.windowShape,
       lut: paletteLut
     };
     const bitmap = await client.spectrogramTile(audio.id, req);

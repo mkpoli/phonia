@@ -595,6 +595,27 @@ test('spectrogram settings: display pre-emphasis re-renders the spectrogram', as
   await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
 });
 
+test('spectrogram settings: switching the window shape re-renders the spectrogram', async ({
+  page
+}) => {
+  await openEditorWithFixture(page, vowelFixture);
+  const canvas = page.getByTestId('spectrogram-canvas');
+  await expect(canvas).toBeVisible();
+
+  await page
+    .getByTestId('inspector-spectrogram')
+    .getByRole('button', { name: 'Spectrogram' })
+    .click();
+  const shape = page.getByTestId('spectrogram-window-shape');
+  await expect(shape).toBeVisible();
+  const snapshot = () => canvas.evaluate((el: HTMLCanvasElement) => el.toDataURL());
+  const before = await snapshot();
+
+  // A Hanning window has a different bandwidth than the Gaussian; the raster changes.
+  await shape.selectOption('hanning');
+  await expect.poll(async () => (await snapshot()) !== before, { timeout: 20_000 }).toBe(true);
+});
+
 test('cpp overlay: the layer toggles on', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   const eye = page.getByTestId('toggle-cpp');

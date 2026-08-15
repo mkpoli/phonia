@@ -6,7 +6,10 @@ use std::f64::consts::PI;
 use std::ops::Range;
 
 use phx_audio::AudioView;
-use phx_dsp::{FrameGrid, RealFftPlan, Window, next_pow2, window_samples};
+use phx_dsp::{FrameGrid, RealFftPlan, next_pow2, window_samples};
+// The analysis window shape is part of `SpectrogramParams`, so callers that
+// build one need to name the type.
+pub use phx_dsp::Window;
 
 const DEFAULT_WINDOW_LENGTH: f64 = 0.005;
 const DEFAULT_MAX_FREQUENCY: f64 = 5000.0;
