@@ -387,6 +387,31 @@ test('snap boundary to nearest zero crossing lands it on a crossing', async ({ p
     .toBe(true);
 });
 
+test('copy annotation table writes every tier row to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await loadFixture(page);
+  await page.getByTestId('textgrid-input').setInputFiles(textGridFixture);
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '3');
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('annotation table');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="copyAnnotationTable"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('tier-status')).toContainText('Copied');
+
+  const csv = await page.evaluate(() => navigator.clipboard.readText());
+  expect(csv.startsWith('tier,kind,label,tmin,tmax')).toBe(true);
+  const lines = csv.trim().split('\n');
+  // The three-tier fixture carries many labels, so the dump has plenty of rows.
+  expect(lines.length).toBeGreaterThan(3);
+  // Each data row names a valid kind and carries the five columns.
+  const cols = lines[1].split(',');
+  expect(cols.length).toBeGreaterThanOrEqual(5);
+  expect(['interval', 'point']).toContain(cols[1]);
+});
+
 test('reorder tier moves it up or down in the stack', async ({ page }) => {
   await openEditorWithFixture(page, wavFixture);
   const lanes = page.getByTestId('tier-lane');

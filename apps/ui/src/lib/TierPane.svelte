@@ -689,6 +689,40 @@
     URL.revokeObjectURL(url);
   }
 
+  // Quotes a field per RFC 4180 when it holds a comma, quote, or newline, so a
+  // label like `a, b` or one with quotation marks survives the CSV round-trip.
+  function csvCell(value: string): string {
+    return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  }
+
+  // Praat's "Down to Table": flatten every tier — intervals and points — into a
+  // single CSV, one row per label, using the already-loaded tier contents.
+  async function copyAnnotationTable() {
+    if (annotationId === null || tiers.length === 0) return;
+    const rows = ['tier,kind,label,tmin,tmax'];
+    for (const tier of tiers) {
+      if (tier.kind === 'interval') {
+        for (const iv of intervalsByTier.get(tier.id) ?? []) {
+          rows.push(
+            `${csvCell(tier.name)},interval,${csvCell(iv.label)},${iv.xmin.toFixed(6)},${iv.xmax.toFixed(6)}`
+          );
+        }
+      } else {
+        for (const pt of pointsByTier.get(tier.id) ?? []) {
+          rows.push(
+            `${csvCell(tier.name)},point,${csvCell(pt.label)},${pt.time.toFixed(6)},${pt.time.toFixed(6)}`
+          );
+        }
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(rows.join('\n'));
+      status = `Copied ${rows.length - 1} rows`;
+    } catch {
+      status = 'Could not copy the table';
+    }
+  }
+
   async function importTextGridFile(file: File) {
     if (!client || audioId === null) return;
     try {
@@ -926,6 +960,15 @@
       keywords: ['save', 'praat'],
       enabled: hasDocument,
       run: () => void exportTextGrid()
+    },
+    {
+      id: 'copyAnnotationTable',
+      title: 'Copy annotation table (CSV)',
+      group: 'Annotation',
+      api: ['annotationTiers', 'intervalsInRange', 'pointsInRange'],
+      keywords: ['table', 'csv', 'export', 'copy', 'labels', 'down to table', 'tiers'],
+      enabled: () => annotationId !== null && tiers.length > 0,
+      run: () => void copyAnnotationTable()
     }
   ]);
 </script>
