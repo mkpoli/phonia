@@ -476,6 +476,29 @@ test('formant extrema: per-slot frequency range over the selection appears', asy
   expect(await rows.count()).toBeGreaterThan(0);
 });
 
+test('formant bandwidths: the selection-mean table reports Fn and Bn per slot', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+
+  // The per-slot mean table needs the tracked (smoothed) formants, which carry
+  // the cross-frame identity a mean is taken along. The section is expanded by
+  // default, so turn tracking on, then select a span.
+  await page.getByTestId('formant-smoothed').check();
+  await dragSpectrogramBox(page);
+
+  const table = page.getByTestId('formant-mean-table');
+  await expect(table).toBeVisible({ timeout: 20_000 });
+  await expect(table).toContainText('over selection');
+  await expect(table).toContainText('Bw');
+
+  // The first slot carries a finite mean frequency and a finite mean bandwidth.
+  const firstRow = page.getByTestId('formant-mean-row').first();
+  await expect(firstRow).toContainText('F1');
+  const bandwidth = Number(
+    ((await firstRow.locator('td').nth(2).textContent()) ?? '').replace(/[^0-9.]/g, '')
+  );
+  expect(bandwidth).toBeGreaterThan(0);
+});
+
 test('spectrogram settings: changing the window length re-renders the spectrogram', async ({
   page
 }) => {

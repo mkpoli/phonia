@@ -973,6 +973,52 @@ impl Engine {
             .collect())
     }
 
+    /// Returns the mean bandwidth of each formant slot over a time span, in
+    /// hertz — the resonance sharpness a phonetician reads beside each formant
+    /// frequency. Slot `j` averages the `j`-th lowest candidate's bandwidth over
+    /// the frames inside `[t0, t1]` that carry it, or `None` when none do.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
+    /// store entry, and [`EngineError::InvalidRequest`] when a formant parameter
+    /// is outside the range the analysis accepts, or a bound is not finite.
+    pub fn formant_span_bandwidth_means(
+        &self,
+        id: AudioId,
+        params: &FormantParams,
+        smoothed: bool,
+        t0: f64,
+        t1: f64,
+    ) -> Result<Vec<Option<f64>>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "formant_span_bandwidth_means t0/t1 must be finite".to_string(),
+            });
+        }
+        let track = if smoothed {
+            self.formant_track_smoothed(id, params)?
+        } else {
+            self.formant_track(id, params)?
+        };
+        let (lo, hi) = (t0.min(t1), t0.max(t1));
+        let mut sums = vec![0.0; params.max_formants];
+        let mut counts = vec![0usize; params.max_formants];
+        for frame in &track.frames {
+            if frame.time < lo || frame.time > hi {
+                continue;
+            }
+            for (slot, formant) in frame.formants.iter().enumerate().take(params.max_formants) {
+                sums[slot] += formant.bandwidth;
+                counts[slot] += 1;
+            }
+        }
+        Ok(sums
+            .into_iter()
+            .zip(counts)
+            .map(|(sum, count)| (count > 0).then(|| sum / count as f64))
+            .collect())
+    }
+
     /// Computes power-weighted spectral moments at the midpoint of a span.
     ///
     /// The slice is the raw spectrogram frame nearest `(t0 + t1) / 2`, its dB
@@ -2908,6 +2954,33 @@ mod tests {
         assert_eq!(readout.band_energy_db.to_bits(), direct.to_bits());
         assert!((readout.duration - (t1 - t0)).abs() < 1.0e-12);
         assert!(readout.f0_mean_hz.is_some(), "vowel span should be voiced");
+    }
+
+    #[test]
+    fn formant_span_bandwidth_means_are_present_and_positive() {
+        let mut engine = Engine::new();
+        let id = engine.import_audio_bytes(VOWEL_WAV).unwrap();
+        let info = engine.audio_info(id).unwrap();
+        let params = FormantParams::default();
+        let bandwidths = engine
+            .formant_span_bandwidth_means(
+                id,
+                &params,
+                false,
+                info.duration * 0.3,
+                info.duration * 0.6,
+            )
+            .unwrap();
+        let first = bandwidths
+            .iter()
+            .flatten()
+            .next()
+            .copied()
+            .expect("a voiced vowel span carries at least one formant");
+        assert!(
+            first > 0.0,
+            "formant bandwidth {first} Hz should be positive"
+        );
     }
 
     #[test]

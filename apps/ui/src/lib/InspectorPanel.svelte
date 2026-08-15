@@ -17,6 +17,9 @@
     readout?: SelectionReadout | null;
     /** Provisional tracked-formant means over the selection (F1, F2, …). */
     formantMeans?: number[] | null;
+    /** Mean formant bandwidths over the selection (B1, B2, …), paired with
+     *  `formantMeans` by slot. */
+    formantBandwidths?: number[] | null;
     /** Per-slot formant frequency range over the selection, or null when the
      *  layer is off or no selection is active. */
     formantStats?: { slot: number; minHz: number; maxHz: number }[] | null;
@@ -48,6 +51,7 @@
     stats,
     readout = null,
     formantMeans = null,
+    formantBandwidths = null,
     formantStats = null,
     intensityStats = null,
     harmonicityStats = null,
@@ -146,6 +150,13 @@
     }
     return '—';
   });
+
+  // Per-slot mean formant frequency and bandwidth over the selection.
+  const formantMeanRows = $derived(
+    (formantMeans ?? [])
+      .map((freq, i) => ({ slot: i + 1, freq, bw: formantBandwidths?.[i] ?? Number.NaN }))
+      .filter((row) => Number.isFinite(row.freq))
+  );
 </script>
 
 <aside class="inspector" data-testid="inspector" aria-label="Analysis layers">
@@ -342,7 +353,25 @@
     {/if}
     {#if expanded.formant}
       <div class="params">
-        {#if cursor && cursor.formants.length > 0}
+        {#if formantMeanRows.length > 0}
+          <table class="formant-table" data-testid="formant-mean-table">
+            <thead>
+              <tr
+                ><th scope="col">over selection</th><th scope="col">Freq</th><th scope="col">Bw</th
+                ></tr
+              >
+            </thead>
+            <tbody>
+              {#each formantMeanRows as row (row.slot)}
+                <tr data-testid="formant-mean-row">
+                  <td class="fk">F{row.slot}</td>
+                  <td>{hz(row.freq)}</td>
+                  <td>{hz(row.bw)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {:else if cursor && cursor.formants.length > 0}
           <table class="formant-table" data-testid="formant-table">
             <thead>
               <tr><th scope="col">at cursor</th><th scope="col">Freq</th><th scope="col">Bw</th></tr>

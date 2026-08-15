@@ -80,6 +80,7 @@ pub fn run() {
             engine_cmds::band_energy,
             engine_cmds::selection_readout,
             engine_cmds::formant_span_means,
+            engine_cmds::formant_span_bandwidth_means,
             engine_cmds::voice_report,
             engine_cmds::pulse_times,
             engine_cmds::spectrum_slice,

@@ -1521,6 +1521,42 @@ impl WasmEngine {
         Ok(Float64Array::from(flat.as_slice()))
     }
 
+    /// Mean bandwidth of each formant slot over `[t0, t1]`, in hertz, as a flat
+    /// array with `NaN` where a slot carries no frame — the resonance sharpness
+    /// beside each mean formant frequency.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, a formant parameter is out of
+    /// range, or a bound is not finite.
+    #[wasm_bindgen(js_name = formantSpanBandwidthMeans)]
+    pub fn formant_span_bandwidth_means(
+        &self,
+        id: u64,
+        ceiling_hz: f64,
+        max_formants: usize,
+        smoothed: bool,
+        t0: f64,
+        t1: f64,
+    ) -> Result<Float64Array, JsError> {
+        let params = FormantParams {
+            ceiling_hz,
+            max_formants,
+            ..FormantParams::default()
+        };
+        let means = self.inner.formant_span_bandwidth_means(
+            AudioId::from_u64(id),
+            &params,
+            smoothed,
+            t0,
+            t1,
+        )?;
+        let flat: Vec<f64> = means
+            .into_iter()
+            .map(|value| value.unwrap_or(f64::NAN))
+            .collect();
+        Ok(Float64Array::from(flat.as_slice()))
+    }
+
     /// Glottal pulse instants across the whole signal, in seconds, for the
     /// waveform pulse overlay.
     ///

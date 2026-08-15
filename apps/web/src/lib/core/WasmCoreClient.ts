@@ -298,6 +298,25 @@ export class WasmCoreClient implements CoreClient {
     });
   }
 
+  formantSpanBandwidthMeans(
+    id: AudioId,
+    ceilingHz: number,
+    maxFormants: number,
+    smoothed: boolean,
+    t0: number,
+    t1: number
+  ): Promise<Float64Array> {
+    return this.#call({
+      method: 'formantSpanBandwidthMeans',
+      audioId: id,
+      ceilingHz,
+      maxFormants,
+      smoothed,
+      t0,
+      t1
+    });
+  }
+
   voiceReport(
     id: AudioId,
     t0: number,

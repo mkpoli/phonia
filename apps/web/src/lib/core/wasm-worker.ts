@@ -128,6 +128,16 @@ type RequestMessage =
     }
   | {
       id: number;
+      method: 'formantSpanBandwidthMeans';
+      audioId: AudioId;
+      ceilingHz: number;
+      maxFormants: number;
+      smoothed: boolean;
+      t0: number;
+      t1: number;
+    }
+  | {
+      id: number;
       method: 'voiceReport';
       audioId: AudioId;
       t0: number;
@@ -815,6 +825,20 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
           { id: message.id, ok: true, result: copy },
           { transfer: [copy.buffer] }
         );
+        return;
+      }
+      case 'formantSpanBandwidthMeans': {
+        const data = wasm.formantSpanBandwidthMeans(
+          message.audioId,
+          message.ceilingHz,
+          message.maxFormants,
+          message.smoothed,
+          message.t0,
+          message.t1
+        );
+        const copy = new Float64Array(data.length);
+        copy.set(data);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
         return;
       }
       case 'pulseTimes': {

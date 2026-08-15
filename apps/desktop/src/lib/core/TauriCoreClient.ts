@@ -250,6 +250,25 @@ export class TauriCoreClient implements CoreClientLike {
     return new Float64Array(means);
   }
 
+  async formantSpanBandwidthMeans(
+    id: AudioId,
+    ceilingHz: number,
+    maxFormants: number,
+    smoothed: boolean,
+    t0: number,
+    t1: number
+  ): Promise<Float64Array> {
+    const means = await invoke<number[]>('formant_span_bandwidth_means', {
+      id: num(id),
+      ceilingHz,
+      maxFormants,
+      smoothed,
+      t0,
+      t1
+    });
+    return new Float64Array(means);
+  }
+
   voiceReport(
     id: AudioId,
     t0: number,

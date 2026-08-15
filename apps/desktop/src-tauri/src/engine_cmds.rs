@@ -375,6 +375,28 @@ pub fn formant_span_means(
 }
 
 #[tauri::command]
+pub fn formant_span_bandwidth_means(
+    state: State<AppState>,
+    id: u64,
+    ceiling_hz: f64,
+    max_formants: usize,
+    smoothed: bool,
+    t0: f64,
+    t1: f64,
+) -> Result<Vec<f64>, String> {
+    let params = FormantParams {
+        ceiling_hz,
+        max_formants,
+        ..FormantParams::default()
+    };
+    let engine = lock(&state)?;
+    let means = engine
+        .formant_span_bandwidth_means(AudioId::from_u64(id), &params, smoothed, t0, t1)
+        .map_err(err)?;
+    Ok(means.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
+}
+
+#[tauri::command]
 pub fn pulse_times(
     state: State<AppState>,
     id: u64,

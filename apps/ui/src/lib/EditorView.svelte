@@ -381,6 +381,7 @@
   let selection = $state<Selection | null>(null);
   let readout = $state<SelectionReadout | null>(null);
   let formantMeans = $state<number[] | null>(null);
+  let formantBandwidths = $state<number[] | null>(null);
   let intensityStats = $state<{
     maxDb: number;
     maxTime: number;
@@ -560,6 +561,7 @@
     const formant = overlayParams.formant;
     if (!client || id === undefined || !sel || !formant.smoothed) {
       formantMeans = null;
+      formantBandwidths = null;
       return;
     }
     let cancelled = false;
@@ -567,6 +569,12 @@
       .formantSpanMeans(id, formant.ceilingHz, formant.maxFormants, true, sel.t0, sel.t1)
       .then((means) => {
         if (!cancelled) formantMeans = Array.from(means);
+      })
+      .catch(() => {});
+    client
+      .formantSpanBandwidthMeans(id, formant.ceilingHz, formant.maxFormants, true, sel.t0, sel.t1)
+      .then((bandwidths) => {
+        if (!cancelled) formantBandwidths = Array.from(bandwidths);
       })
       .catch(() => {});
     return () => {
@@ -720,6 +728,7 @@
     if (!next) {
       readout = null;
       formantMeans = null;
+      formantBandwidths = null;
     }
   }
 
@@ -727,6 +736,7 @@
     selection = null;
     readout = null;
     formantMeans = null;
+    formantBandwidths = null;
     voiceReportOpen = false;
   }
 
@@ -2003,6 +2013,7 @@
 
     {#if inspectorOpen}
       <InspectorPanel
+        {formantBandwidths}
         params={overlayParams}
         stats={overlayStats}
         {readout}

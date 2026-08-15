@@ -520,6 +520,14 @@ export interface CoreClientLike extends AnnotationClientLike {
     t0: number,
     t1: number
   ): Promise<Float64Array>;
+  formantSpanBandwidthMeans(
+    id: AudioId,
+    ceilingHz: number,
+    maxFormants: number,
+    smoothed: boolean,
+    t0: number,
+    t1: number
+  ): Promise<Float64Array>;
   voiceReport(
     id: AudioId,
     t0: number,
