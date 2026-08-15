@@ -302,6 +302,7 @@ type RequestMessage =
       bits: WavBitDepth;
     }
   | { id: number; method: 'subtractMeanWav'; audioId: AudioId; t0: number; t1: number; bits: WavBitDepth }
+  | { id: number; method: 'applyZeroWav'; audioId: AudioId; t0: number; t1: number; bits: WavBitDepth }
   | { id: number; method: 'buildFigure'; spec: FigureSpec }
   | { id: number; method: 'renderFigureSvg'; figureJson: string }
   | { id: number; method: 'exportFigure'; figureJson: string; format: FigureExportFormat };
@@ -1279,6 +1280,18 @@ self.onmessage = async (event: MessageEvent<RequestMessage>) => {
       }
       case 'subtractMeanWav': {
         const bytes = wasm.subtractMeanWav(
+          message.audioId,
+          message.t0,
+          message.t1,
+          WasmBitDepth[message.bits]
+        );
+        const copy = new Uint8Array(bytes.length);
+        copy.set(bytes);
+        postMessage({ id: message.id, ok: true, result: copy }, { transfer: [copy.buffer] });
+        return;
+      }
+      case 'applyZeroWav': {
+        const bytes = wasm.applyZeroWav(
           message.audioId,
           message.t0,
           message.t1,

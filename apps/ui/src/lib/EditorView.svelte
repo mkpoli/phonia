@@ -127,6 +127,9 @@
     /** Removes a span's DC offset into a new library recording; absent hides the
      *  affordance. */
     onSubtractMeanSelection?: (t0: number, t1: number) => void;
+    /** Silences a span, keeping the rest of the recording, into a new library
+     *  recording; absent hides the affordance. */
+    onZeroSelection?: (t0: number, t1: number) => void;
     /** Reverses a span in time into a new library recording; absent hides the
      *  reverse affordance. */
     onReverseSelection?: (t0: number, t1: number) => void;
@@ -222,6 +225,7 @@
     onPreemphasisSelection,
     onDeemphasisSelection,
     onSubtractMeanSelection,
+    onZeroSelection,
     onReverseSelection,
     onScaleSelection,
     onScalePeakSelection,
@@ -900,6 +904,12 @@
   // Removes the selection's DC offset into a new recording.
   function subtractMeanCurrentSelection() {
     if (selection) onSubtractMeanSelection?.(selection.t0, selection.t1);
+  }
+
+  // Silences the selection's time span, keeping the rest of the recording, into
+  // a new recording — Praat's Sound "Set part to zero".
+  function zeroCurrentSelection() {
+    if (selection) onZeroSelection?.(selection.t0, selection.t1);
   }
 
   // Filters a box selection's time span to its frequency band and stores the
@@ -1760,6 +1770,15 @@
       keywords: ['dc', 'offset', 'subtract mean', 'centre', 'bias', 'new sound'],
       enabled: () => hasSelection() && onSubtractMeanSelection !== undefined,
       run: subtractMeanCurrentSelection
+    },
+    {
+      id: 'zeroSelection',
+      title: 'Set selection to zero (new recording)',
+      group: 'Selection',
+      api: ['applyZeroWav', 'importAudio'],
+      keywords: ['zero', 'silence', 'mute', 'set part to zero', 'excise', 'click', 'new sound'],
+      enabled: () => hasSelection() && onZeroSelection !== undefined,
+      run: zeroCurrentSelection
     },
     {
       id: 'reverseSelection',

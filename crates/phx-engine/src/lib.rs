@@ -1823,6 +1823,44 @@ impl Engine {
         Ok(Audio::new(vec![mono], sample_rate)?.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the whole of `id` with the span `[t0, t1]` set to silence as mono
+    /// WAV bytes at `bits` — Praat's Sound "Set part to zero", which punches a
+    /// hole (a click, a cough) out of a recording without changing its length,
+    /// saved as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite or the
+    /// span is empty, and [`EngineError::Audio`] when the audio cannot be encoded.
+    pub fn zero_span_wav(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "zero_span_wav bounds must be finite".to_string(),
+            });
+        }
+        let access = self.store.whole(id)?;
+        let audio = access.audio();
+        let sample_rate = audio.sample_rate();
+        let frames = audio.frames();
+        let (start, end) = span_frames(sample_rate, audio.duration(), t0, t1);
+        if end <= start {
+            return Err(EngineError::InvalidRequest {
+                reason: "zero_span_wav span is empty".to_string(),
+            });
+        }
+        let mut mono: Vec<f32> = audio.slice_samples(0..frames).mono_mix().to_vec();
+        for sample in &mut mono[start..end] {
+            *sample = 0.0;
+        }
+        Ok(Audio::new(vec![mono], sample_rate)?.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the time span `[t0, t1]` of `id` scaled to an average intensity of
     /// `target_db` as WAV bytes at `bits` — Praat's Sound "Scale intensity" over
     /// a selection, as a new take.
@@ -4179,6 +4217,35 @@ mod tests {
         for (a, b) in decoded.channel(0).iter().zip(reference.channel(0)) {
             assert_eq!(a.to_bits(), b.to_bits());
         }
+    }
+
+    #[test]
+    fn zero_span_wav_silences_the_span_and_keeps_the_rest() {
+        let mut engine = Engine::new();
+        let bytes = sine_wav_bytes(8_000, 1.0, 220.0);
+        let audio = engine.import_audio_bytes(&bytes).unwrap();
+        let info = engine.audio_info(audio).unwrap();
+        let sr = info.sample_rate;
+
+        let (t0, t1) = (0.25, 0.75);
+        let wav = engine
+            .zero_span_wav(audio, t0, t1, BitDepth::Float32)
+            .unwrap();
+        let decoded = Audio::from_wav_bytes(&wav).unwrap();
+
+        // The whole recording is returned, its length unchanged.
+        assert_eq!(decoded.frames(), 8_000);
+        let start = (t0 * sr).floor() as usize;
+        let end = (t1 * sr).ceil() as usize;
+        let channel = decoded.channel(0);
+        // Every sample inside the span is exactly zero.
+        assert!(channel[start..end].iter().all(|&s| s == 0.0));
+        // The sine outside the span is untouched (some energy remains).
+        let outside_energy: f32 = channel[..start].iter().map(|s| s.abs()).sum();
+        assert!(
+            outside_energy > 1.0,
+            "audio outside the span should survive"
+        );
     }
 
     #[test]

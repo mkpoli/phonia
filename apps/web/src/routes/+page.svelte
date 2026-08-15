@@ -1564,6 +1564,19 @@
     }
   }
 
+  // Silences the selection while keeping the rest of the recording — Praat's
+  // "Set part to zero", for punching out a click or cough.
+  async function zeroSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
+    const label = `${recording.name} [silenced]`;
+    try {
+      const wav = await client.applyZeroWav(audio.id, t0, t1, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Writes each channel of a multichannel recording as its own mono recording,
   // in channel order, then opens the first so the split is visible.
   async function extractChannels() {
@@ -1855,6 +1868,7 @@
       onPreemphasisSelection={preemphasisSelection}
       onDeemphasisSelection={deemphasisSelection}
       onSubtractMeanSelection={subtractMeanSelection}
+      onZeroSelection={zeroSelection}
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}
       onScalePeakSelection={scalePeakSelection}

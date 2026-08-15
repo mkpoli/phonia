@@ -717,6 +717,10 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'subtractMeanWav', audioId: id, t0, t1, bits });
   }
 
+  applyZeroWav(id: AudioId, t0: number, t1: number, bits: WavBitDepth): Promise<Uint8Array> {
+    return this.#call({ method: 'applyZeroWav', audioId: id, t0, t1, bits });
+  }
+
   buildFigure(spec: FigureSpec): Promise<string> {
     return this.#call({ method: 'buildFigure', spec });
   }

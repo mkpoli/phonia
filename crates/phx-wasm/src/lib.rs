@@ -2423,6 +2423,26 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes the whole of `id` with the span `[t0, t1]` set to silence as mono
+    /// WAV bytes at `bits` — the "save a recording with a part zeroed" path.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, when a bound is not finite, or
+    /// when the span is empty.
+    #[wasm_bindgen(js_name = applyZeroWav)]
+    pub fn apply_zero_wav(
+        &self,
+        id: u64,
+        t0: f64,
+        t1: f64,
+        bits: WasmBitDepth,
+    ) -> Result<Uint8Array, JsError> {
+        let wav = self
+            .inner
+            .zero_span_wav(AudioId::from_u64(id), t0, t1, bits.into())?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Encodes the band-attenuated (notch) time span `[t0, t1]` of `id` as mono
     /// WAV bytes at `bits` — the "save a notch-filtered selection" path.
     ///
