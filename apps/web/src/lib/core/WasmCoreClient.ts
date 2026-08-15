@@ -702,6 +702,16 @@ export class WasmCoreClient implements CoreClient {
     return this.#call({ method: 'applyPreemphasisWav', audioId: id, t0, t1, fromHz, bits });
   }
 
+  applyDeemphasisWav(
+    id: AudioId,
+    t0: number,
+    t1: number,
+    fromHz: number,
+    bits: WavBitDepth
+  ): Promise<Uint8Array> {
+    return this.#call({ method: 'applyDeemphasisWav', audioId: id, t0, t1, fromHz, bits });
+  }
+
   /** Encodes the DC-offset-removed `[t0, t1]` of `id` as mono WAV bytes at `bits`. */
   subtractMeanWav(id: AudioId, t0: number, t1: number, bits: WavBitDepth): Promise<Uint8Array> {
     return this.#call({ method: 'subtractMeanWav', audioId: id, t0, t1, bits });

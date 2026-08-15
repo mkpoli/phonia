@@ -678,6 +678,26 @@ test('pre-emphasis stores a high-passed copy as a new recording', async ({ page 
   ).toHaveCount(2);
 });
 
+test('de-emphasis stores a tilt-restored copy as a new recording', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('command-palette-input').fill('de-emphasize selection');
+  const cmd = page.locator('[data-testid="command-item"][data-command-id="deemphasisSelection"]');
+  await expect(cmd).toBeVisible();
+  await cmd.hover();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('recording-switcher-name')).toContainText('[de-emphasis]', {
+    timeout: 20_000
+  });
+  await page.getByTestId('recording-switcher').click();
+  await expect(
+    page.getByTestId('recording-switcher-popover').getByTestId('switcher-option')
+  ).toHaveCount(2);
+});
+
 test('subtract mean stores a DC-removed copy as a new recording', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);

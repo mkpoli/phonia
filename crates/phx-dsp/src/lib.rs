@@ -23,7 +23,7 @@ pub use filter::{
 pub use frame_grid::FrameGrid;
 pub use interpolate::sinc_interpolate_max;
 pub use offset::subtract_mean_in_place;
-pub use preemphasis::preemphasis_in_place;
+pub use preemphasis::{deemphasis_in_place, preemphasis_in_place};
 pub use window::{Window, window_samples};
 
 /// Smallest power of two greater than or equal to `n`.

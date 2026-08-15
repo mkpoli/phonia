@@ -1539,6 +1539,19 @@
     }
   }
 
+  // De-emphasizes the selection into a new library recording — the recursive
+  // integrator with its corner at 50 Hz that undoes a pre-emphasis tilt.
+  async function deemphasisSelection(t0: number, t1: number) {
+    if (!client || !audio || !recording || !(t1 > t0)) return;
+    const label = `${recording.name} [de-emphasis]`;
+    try {
+      const wav = await client.applyDeemphasisWav(audio.id, t0, t1, 50, 'Float32');
+      await persistWavAsRecording(wav, label);
+    } catch (caught) {
+      report(caught);
+    }
+  }
+
   // Removes the selection's DC offset (mean) into a new library recording.
   async function subtractMeanSelection(t0: number, t1: number) {
     if (!client || !audio || !recording || !(t1 > t0)) return;
@@ -1840,6 +1853,7 @@
       onFilterSelection={filterSelection}
       onNotchSelection={notchSelection}
       onPreemphasisSelection={preemphasisSelection}
+      onDeemphasisSelection={deemphasisSelection}
       onSubtractMeanSelection={subtractMeanSelection}
       onReverseSelection={reverseSelection}
       onScaleSelection={scaleSelection}

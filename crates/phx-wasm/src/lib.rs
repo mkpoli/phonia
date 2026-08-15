@@ -2377,6 +2377,28 @@ impl WasmEngine {
         Ok(Uint8Array::from(wav.as_slice()))
     }
 
+    /// Encodes the de-emphasized time span `[t0, t1]` of `id` as mono WAV bytes
+    /// at `bits` — the recursive integrator that undoes a pre-emphasis tilt,
+    /// saved as a new take.
+    ///
+    /// # Errors
+    /// Rejects when `id` names no live buffer, when a bound is not finite, or
+    /// when the span is empty.
+    #[wasm_bindgen(js_name = applyDeemphasisWav)]
+    pub fn apply_deemphasis_wav(
+        &self,
+        id: u64,
+        t0: f64,
+        t1: f64,
+        from_hz: f64,
+        bits: WasmBitDepth,
+    ) -> Result<Uint8Array, JsError> {
+        let wav =
+            self.inner
+                .apply_deemphasis_wav(AudioId::from_u64(id), t0, t1, from_hz, bits.into())?;
+        Ok(Uint8Array::from(wav.as_slice()))
+    }
+
     /// Encodes the DC-offset-removed time span `[t0, t1]` of `id` as mono WAV
     /// bytes at `bits` — the "save a mean-subtracted selection" path.
     ///

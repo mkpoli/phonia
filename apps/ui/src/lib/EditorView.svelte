@@ -121,6 +121,9 @@
     /** Pre-emphasizes a span into a new library recording; absent hides the
      *  pre-emphasis affordance. */
     onPreemphasisSelection?: (t0: number, t1: number) => void;
+    /** De-emphasizes a span into a new library recording; absent hides the
+     *  de-emphasis affordance. */
+    onDeemphasisSelection?: (t0: number, t1: number) => void;
     /** Removes a span's DC offset into a new library recording; absent hides the
      *  affordance. */
     onSubtractMeanSelection?: (t0: number, t1: number) => void;
@@ -217,6 +220,7 @@
     onFilterSelection,
     onNotchSelection,
     onPreemphasisSelection,
+    onDeemphasisSelection,
     onSubtractMeanSelection,
     onReverseSelection,
     onScaleSelection,
@@ -838,6 +842,12 @@
   // operation, so a box's frequency bounds are ignored).
   function preemphasizeCurrentSelection() {
     if (selection) onPreemphasisSelection?.(selection.t0, selection.t1);
+  }
+
+  // De-emphasizes the selection's time span into a new recording, undoing a
+  // pre-emphasis tilt (a time operation; a box's frequency bounds are ignored).
+  function deemphasizeCurrentSelection() {
+    if (selection) onDeemphasisSelection?.(selection.t0, selection.t1);
   }
 
   // Removes the selection's DC offset into a new recording.
@@ -1685,6 +1695,15 @@
       keywords: ['pre-emphasis', 'preemphasis', 'high pass', 'tilt', 'formant', 'new sound'],
       enabled: () => hasSelection() && onPreemphasisSelection !== undefined,
       run: preemphasizeCurrentSelection
+    },
+    {
+      id: 'deemphasisSelection',
+      title: 'De-emphasize selection (new recording)',
+      group: 'Selection',
+      api: ['applyDeemphasisWav', 'importAudio'],
+      keywords: ['de-emphasis', 'deemphasis', 'low pass', 'tilt', 'integrator', 'new sound'],
+      enabled: () => hasSelection() && onDeemphasisSelection !== undefined,
+      run: deemphasizeCurrentSelection
     },
     {
       id: 'subtractMeanSelection',

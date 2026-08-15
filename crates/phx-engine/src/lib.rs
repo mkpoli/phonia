@@ -1734,6 +1734,43 @@ impl Engine {
         Ok(Audio::new(vec![mono], sample_rate)?.to_wav_bytes(bits)?)
     }
 
+    /// Encodes the de-emphasized time span `[t0, t1]` of `id` as mono WAV bytes
+    /// at `bits` — Praat's Sound "De-emphasize (in-place)", the recursive
+    /// integrator with its `+3` dB corner at `from_hz` that undoes a
+    /// pre-emphasis tilt, saved as a new take.
+    ///
+    /// # Errors
+    /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
+    /// entry, [`EngineError::InvalidRequest`] when a bound is not finite or the
+    /// span is empty, and [`EngineError::Audio`] when the span cannot be encoded.
+    pub fn apply_deemphasis_wav(
+        &self,
+        id: AudioId,
+        t0: f64,
+        t1: f64,
+        from_hz: f64,
+        bits: BitDepth,
+    ) -> Result<Vec<u8>, EngineError> {
+        if !t0.is_finite() || !t1.is_finite() || !from_hz.is_finite() {
+            return Err(EngineError::InvalidRequest {
+                reason: "apply_deemphasis_wav bounds must be finite".to_string(),
+            });
+        }
+        let info = self.store.info(id)?;
+        let (start, end) = span_frames(info.sample_rate, info.duration, t0, t1);
+        if end <= start {
+            return Err(EngineError::InvalidRequest {
+                reason: "apply_deemphasis_wav span is empty".to_string(),
+            });
+        }
+        let audio = self.store.range_owned(id, start, end)?;
+        let sample_rate = audio.sample_rate();
+        let mut samples: Vec<f64> = audio.mono_mix().iter().map(|&s| f64::from(s)).collect();
+        phx_dsp::deemphasis_in_place(&mut samples, from_hz, sample_rate);
+        let mono: Vec<f32> = samples.iter().map(|&s| s as f32).collect();
+        Ok(Audio::new(vec![mono], sample_rate)?.to_wav_bytes(bits)?)
+    }
+
     /// Encodes the time span `[t0, t1]` of `id` with its DC offset removed as
     /// mono WAV bytes at `bits` — Praat's Sound "Subtract mean", centring the
     /// span on zero so a constant bias no longer skews intensity or spectral

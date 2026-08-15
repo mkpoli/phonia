@@ -23,6 +23,20 @@ pub fn preemphasis_in_place(x: &mut [f64], from_hz: f64, sample_rate: f64) {
     }
 }
 
+/// Applies de-emphasis `y[t] = x[t] + a·y[t−1]` in place, with
+/// `a = exp(−2π·from_hz / sample_rate)` — the recursive integrator that exactly
+/// undoes [`preemphasis_in_place`] (Praat manual, "Sound: De-emphasize
+/// (in-place)..."), restoring the natural source tilt after a pre-emphasized
+/// step. Samples are processed front-to-back so each update reads the already
+/// de-emphasized `y[t−1]`. The first sample is left unchanged.
+pub fn deemphasis_in_place(x: &mut [f64], from_hz: f64, sample_rate: f64) {
+    assert!(sample_rate > 0.0, "sample_rate must be positive");
+    let a = (-2.0 * PI * from_hz / sample_rate).exp();
+    for t in 1..x.len() {
+        x[t] += a * x[t - 1];
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,6 +95,39 @@ mod tests {
         preemphasis_in_place(&mut empty, 50.0, 16_000.0);
         let mut single = [2.5];
         preemphasis_in_place(&mut single, 50.0, 16_000.0);
+        assert_eq!(single, [2.5]);
+    }
+
+    #[test]
+    fn deemphasis_impulse_response_is_geometric() {
+        // The integrator (1, a, a², a³, …) is the inverse of the first difference.
+        let a = (-2.0 * PI * 50.0 / 10_000.0).exp();
+        let mut x = vec![1.0, 0.0, 0.0, 0.0];
+        deemphasis_in_place(&mut x, 50.0, 10_000.0);
+        assert!((x[0] - 1.0).abs() < 1e-15);
+        assert!((x[1] - a).abs() < 1e-15);
+        assert!((x[2] - a * a).abs() < 1e-15);
+        assert!((x[3] - a * a * a).abs() < 1e-15);
+    }
+
+    #[test]
+    fn deemphasis_undoes_preemphasis() {
+        let sr = 16_000.0;
+        let original: Vec<f64> = (0..64).map(|t| (0.02 * t as f64).sin() + 0.3).collect();
+        let mut x = original.clone();
+        preemphasis_in_place(&mut x, 50.0, sr);
+        deemphasis_in_place(&mut x, 50.0, sr);
+        for (got, want) in x.iter().zip(&original) {
+            assert!((got - want).abs() < 1e-9, "got {got}, want {want}");
+        }
+    }
+
+    #[test]
+    fn deemphasis_short_inputs_are_noops() {
+        let mut empty: [f64; 0] = [];
+        deemphasis_in_place(&mut empty, 50.0, 16_000.0);
+        let mut single = [2.5];
+        deemphasis_in_place(&mut single, 50.0, 16_000.0);
         assert_eq!(single, [2.5]);
     }
 }
