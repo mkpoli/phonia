@@ -308,6 +308,42 @@ test('replace all rewrites every matching label', async ({ page }) => {
   await expect(page.getByTestId('search-count')).not.toHaveText('0');
 });
 
+test('add on all tiers drops a boundary and a point on every tier at the cursor', async ({
+  page
+}) => {
+  await loadFixture(page);
+
+  // Two interval tiers and one point tier.
+  await page.getByTestId('add-interval-tier').click();
+  await page.getByTestId('add-interval-tier').click();
+  await page.getByTestId('add-point-tier').click();
+  await expect(pane(page)).toHaveAttribute('data-tier-count', '3');
+
+  const intervalLanes = page.locator('[data-testid="tier-lane"][data-tier-kind="interval"]');
+  const pointLanes = page.locator('[data-testid="tier-lane"][data-tier-kind="point"]');
+  await expect(intervalLanes).toHaveCount(2);
+  await expect(pointLanes).toHaveCount(1);
+  // Each interval tier starts as one full-span interval; the point tier is empty.
+  for (const lane of await intervalLanes.all()) {
+    await expect(lane.getByTestId('interval')).toHaveCount(1);
+  }
+  await expect(pointLanes.first().getByTestId('point')).toHaveCount(0);
+
+  // Seat the cursor mid-signal by playing then pausing.
+  await pane(page).focus();
+  await playFor(page, 700);
+
+  await page.getByTestId('add-on-all-tiers').click();
+
+  // Every interval tier gained a boundary (one interval → two) and the point
+  // tier gained a point.
+  for (const lane of await intervalLanes.all()) {
+    await expect(lane.getByTestId('interval')).toHaveCount(2);
+  }
+  await expect(pointLanes.first().getByTestId('point')).toHaveCount(1);
+  await expect(page.getByTestId('tier-status')).toHaveText('Added on 3 tiers');
+});
+
 test('reorder tier moves it up or down in the stack', async ({ page }) => {
   await openEditorWithFixture(page, wavFixture);
   const lanes = page.getByTestId('tier-lane');

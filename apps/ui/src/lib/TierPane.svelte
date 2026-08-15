@@ -1,6 +1,7 @@
 <script lang="ts">
   import IconListTree from '~icons/lucide/list-tree';
   import IconMapPin from '~icons/lucide/map-pin';
+  import IconSeparatorHorizontal from '~icons/lucide/separator-horizontal';
   import IconFileUp from '~icons/lucide/file-up';
   import IconKeyboard from '~icons/lucide/keyboard';
   import IconFileDown from '~icons/lucide/file-down';
@@ -298,6 +299,29 @@
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
     }
+  }
+
+  // Praat's "Add on all tiers": drop a boundary on every interval tier and a
+  // point on every point tier at the cursor. A tier that already carries a mark
+  // at this instant keeps it — that one insert is skipped, the rest still land.
+  async function splitAllTiersAtCursor() {
+    if (!client || annotationId === null || tiers.length === 0) return;
+    let added = 0;
+    for (const tier of tiers) {
+      try {
+        if (tier.kind === 'interval') {
+          await client.insertBoundary(annotationId, tier.id, cursorTime);
+        } else {
+          await client.insertPoint(annotationId, tier.id, cursorTime, '');
+        }
+        added += 1;
+      } catch {
+        // Tier already has a mark at the cursor; leave it and continue.
+      }
+    }
+    status = added > 0 ? `Added on ${added} ${added === 1 ? 'tier' : 'tiers'}` : '';
+    await refresh();
+    selectByTime(cursorTime);
   }
 
   async function mergeActive() {
@@ -780,6 +804,15 @@
       run: () => void splitAtCursor()
     },
     {
+      id: 'insertBoundaryAllTiers',
+      title: 'Add boundary/point on all tiers at cursor',
+      group: 'Annotation',
+      api: ['insertBoundary', 'insertPoint'],
+      keywords: ['boundary', 'point', 'all tiers', 'add', 'mark'],
+      enabled: () => annotationId !== null && tiers.length > 0,
+      run: () => void splitAllTiersAtCursor()
+    },
+    {
       id: 'removeBoundary',
       title: 'Merge intervals / remove point',
       group: 'Annotation',
@@ -883,6 +916,15 @@
     </button>
     <button type="button" data-testid="add-point-tier" disabled={annotationId === null} onclick={() => addTier('point')}>
       <IconMapPin aria-hidden="true" /><span>Point tier</span>
+    </button>
+    <button
+      type="button"
+      data-testid="add-on-all-tiers"
+      title="Add a boundary/point on every tier at the cursor"
+      disabled={annotationId === null || tiers.length === 0}
+      onclick={() => void splitAllTiersAtCursor()}
+    >
+      <IconSeparatorHorizontal aria-hidden="true" /><span>All tiers</span>
     </button>
     <div class="spacer"></div>
     <SearchBar
