@@ -38,6 +38,14 @@
       minDb: number;
       minTime: number;
     } | null;
+    /** CPP extrema over the selection, or null when the layer is off or no
+     *  selection is active. */
+    cppStats?: {
+      maxDb: number;
+      maxTime: number;
+      minDb: number;
+      minTime: number;
+    } | null;
     /** Track values at the playhead; each layer's live value when no
      *  selection readout supplies one. */
     cursor?: TrackSample | null;
@@ -55,6 +63,7 @@
     formantStats = null,
     intensityStats = null,
     harmonicityStats = null,
+    cppStats = null,
     cursor = null,
     cursorTime = 0,
     onClose
@@ -605,6 +614,16 @@
         >{db(cursor?.cppDb)}</span
       >
     </div>
+    {#if cppStats}
+      <div class="extrema" data-testid="cpp-extrema">
+        <span data-testid="cpp-max"
+          >Max {db(cppStats.maxDb)} at {cppStats.maxTime.toFixed(3)} s</span
+        >
+        <span data-testid="cpp-min"
+          >Min {db(cppStats.minDb)} at {cppStats.minTime.toFixed(3)} s</span
+        >
+      </div>
+    {/if}
     {#if expanded.cpp}
       <div class="params">
         <p class="note">

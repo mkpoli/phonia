@@ -394,6 +394,12 @@
     minDb: number;
     minTime: number;
   } | null>(null);
+  let cppStats = $state<{
+    maxDb: number;
+    maxTime: number;
+    minDb: number;
+    minTime: number;
+  } | null>(null);
   let formantStats = $state<{ slot: number; minHz: number; maxHz: number }[] | null>(null);
 
   // Glottal pulses for the waveform overlay, fetched once per (recording, pitch
@@ -665,6 +671,46 @@
           }
         }
         harmonicityStats = found ? { maxDb, maxTime, minDb, minTime } : null;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  // CPP extrema over the selection — the clearest and breathiest frames and when
+  // they fall. Computed only while the CPP layer is on, like the HNR extrema.
+  $effect(() => {
+    const sel = selection;
+    const id = audio?.id;
+    if (!client || id === undefined || !sel || !overlayParams.cpp.show) {
+      cppStats = null;
+      return;
+    }
+    let cancelled = false;
+    client
+      .cppTrack(id, sel.t0, sel.t1)
+      .then((track) => {
+        if (cancelled) return;
+        let maxDb = -Infinity;
+        let minDb = Infinity;
+        let maxTime = sel.t0;
+        let minTime = sel.t0;
+        let found = false;
+        for (let i = 0; i < track.times.length; i += 1) {
+          const level = track.cpp[i];
+          if (!Number.isFinite(level)) continue;
+          found = true;
+          if (level > maxDb) {
+            maxDb = level;
+            maxTime = track.times[i];
+          }
+          if (level < minDb) {
+            minDb = level;
+            minTime = track.times[i];
+          }
+        }
+        cppStats = found ? { maxDb, maxTime, minDb, minTime } : null;
       })
       .catch(() => {});
     return () => {
@@ -2037,6 +2083,7 @@
         {formantStats}
         {intensityStats}
         {harmonicityStats}
+        {cppStats}
         cursor={cursorSample}
         {cursorTime}
         onClose={() => (inspectorOpen = false)}

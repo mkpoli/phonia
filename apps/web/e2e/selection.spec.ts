@@ -495,6 +495,18 @@ test('harmonicity extrema: min/max HNR over the selection appear when the layer 
   await expect(page.getByTestId('harmonicity-min')).toContainText('Min');
 });
 
+test('cpp extrema: min/max CPP over the selection appear when the layer is on', async ({ page }) => {
+  await openEditorWithFixture(page, vowelFixture);
+  await dragSpectrogramBox(page);
+  await page.getByTestId('toggle-cpp').click();
+
+  const extrema = page.getByTestId('cpp-extrema');
+  await expect(extrema).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('cpp-max')).toContainText('Max');
+  await expect(page.getByTestId('cpp-max')).toContainText('dB');
+  await expect(page.getByTestId('cpp-min')).toContainText('Min');
+});
+
 test('formant extrema: per-slot frequency range over the selection appears', async ({ page }) => {
   await openEditorWithFixture(page, vowelFixture);
   await dragSpectrogramBox(page);
