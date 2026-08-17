@@ -20,6 +20,12 @@
      * pencil beside the first.
      */
     pencil?: boolean;
+    /** Opens the field once, for a freshly created object the owner wants
+     *  named immediately; the gesture never re-fires on its own. */
+    autoEdit?: boolean;
+    /** Fires whenever the field closes — committed, cancelled, or unchanged —
+     *  so the owner can return focus to wherever the flow continues. */
+    onClose?: () => void;
     testId?: string;
   }
 
@@ -30,6 +36,8 @@
     class: className = '',
     label,
     pencil = true,
+    autoEdit = false,
+    onClose,
     testId = 'inline-rename',
   }: Props = $props();
 
@@ -114,11 +122,20 @@
     const next = draft.trim();
     editing = false;
     if (next && next !== name) onRename(next);
+    onClose?.();
   }
 
   function cancel() {
     editing = false;
+    onClose?.();
   }
+
+  let autoOpened = false;
+  $effect(() => {
+    if (!autoEdit || autoOpened) return;
+    autoOpened = true;
+    startEdit();
+  });
 
   function handleDisplayKeydown(event: KeyboardEvent) {
     if (editing || (event.key !== 'F2' && event.key !== 'Enter' && event.key !== ' ')) return;
@@ -154,6 +171,11 @@
 
 <span class="inline-rename" data-testid={testId}>
   {#if editing}
+    <!-- The ghost holds the name's width so opening and closing the field
+         never reflows the row — the input overlays it absolutely. Without it,
+         a press on a neighbouring control that closes the field mid-click
+         moves that control and the browser drops the click. -->
+    <span class="display ghost" aria-hidden="true">{name}</span>
     <input
       bind:this={inputEl}
       bind:value={draft}
@@ -213,6 +235,11 @@
     align-items: center;
     gap: 0.3rem;
     max-width: 100%;
+    position: relative;
+  }
+
+  .display.ghost {
+    visibility: hidden;
   }
 
   .display {
@@ -270,6 +297,15 @@
   }
 
   input {
+    /* Overlays the ghost instead of joining the layout, so the row's width
+       never changes while the field is open. Anchored on the right, it grows
+       leftward over the leading affordances and never covers the controls
+       that follow the name. */
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
     font: inherit;
     color: var(--text);
     background: var(--panel);
@@ -277,9 +313,7 @@
     border-radius: var(--radius-sm);
     padding: 0.05rem 0.35rem;
     min-width: 0;
-    /* `size` sets the natural width; a narrow rail or column caps it here so
-       the field never overflows the row it sits in. */
-    max-width: 100%;
+    max-width: 20ch;
   }
 
   input:focus {

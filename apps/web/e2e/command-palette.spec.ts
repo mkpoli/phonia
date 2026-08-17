@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openEditorWithFixture } from './helpers';
+import { dismissTierName, openEditorWithFixture } from './helpers';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
@@ -78,11 +78,12 @@ test('palette runs the same code paths as buttons and keys', async ({ page }) =>
   await runCommand(page, 'togglePitchTrack', 'toggle pitch');
   await expect(page.getByTestId('toggle-pitch')).toHaveAttribute('aria-pressed', 'false');
 
-  // Add an interval tier through the palette.
+  // Add an interval tier through the palette; its name field opens on the row.
   await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-tier-count', '0');
   await runCommand(page, 'addIntervalTier', 'interval');
   await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-tier-count', '1');
   await expect(page.getByTestId('tier-pane')).toHaveAttribute('data-undo-depth', '3');
+  await dismissTierName(page);
 
   // Undo the tier from the palette.
   await runCommand(page, 'undo', 'undo');

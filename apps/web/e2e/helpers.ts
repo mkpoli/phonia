@@ -22,6 +22,18 @@ export async function openEditorWithFixture(page: Page, wavPath: string): Promis
 }
 
 /**
+ * A newly added tier opens its own name field focused. Specs that go on
+ * typing dismiss it with Escape; waiting for the field to be focused first
+ * makes the add-then-type sequence deterministic.
+ */
+export async function dismissTierName(page: Page): Promise<void> {
+  const field = page.getByTestId('tier-name-input');
+  await expect(field).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(field).toBeHidden();
+}
+
+/**
  * Counts painted canvas pixels — those departing from the pane's dominant
  * background colour. The WebGL panes draw hard-edged (no anti-aliasing), so
  * unique-colour counting can't distinguish real content from a flat fill;

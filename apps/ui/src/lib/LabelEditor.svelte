@@ -2,7 +2,10 @@
   interface Props {
     value: string;
     onInput: (value: string) => void;
-    onCommit: () => void;
+    /** `advance` is true when the commit came from the Enter key — the
+     *  annotation loop then moves to the next interval — and false when it
+     *  came from the field losing focus, where the user is going elsewhere. */
+    onCommit: (advance?: boolean) => void;
     onCancel: () => void;
   }
 
@@ -25,7 +28,7 @@
     if (composing) return;
     if (event.key === 'Enter') {
       event.preventDefault();
-      onCommit();
+      onCommit(true);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       onCancel();
@@ -47,7 +50,7 @@
   onkeydown={handleKeydown}
   oncompositionstart={() => (composing = true)}
   oncompositionend={() => (composing = false)}
-  onblur={onCommit}
+  onblur={() => onCommit(false)}
 />
 
 <style>

@@ -9,6 +9,12 @@
   import IconChevronDown from '~icons/lucide/chevron-down';
   import IconCopy from '~icons/lucide/copy';
   import IconX from '~icons/lucide/x';
+  import IconSplit from '~icons/lucide/split';
+  import IconMerge from '~icons/lucide/merge';
+  import IconPencil from '~icons/lucide/pencil';
+  import IconMagnet from '~icons/lucide/magnet';
+  import IconUndo from '~icons/lucide/undo-2';
+  import IconRedo from '~icons/lucide/redo-2';
   import InlineRename from './InlineRename.svelte';
   import SearchBar from './SearchBar.svelte';
   import TierLane from './TierLane.svelte';
@@ -83,6 +89,9 @@
   let pointsByTier = $state<Map<bigint, PointData[]>>(new Map());
   let activeTierId = $state<bigint | null>(null);
   let activeIndex = $state(0);
+  // The tier created by the most recent add — its name field opens once so
+  // the tier is named where it is born, then focus returns to the pane.
+  let justAddedTierId = $state<bigint | null>(null);
   let editing = $state<EditingState | null>(null);
   let ipaPadOpen = $state(false);
   let undoDepth = $state(0);
@@ -279,7 +288,7 @@
     };
   }
 
-  async function commitEdit() {
+  async function commitEdit(advance = false) {
     const edit = editing;
     if (!edit || !client || annotationId === null) {
       editing = null;
@@ -297,6 +306,9 @@
       status = error instanceof Error ? error.message : String(error);
     }
     await refresh();
+    // Enter commits and steps to the next item, so labeling a run of segments
+    // is type-Enter-type without ever reaching for Tab.
+    if (advance) selectIndex(activeIndex + 1);
     focusPane();
   }
 
@@ -338,6 +350,7 @@
       status = '';
       await refresh();
       selectByTime(cursorTime);
+      focusPane();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
     }
@@ -379,6 +392,7 @@
         status = '';
         await refresh();
         clampActiveIndex();
+        focusPane();
       } catch (error) {
         status = error instanceof Error ? error.message : String(error);
       }
@@ -396,6 +410,7 @@
       status = '';
       await refresh();
       clampActiveIndex();
+      focusPane();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
     }
@@ -481,6 +496,7 @@
       return;
     }
     status = 'Snapped to zero crossing';
+    focusPane();
   }
 
   function selectByTime(time: number) {
@@ -520,6 +536,7 @@
       status = `Added ${name}`;
       await refresh();
       activateTier(id, 0);
+      justAddedTierId = id;
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
     }
@@ -616,6 +633,7 @@
     const applied = await client.undo();
     const next = await reconcileAnnotation(applied);
     await refresh(next);
+    focusPane();
   }
 
   async function redo() {
@@ -624,6 +642,7 @@
     const applied = await client.redo();
     const next = await reconcileAnnotation(applied);
     await refresh(next);
+    focusPane();
   }
 
   async function runSearch(text: string) {
@@ -884,6 +903,16 @@
   const onIntervalTier = () => annotationId !== null && activeTier?.kind === 'interval';
   const onPointTier = () => annotationId !== null && activeTier?.kind === 'point';
 
+  // Toolbar gating — one predicate per button, read from the same live state
+  // the keyboard loop uses.
+  const canSplit = () => annotationId !== null && activeTier !== null;
+  const canMerge = () =>
+    annotationId !== null &&
+    (onPointTier() ? activePoints.length > 0 : onIntervalTier() && activeIntervals.length > 1);
+  const canEditLabel = () => annotationId !== null && activeCount > 0;
+  const canSnap = () => annotationId !== null && onNearestZero !== undefined && activeTier !== null;
+  const shortcut = (id: string, fallback: string) => keyBindings?.labelFor(id) ?? fallback;
+
   registerCommands([
     {
       id: 'addIntervalTier',
@@ -1068,6 +1097,66 @@
     >
       <IconSeparatorHorizontal aria-hidden="true" /><span>All tiers</span>
     </button>
+    <div class="group" aria-hidden="true"></div>
+    <button
+      type="button"
+      data-testid="split-at-cursor"
+      title={`Split the active tier at the cursor (${shortcut('insertBoundary', 'S')})`}
+      disabled={!canSplit()}
+      onclick={() => void splitAtCursor()}
+    >
+      <IconSplit aria-hidden="true" /><span>Split</span><kbd>{shortcut('insertBoundary', 'S')}</kbd>
+    </button>
+    <button
+      type="button"
+      data-testid="merge-active"
+      title={`Merge the active interval with its neighbour, or remove the active point (${shortcut('removeBoundary', 'M')})`}
+      disabled={!canMerge()}
+      onclick={() => void mergeActive()}
+    >
+      <IconMerge aria-hidden="true" /><span>Merge</span><kbd>{shortcut('removeBoundary', 'M')}</kbd>
+    </button>
+    <button
+      type="button"
+      data-testid="edit-label"
+      title={`Edit the label of the active item (${shortcut('editLabel', 'Enter')})`}
+      disabled={!canEditLabel()}
+      onclick={() => openEditor(activeIndex)}
+    >
+      <IconPencil aria-hidden="true" /><span>Label</span><kbd>{shortcut('editLabel', 'Enter')}</kbd>
+    </button>
+    <button
+      type="button"
+      data-testid="snap-active"
+      title="Move the active boundary or point onto the waveform's nearest zero crossing"
+      disabled={!canSnap()}
+      onclick={() => void snapActiveToZero()}
+    >
+      <IconMagnet aria-hidden="true" /><span>Snap</span>
+    </button>
+    <div class="group" aria-hidden="true"></div>
+    <button
+      type="button"
+      data-testid="tier-undo"
+      class="icon-only"
+      aria-label={`Undo (${shortcut('undo', 'Ctrl+Z')})`}
+      title={`Undo (${shortcut('undo', 'Ctrl+Z')})`}
+      disabled={undoDepth === 0}
+      onclick={() => void undo()}
+    >
+      <IconUndo aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      data-testid="tier-redo"
+      class="icon-only"
+      aria-label={`Redo (${shortcut('redo', 'Ctrl+Shift+Z')})`}
+      title={`Redo (${shortcut('redo', 'Ctrl+Shift+Z')})`}
+      disabled={redoDepth === 0}
+      onclick={() => void redo()}
+    >
+      <IconRedo aria-hidden="true" />
+    </button>
     <div class="spacer"></div>
     <SearchBar
       query={query}
@@ -1153,8 +1242,13 @@
               class="tier-label"
               label="Rename tier"
               testId="tier-name"
+              autoEdit={tier.id === justAddedTierId}
               onActivate={() => activateTier(tier.id)}
               onRename={(next) => void renameTier(tier.id, next)}
+              onClose={() => {
+                justAddedTierId = null;
+                focusPane();
+              }}
             />
           </span>
           <button
@@ -1229,6 +1323,27 @@
 
   .anno-toolbar .spacer {
     flex: 1 1 auto;
+  }
+
+  .anno-toolbar .group {
+    align-self: stretch;
+    width: 1px;
+    margin: 0.1rem 0.15rem;
+    background: var(--chrome-strong);
+  }
+
+  .anno-toolbar button kbd {
+    padding: 0 0.25rem;
+    border: 1px solid var(--chrome-strong);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.68rem;
+    line-height: 1.1;
+  }
+
+  .anno-toolbar button.icon-only {
+    padding-inline: 0.4rem;
   }
 
   .anno-toolbar button {

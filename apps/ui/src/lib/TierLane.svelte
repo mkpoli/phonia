@@ -23,7 +23,7 @@
     onMoveBoundary: (boundaryId: bigint, toTime: number) => void;
     onMovePoint: (pointId: bigint, toTime: number) => void;
     onEditInput: (value: string) => void;
-    onEditCommit: () => void;
+    onEditCommit: (advance?: boolean) => void;
     onEditCancel: () => void;
   }
 

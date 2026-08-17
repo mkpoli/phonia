@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openEditorWithFixture } from './helpers';
+import { dismissTierName, openEditorWithFixture } from './helpers';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
@@ -49,6 +49,7 @@ test('keyboard-only annotation: tier, boundaries, labels, merge, undo x5, redo x
   await page.keyboard.press('Enter');
   await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
   await expect(page.getByTestId('interval')).toHaveCount(1);
+  await dismissTierName(page);
 
   // Insert two boundaries at the playback cursor: play, pause, split (S).
   await pane(page).focus();
@@ -65,22 +66,19 @@ test('keyboard-only annotation: tier, boundaries, labels, merge, undo x5, redo x
   const afterSplit2 = await stateHash(page);
 
   // Label the three intervals keyboard-only: digit focuses the tier, Enter
-  // opens the editor, typed text commits with Enter, Tab advances.
+  // opens the editor, and committing with Enter steps to the next interval —
+  // the loop is type-Enter-type without ever reaching for Tab.
   await page.keyboard.press('1');
   await page.keyboard.press('Enter');
   await page.getByTestId('label-editor').fill('ka');
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('interval').nth(0)).toHaveAttribute('data-label', 'ka');
 
-  await pane(page).focus();
-  await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await page.getByTestId('label-editor').fill('taː');
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('interval').nth(1)).toHaveAttribute('data-label', 'taː');
 
-  await pane(page).focus();
-  await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await page.getByTestId('label-editor').fill('na');
   await page.keyboard.press('Enter');
@@ -130,6 +128,7 @@ test('a cursor placed on the waveform feeds the annotation keys without a lane c
   await page.getByTestId('add-interval-tier').click();
   await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
   await expect(page.getByTestId('tier-status')).toHaveText('Added interval 1');
+  await dismissTierName(page);
   await page.getByTestId('search-input').click();
 
   // Clicking the waveform places the cursor and hands the tier pane focus,
@@ -148,6 +147,56 @@ test('a cursor placed on the waveform feeds the annotation keys without a lane c
   await expect(await undoDepth(page)).toBe(5); // import, attach, tier, split, label
 });
 
+test('the toolbar drives the whole annotation loop and names new tiers inline', async ({
+  page
+}) => {
+  await loadFixture(page);
+
+  // A new tier opens its own name field over the auto-name: type, Enter.
+  await page.getByTestId('add-interval-tier').click();
+  const nameField = page.getByTestId('tier-name-input');
+  await expect(nameField).toBeFocused();
+  await nameField.fill('words');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('tier-name-name')).toHaveText('words');
+  // The pane takes the keyboard back, so S works with no extra click.
+  await expect(pane(page)).toBeFocused();
+
+  // Split twice from the toolbar with the cursor placed on the waveform.
+  const wave = await page.getByTestId('waveform-canvas').boundingBox();
+  await page.mouse.click(wave!.x + wave!.width * 0.3, wave!.y + wave!.height * 0.5);
+  await page.getByTestId('split-at-cursor').click();
+  await expect(page.getByTestId('interval')).toHaveCount(2);
+  await page.mouse.click(wave!.x + wave!.width * 0.6, wave!.y + wave!.height * 0.5);
+  await page.getByTestId('split-at-cursor').click();
+  await expect(page.getByTestId('interval')).toHaveCount(3);
+
+  // Redo starts gated; undo and redo walk the journal one entry at a time.
+  await expect(page.getByTestId('tier-redo')).toBeDisabled();
+  const depth = await undoDepth(page);
+  await page.getByTestId('tier-undo').click();
+  await expect(page.getByTestId('interval')).toHaveCount(2);
+  expect(await undoDepth(page)).toBe(depth - 1);
+  await page.getByTestId('tier-redo').click();
+  await expect(page.getByTestId('interval')).toHaveCount(3);
+
+  // Label from the toolbar: the button opens the editor on the active item.
+  await page.getByTestId('edit-label').click();
+  await page.getByTestId('label-editor').fill('ta');
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(() =>
+      page.getByTestId('interval').evaluateAll((els) =>
+        els.some((el) => el.getAttribute('data-label') === 'ta')
+      )
+    )
+    .toBe(true);
+
+  // Merge from the toolbar folds the active interval back into its neighbour.
+  await page.getByTestId('merge-active').click();
+  await expect(page.getByTestId('interval')).toHaveCount(2);
+});
+
 test('splitting where a boundary already sits reports it in words, not an engine error', async ({
   page
 }) => {
@@ -157,6 +206,7 @@ test('splitting where a boundary already sits reports it in words, not an engine
   // tier's edge — the split must answer with a sentence and change nothing.
   await page.getByTestId('add-interval-tier').click();
   await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
+  await dismissTierName(page);
   const depth = await undoDepth(page);
   await page.keyboard.press('s');
   await expect(page.getByTestId('tier-status')).toContainText(
@@ -184,6 +234,7 @@ test('a successful add clears a stale error and auto-names never duplicate', asy
 
   // Leave an error on the status line: the cursor opens at the tier's edge.
   await page.getByTestId('add-interval-tier').click();
+  await dismissTierName(page);
   await expect(page.getByTestId('tier-name-name')).toHaveText('interval 1');
   await page.keyboard.press('s');
   await expect(page.getByTestId('tier-status')).toContainText('The cursor sits on the edge');
@@ -191,6 +242,7 @@ test('a successful add clears a stale error and auto-names never duplicate', asy
   // The next add succeeds; the status line reports it instead of the old error.
   await page.getByTestId('add-interval-tier').click();
   await expect(page.getByTestId('tier-status')).toHaveText('Added interval 2');
+  await dismissTierName(page);
   const names = page.getByTestId('tier-name-name');
   await expect(names).toHaveCount(2);
   await expect(names.nth(0)).toHaveText('interval 1');
@@ -204,6 +256,7 @@ test('a successful add clears a stale error and auto-names never duplicate', asy
   await expect(names.nth(0)).toHaveText('interval 2');
   await page.getByTestId('add-interval-tier').click();
   await expect(page.getByTestId('tier-status')).toHaveText('Added interval 3');
+  await dismissTierName(page);
   await expect(names.nth(0)).toHaveText('interval 2');
   await expect(names.nth(1)).toHaveText('interval 3');
 });
@@ -217,6 +270,7 @@ test('point tier: S adds a point at the cursor, undo removes it, label commits',
   await page.keyboard.press('Enter');
   await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
   await expect(page.getByTestId('point')).toHaveCount(0);
+  await dismissTierName(page);
 
   // Play to move the cursor, then S drops a point at it.
   await pane(page).focus();
@@ -251,6 +305,7 @@ test('point tier: M removes the active point, undo restores it', async ({ page }
   await page.getByTestId('add-point-tier').focus();
   await page.keyboard.press('Enter');
   await expect(pane(page)).toHaveAttribute('data-tier-count', '1');
+  await dismissTierName(page);
 
   // Drop two points at different cursor times.
   await pane(page).focus();
@@ -276,6 +331,7 @@ test('arrow nudge moves the active boundary; Alt steps one frame', async ({ page
   await loadFixture(page);
   await page.getByTestId('add-interval-tier').focus();
   await page.keyboard.press('Enter');
+  await dismissTierName(page);
   await pane(page).focus();
   await playFor(page, 700);
   await page.keyboard.press('s');
@@ -301,6 +357,7 @@ test('boundary drag moves the boundary through the journal and undoes', async ({
   await loadFixture(page);
   await page.getByTestId('add-interval-tier').focus();
   await page.keyboard.press('Enter');
+  await dismissTierName(page);
   await pane(page).focus();
   await playFor(page, 700);
   await page.keyboard.press('s');
@@ -438,6 +495,7 @@ test('snap boundary to nearest zero crossing lands it on a crossing', async ({ p
   await page.getByTestId('add-interval-tier').focus();
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('interval')).toHaveCount(1);
+  await dismissTierName(page);
 
   // Split at a mid-signal cursor to make an internal boundary off any crossing.
   await pane(page).focus();
@@ -522,6 +580,7 @@ test('duplicate tier copies it below with a " copy" name', async ({ page }) => {
   const lanes = page.getByTestId('tier-lane');
   await page.getByTestId('add-interval-tier').click();
   await expect(lanes).toHaveCount(1);
+  await dismissTierName(page);
 
   await page.getByTestId('duplicate-tier').first().click();
   await expect(lanes).toHaveCount(2);
@@ -617,6 +676,7 @@ test('textgrid import/export round trip and 4-tier screenshots in both themes', 
   await page.getByTestId('add-interval-tier').focus();
   await page.keyboard.press('Enter');
   await expect(pane(page)).toHaveAttribute('data-tier-count', '4');
+  await dismissTierName(page);
 
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(screenshots, 'tiers-light.png'), fullPage: true });
@@ -707,6 +767,7 @@ test('extract selection with tiers crops the labelled tier into the new recordin
   // A labelled interval tier: split once, name the first interval.
   await page.getByTestId('add-interval-tier').focus();
   await page.keyboard.press('Enter');
+  await dismissTierName(page);
   await pane(page).focus();
   await playFor(page, 700);
   await page.keyboard.press('s');

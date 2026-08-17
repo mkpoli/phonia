@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canvasForegroundCoverage } from './helpers';
+import { canvasForegroundCoverage, dismissTierName } from './helpers';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
@@ -154,6 +154,7 @@ test('annotate, recover after reload via autosave, then delete', async ({ page }
   await page.getByTestId('add-interval-tier').focus();
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('interval')).toHaveCount(1);
+  await dismissTierName(page);
   await page.keyboard.press('1');
   await page.keyboard.press('Enter');
   await page.getByTestId('label-editor').fill('vowel');
