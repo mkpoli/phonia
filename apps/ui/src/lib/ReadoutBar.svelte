@@ -86,6 +86,19 @@
   const visibleFormants = $derived(
     (formantMeans ?? []).slice(0, 3).map((value, index) => ({ index: index + 1, value }))
   );
+
+  // Display unit for the Δt readout; clicking the unit toggles it.
+  let durationUnit = $state<'s' | 'ms'>('s');
+
+  function toggleDurationUnit() {
+    durationUnit = durationUnit === 's' ? 'ms' : 's';
+  }
+
+  function formatDuration(seconds: number, unit: 's' | 'ms'): string {
+    if (!Number.isFinite(seconds)) return '0.000';
+    const clamped = Math.max(0, seconds);
+    return unit === 'ms' ? `${(clamped * 1000).toFixed(0)}` : formatTime(clamped);
+  }
 </script>
 
 <div
@@ -99,7 +112,14 @@
 >
   <div class="fields">
     <span class="field" data-testid="readout-duration">
-      <span class="k">Δt</span><span class="v">{formatTime(selection.t1 - selection.t0)} s</span>
+      <span class="k">Δt</span>
+      <span class="v">{formatDuration(selection.t1 - selection.t0, durationUnit)}</span>
+      <button
+        type="button"
+        class="unit"
+        onclick={toggleDurationUnit}
+        title="Toggle seconds / milliseconds"
+      >{durationUnit}</button>
     </span>
     <span class="field">
       <span class="k">t</span><span class="v">{formatTime(selection.t0)}–{formatTime(selection.t1)}</span>
@@ -258,6 +278,25 @@
 
   .field .v {
     color: var(--text);
+  }
+
+  .field .unit {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    line-height: inherit;
+  }
+
+  .field .unit:hover,
+  .field .unit:focus-visible {
+    color: var(--accent-strong);
+    text-decoration: underline;
+    text-underline-offset: 0.2rem;
   }
 
   .provisional .v {
