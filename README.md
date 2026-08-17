@@ -5,17 +5,22 @@
   </picture>
 </p>
 
-Phonia is an open-source toolkit for phonetic research, built for the work
-phonetics labs do in Praat every day: viewing spectrograms, measuring pitch,
-formants, and voice quality, annotating recordings, and drawing figures for
-publication. A Rust analysis core drives two interfaces, a browser app and a
-Tauri desktop app. The core is a Cargo workspace of small library crates with
-no UI dependencies, compiled natively for the desktop and to WebAssembly for
-the browser. The crate name `phonix` on crates.io belongs to an unrelated
-project, so published crates use the `phx-` prefix.
+<p align="center">
+  <a href="https://github.com/mkpoli/phonia/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mkpoli/phonia/ci.yml?style=flat-square&label=CI" alt="CI status"></a>
+  <a href="https://github.com/mkpoli/phonia/releases"><img src="https://img.shields.io/github/v/release/mkpoli/phonia?include_prereleases&style=flat-square&label=release" alt="Latest release"></a>
+  <a href="LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT_OR_Apache--2.0-blue?style=flat-square" alt="License: MIT OR Apache-2.0"></a>
+  <a href="rust-toolchain.toml"><img src="https://img.shields.io/badge/rust-1.88%2B-blue?style=flat-square" alt="Rust 1.88 or newer"></a>
+</p>
 
-- Web app: <https://phonia.app>
+Phonia is an open-source toolkit for phonetic research, built for the work
+phonetics labs do in [Praat](https://www.fon.hum.uva.nl/praat/) every day:
+viewing spectrograms, measuring pitch, formants, and voice quality, annotating
+recordings, and drawing figures for publication. It runs in the browser with
+nothing to install, and as a desktop app for native playback and PDF export.
+
+- Try it: <https://phonia.app>
 - About: <https://about.phonia.app>
+- Desktop downloads: <https://github.com/mkpoli/phonia/releases>
 
 ![The editor in dark theme: waveform, spectrogram with pitch and formant overlays, IPA annotation tiers, and the layers panel](docs/screenshots/editor-dark.png)
 
@@ -52,7 +57,11 @@ project, so published crates use the `phx-` prefix.
 
 ## Architecture
 
-The core is a Cargo workspace of library crates, each owning one concern:
+A Rust analysis core drives two interfaces, a browser app and a Tauri desktop
+app. The core is a Cargo workspace of small library crates with no UI
+dependencies, compiled natively for the desktop and to WebAssembly for the
+browser. The crate name `phonix` on crates.io belongs to an unrelated project,
+so published crates use the `phx-` prefix. Each crate owns one concern:
 
 | Crate | Responsibility |
 | --- | --- |
