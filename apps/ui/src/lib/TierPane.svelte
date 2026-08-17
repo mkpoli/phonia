@@ -197,8 +197,20 @@
     if (activeIndex < 0) activeIndex = 0;
   }
 
-  function focusPane() {
-    paneEl?.focus();
+  // Focused from the pane itself and from EditorView after a cursor placement,
+  // so the annotation keys act on the active tier wherever the cursor was set.
+  // `preventScroll`: refocusing must never jump the page while scrubbing.
+  export function focusPane() {
+    paneEl?.focus({ preventScroll: true });
+  }
+
+  // The timeline's scrub surface calls this for every pointerdown that
+  // reaches it. Presses that begin inside the tier pane — a label being
+  // edited, the IPA pad, a lane — keep their own focus; only presses from the
+  // waveform, spectrogram, and ruler hand the pane the keyboard.
+  export function focusPaneFromPointer(target: EventTarget | null) {
+    if (target instanceof Node && paneEl?.contains(target)) return;
+    paneEl?.focus({ preventScroll: true });
   }
 
   function itemTime(index: number): number | null {
@@ -248,7 +260,13 @@
     if (!activeTier) return;
     const items = activeTier.kind === 'interval' ? activeIntervals : activePoints;
     const item = items[index];
-    if (!item) return;
+    if (!item) {
+      // A fresh point tier has nothing to label yet; say what unlocks the key.
+      if (activeTier.kind === 'point') {
+        status = `${activeTier.name} has no points yet — place the cursor in the waveform and press ${keyBindings?.labelFor('insertBoundary') ?? 'S'} to add one.`;
+      }
+      return;
+    }
     activeIndex = index;
     const current = activeTier.kind === 'interval'
       ? (item as IntervalData).label
@@ -287,12 +305,32 @@
     focusPane();
   }
 
+  // The split key acts at the cursor on the active tier. Two cursor positions
+  // can never take a boundary — on the tier's edge, or exactly on a boundary
+  // the tier already has (stepping with Tab parks the cursor on interval
+  // starts) — and both are answered locally with a sentence, never a raw
+  // engine error.
   async function splitAtCursor() {
     if (!client || annotationId === null) return;
+    const at = cursorTime.toFixed(3);
     try {
       if (activeTier?.kind === 'interval') {
+        const ivs = activeIntervals;
+        if (ivs.length === 0) return;
+        if (cursorTime <= ivs[0].xmin || cursorTime >= ivs[ivs.length - 1].xmax) {
+          status = `The cursor sits on the edge of ${activeTier.name} — click in the waveform where the boundary should go.`;
+          return;
+        }
+        if (ivs.some((iv) => iv.xmin === cursorTime || iv.xmax === cursorTime)) {
+          status = `${activeTier.name} already has a boundary at ${at} s.`;
+          return;
+        }
         await client.insertBoundary(annotationId, activeTier.id, cursorTime);
       } else if (activeTier?.kind === 'point') {
+        if (activePoints.some((pt) => pt.time === cursorTime)) {
+          status = `${activeTier.name} already has a point at ${at} s.`;
+          return;
+        }
         await client.insertPoint(annotationId, activeTier.id, cursorTime, '');
       } else {
         return;
@@ -323,9 +361,12 @@
         // Tier already has a mark at the cursor; leave it and continue.
       }
     }
-    status = added > 0 ? `Added on ${added} ${added === 1 ? 'tier' : 'tiers'}` : '';
+    status = added > 0
+      ? `Added on ${added} ${added === 1 ? 'tier' : 'tiers'}`
+      : `Every tier already has a mark at ${cursorTime.toFixed(3)} s`;
     await refresh();
     selectByTime(cursorTime);
+    focusPane();
   }
 
   async function mergeActive() {
@@ -460,13 +501,23 @@
     }
   }
 
+  // Auto-names a new tier "interval N"/"point N", skipping numbers the
+  // document already uses so remove-and-readd cycles never mint a duplicate.
+  function nextTierName(kind: 'interval' | 'point') {
+    const taken = new Set(tiers.map((t) => t.name));
+    let n = tiers.filter((t) => t.kind === kind).length + 1;
+    while (taken.has(`${kind} ${n}`)) n += 1;
+    return `${kind} ${n}`;
+  }
+
   async function addTier(kind: 'interval' | 'point') {
     if (!client || annotationId === null) return;
-    const name = `${kind} ${tiers.filter((t) => t.kind === kind).length + 1}`;
+    const name = nextTierName(kind);
     try {
       const id = kind === 'interval'
         ? await client.addIntervalTier(annotationId, name)
         : await client.addPointTier(annotationId, name);
+      status = `Added ${name}`;
       await refresh();
       activateTier(id, 0);
     } catch (error) {
@@ -478,6 +529,7 @@
     if (!client || annotationId === null) return;
     try {
       await client.renameTier(annotationId, tierId, name);
+      status = '';
       await refresh();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
@@ -486,8 +538,11 @@
 
   async function removeTier(tierId: bigint) {
     if (!client || annotationId === null) return;
+    const name = tiers.find((t) => t.id === tierId)?.name ?? '';
     try {
       await client.removeTier(annotationId, tierId);
+      // The removal is one journal entry — name it so Ctrl-Z is discoverable.
+      status = `Removed tier "${name}"`;
       if (activeTierId === tierId) activeTierId = null;
       await refresh();
     } catch (error) {
@@ -500,6 +555,7 @@
     if (!client || annotationId === null) return;
     try {
       await client.duplicateTier(annotationId, tierId);
+      status = '';
       await refresh();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);
@@ -515,6 +571,7 @@
     if (to < 0 || to >= tiers.length) return;
     try {
       await client.reorderTier(annotationId, tierId, to);
+      status = '';
       await refresh();
     } catch (error) {
       status = error instanceof Error ? error.message : String(error);

@@ -487,6 +487,18 @@
   // Bumped after a direct annotation mutation so the tier pane refetches.
   let tierRevision = $state(0);
 
+  // The tier pane's instance handle — EditorView hands it focus after placing
+  // the cursor so the annotation keys act on the active tier.
+  let tierPane: ReturnType<typeof TierPane> | null = null;
+
+  // Placing the cursor is the first half of every annotation action — split at
+  // the cursor, step an interval, type a label — so the tier pane takes focus
+  // the moment the cursor lands, without a separate click into a lane.
+  function seekFromPane(time: number) {
+    onCursorChange?.(time);
+    tierPane?.focusPane();
+  }
+
   // First-pass segmentation: threshold the intensity contour into sounding and
   // silent runs (Praat defaults: −25 dB, 0.1 s minima) and lay them onto a new
   // interval tier through the ordinary journaled commands.
@@ -1392,6 +1404,7 @@
     const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
     const time = viewport.t0 + ratio * (viewport.t1 - viewport.t0);
     onCursorChange?.(time);
+    if (event.type === 'pointerdown') tierPane?.focusPaneFromPointer(event.target);
   }
 
   const keyBindings = getKeyBindings();
@@ -2177,7 +2190,7 @@
           {theme}
           {selection}
           onSelectionChange={handleSelectionChange}
-          onSeek={(time) => onCursorChange?.(time)}
+          onSeek={seekFromPane}
           onScaleAmp={scaleAmplitude}
           onResetAmp={resetAmplitude}
           onDoubleZoom={handleDoubleZoom}
@@ -2195,7 +2208,7 @@
         onOverlayStats={(stats) => (overlayStats = stats)}
         {selection}
         onSelectionChange={handleSelectionChange}
-        onSeek={(time) => onCursorChange?.(time)}
+        onSeek={seekFromPane}
         onScaleFrequency={scaleFrequencyCeiling}
         onResetFrequency={resetFrequencyCeiling}
         onDoubleZoom={handleDoubleZoom}
@@ -2205,6 +2218,7 @@
         ghostWaveform={!waveformVisible}
       />
       <TierPane
+        bind:this={tierPane}
         {client}
         audioId={audio?.id ?? null}
         {annotationId}
