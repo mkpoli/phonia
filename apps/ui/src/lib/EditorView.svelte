@@ -98,6 +98,9 @@
     currentRecordingId?: number | null;
     onSwitchRecording?: (mediaId: number) => void;
     onRenameRecording?: (mediaId: number, name: string) => void;
+    /** Removes a recording from the project; absent hides the rail's row
+     *  delete affordances. */
+    onDeleteRecording?: (mediaId: number) => void;
     /** Renames the open project from the breadcrumb; absent leaves it read-only. */
     onRenameProject?: (name: string) => void;
     onPlaySelection?: (t0: number, t1: number) => void;
@@ -215,6 +218,7 @@
     currentRecordingId,
     onSwitchRecording,
     onRenameRecording,
+    onDeleteRecording,
     onRenameProject,
     onPlaySelection,
     onPlayFilteredSelection,
@@ -2149,6 +2153,7 @@
         onSwitch={(mediaId) => onSwitchRecording?.(mediaId)}
         onImport={() => fileInput?.click()}
         onRename={onRenameRecording}
+        onDelete={onDeleteRecording}
       />
     {/if}
 

@@ -9,6 +9,7 @@
     ModeRail,
     PlotsView,
     ProjectView,
+    RemovalUndoBanner,
     RecordingStrip,
     ShortcutEditor,
     provideCommandRegistry,
@@ -1090,6 +1091,24 @@
       project = { ...project };
       if (removalTimer) clearTimeout(removalTimer);
       removalTimer = setTimeout(() => (removalUndo = null), 8000);
+      // Deleting from the recordings rail may take the take that is open; the
+      // editor must not keep displaying detached audio. Move to a neighbouring
+      // take, or leave the editor when the corpus has nothing left.
+      if (route === 'editor' && recording?.mediaId === mediaId) {
+        const list = project.recordings;
+        const index = list.indexOf(entry);
+        const remaining = list.filter((r) => !pendingRemovals.includes(r.mediaId));
+        const neighbour = remaining.find((r) => list.indexOf(r) > index) ?? remaining.at(-1) ?? null;
+        if (neighbour) {
+          await openRecording(neighbour);
+        } else {
+          recording = null;
+          audio = null;
+          annotationId = null;
+          editorSelection = null;
+          route = 'project';
+        }
+      }
     } catch (caught) {
       report(caught);
     }
@@ -1708,15 +1727,20 @@
     toggleRecording();
   }
 
+  // Recordings offered to the editor's switcher and rail; takes inside the
+  // removal undo window drop out until the window closes or the delete is
+  // undone.
   const recordingChoices = $derived(
-    project?.recordings.map((entry) => ({
-      mediaId: entry.mediaId,
-      name: entry.name,
-      duration: entry.duration,
-      sampleRate: entry.sampleRate,
-      audioId: entry.audioId,
-      hasAnnotation: entry.hasAnnotation
-    })) ?? []
+    (project?.recordings ?? [])
+      .filter((entry) => !pendingRemovals.includes(entry.mediaId))
+      .map((entry) => ({
+        mediaId: entry.mediaId,
+        name: entry.name,
+        duration: entry.duration,
+        sampleRate: entry.sampleRate,
+        audioId: entry.audioId,
+        hasAnnotation: entry.hasAnnotation
+      }))
   );
 
   // Test hook: the batch-equals-GUI invariant check reads the live client and
@@ -1808,8 +1832,6 @@
       projectAuthors={project.authors}
       projectTags={project.tags}
       {pendingRemovals}
-      {removalUndo}
-      onUndoRemoval={undoRemoval}
     />
   {:else if route === 'editor'}
     <EditorView
@@ -1847,6 +1869,7 @@
       currentRecordingId={recording?.mediaId ?? null}
       onSwitchRecording={switchRecording}
       onRenameRecording={renameRecording}
+      onDeleteRecording={deleteRecording}
       onRenameProject={(name) => {
         if (project) void renameProject(project.id, name);
       }}
@@ -1914,6 +1937,14 @@
     </div>
   {/if}
 </div>
+
+{#if removalUndo}
+  <RemovalUndoBanner
+    name={removalUndo.name}
+    stale={removalUndo.stale}
+    onUndo={undoRemoval}
+  />
+{/if}
 
 {#if capturing}
   <RecordingStrip

@@ -91,3 +91,59 @@ test('switch recordings from the breadcrumb popover with the keyboard only', asy
   await expect(popover).toBeHidden();
   await expect(page.getByTestId('recording-switcher-name')).toHaveText('synth_vowel_a');
 });
+
+// A rail row, located by the recording's name.
+function railRowFor(page: Page, name: string): Locator {
+  return page.locator('[data-testid="recordings-rail-row"]', { hasText: name });
+}
+
+async function openFirstTakeInEditor(page: Page) {
+  await page.goto('/?app=1');
+  await page.getByTestId('folder-input').setInputFiles(corpus);
+  await expect(page.getByTestId('corpus')).toBeVisible();
+  await expect(page.getByTestId('corpus-row')).toHaveCount(2, { timeout: 30_000 });
+  await page.locator('[data-recording-name="arctic_bdl_a0001"]').click();
+  await expect(page.getByTestId('editor')).toHaveAttribute('data-visible-end', /[1-9]/);
+  await expect(page.getByTestId('recordings-rail-row')).toHaveCount(2);
+}
+
+test('delete a recording from the rail with the keyboard, then undo restores it', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openFirstTakeInEditor(page);
+
+  // Delete the other take straight from the focused rail row.
+  await railRowFor(page, 'synth_vowel_a').getByTestId('recordings-rail-open').focus();
+  await page.keyboard.press('Delete');
+  await expect(page.getByTestId('recordings-rail-row')).toHaveCount(1);
+  await expect(railRowFor(page, 'synth_vowel_a')).toHaveCount(0);
+
+  // The undo banner is reachable from the editor, and undo brings the row back.
+  await expect(page.getByTestId('removal-undo')).toBeVisible();
+  await page.getByTestId('removal-undo-action').click();
+  await expect(page.getByTestId('recordings-rail-row')).toHaveCount(2);
+  await expect(railRowFor(page, 'synth_vowel_a')).toHaveCount(1);
+  await expect(page.getByTestId('removal-undo')).toBeHidden();
+});
+
+test('deleting the open recording moves the editor on, and the last delete returns to the corpus', async ({
+  page
+}) => {
+  test.setTimeout(120_000);
+  await openFirstTakeInEditor(page);
+
+  // The open take is deleted; the editor lands on the remaining take rather
+  // than displaying detached audio. Opening the neighbour journals its
+  // annotation creation, so the toast for the first delete no longer offers
+  // undo — the second delete's toast does.
+  await railRowFor(page, 'arctic_bdl_a0001').getByTestId('recordings-rail-delete').click();
+  await expect(page.getByTestId('recordings-rail-row')).toHaveCount(1);
+  await expect(page.getByTestId('recording-switcher-name')).toHaveText('synth_vowel_a');
+  await expect(page.getByTestId('removal-undo')).toBeVisible();
+
+  // Deleting the last take closes the editor back to the corpus, where the
+  // removal is still inside its undo window.
+  await railRowFor(page, 'synth_vowel_a').getByTestId('recordings-rail-delete').click();
+  await expect(page.getByTestId('corpus')).toBeVisible();
+  await expect(page.getByTestId('recordings-rail-row')).toHaveCount(0);
+  await expect(page.getByTestId('removal-undo')).toBeVisible();
+});

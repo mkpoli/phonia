@@ -5,6 +5,7 @@
   import IconPanelLeftClose from '~icons/lucide/panel-left-close';
   import IconPanelLeftOpen from '~icons/lucide/panel-left-open';
   import IconSearch from '~icons/lucide/search';
+  import IconTrash from '~icons/lucide/trash-2';
   import InlineRename from './InlineRename.svelte';
   import WaveThumb from './WaveThumb.svelte';
   import { formatSampleRate, formatTime, type AudioId, type CoreClientLike } from './types';
@@ -29,6 +30,9 @@
     onImport?: () => void;
     /** Renames a recording in place; absent leaves the rail names read-only. */
     onRename?: (mediaId: number, name: string) => void;
+    /** Removes a recording from the project; absent hides the row delete
+     *  affordances. */
+    onDelete?: (mediaId: number) => void;
   }
 
   let {
@@ -41,6 +45,7 @@
     onSwitch,
     onImport,
     onRename,
+    onDelete,
   }: Props = $props();
 
   function handleOpenKeydown(event: KeyboardEvent, mediaId: number) {
@@ -48,6 +53,9 @@
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onSwitch(mediaId);
+    } else if (onDelete && (event.key === 'Delete' || event.key === 'Backspace')) {
+      event.preventDefault();
+      onDelete(mediaId);
     }
   }
 
@@ -162,6 +170,21 @@
                 <span class="sub">{formatTime(rec.duration)} · {formatSampleRate(rec.sampleRate)}</span>
               </span>
             </div>
+            {#if onDelete}
+              <button
+                type="button"
+                class="del"
+                data-testid="recordings-rail-delete"
+                aria-label="Remove recording"
+                title="Remove recording"
+                onclick={(event) => {
+                  event.stopPropagation();
+                  onDelete(rec.mediaId);
+                }}
+              >
+                <IconTrash aria-hidden="true" />
+              </button>
+            {/if}
           </div>
         </li>
       {/each}
@@ -441,6 +464,41 @@
   .open-row:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
+  }
+
+  .del {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.3rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--muted);
+    opacity: 0;
+    transition:
+      opacity var(--t-fast),
+      color var(--t-fast),
+      background var(--t-fast),
+      border-color var(--t-fast);
+  }
+
+  .row:hover .del,
+  .row:focus-within .del {
+    opacity: 1;
+  }
+
+  .del:hover {
+    color: var(--danger);
+    background: var(--panel-soft);
+    border-color: color-mix(in oklab, var(--danger) 45%, transparent);
+  }
+
+  .del :global(svg) {
+    font-size: 0.8rem;
   }
 
   .thumb {

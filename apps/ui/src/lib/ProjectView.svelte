@@ -8,7 +8,6 @@
   import IconFolderPlus from '~icons/lucide/folder-plus';
   import IconInfo from '~icons/lucide/info';
   import IconSearch from '~icons/lucide/search';
-  import IconRotateCcw from '~icons/lucide/rotate-ccw';
   import IconPackage from '~icons/lucide/package';
   import InlineRename from './InlineRename.svelte';
   import LibraryTree from './LibraryTree.svelte';
@@ -77,14 +76,6 @@
     projectTags?: string[];
     /** Media ids removed within the still-open undo window. */
     pendingRemovals?: number[];
-    /**
-     * The most recent removal offered for undo, or null. `stale` means the
-     * journal has moved on since the delete — undoing is no longer safe, so
-     * the banner switches to a manual-history message and disables the
-     * button rather than risk undoing an unrelated later edit.
-     */
-    removalUndo?: { name: string; stale?: boolean } | null;
-    onUndoRemoval?: () => void;
   }
 
   let {
@@ -120,9 +111,7 @@
     projectDescription = '',
     projectAuthors = [],
     projectTags = [],
-    pendingRemovals = [],
-    removalUndo = null,
-    onUndoRemoval
+    pendingRemovals = []
   }: Props = $props();
 
   let dragging = $state(false);
@@ -514,27 +503,6 @@
   />
 {/if}
 
-{#if removalUndo}
-  <div class="undo-banner" role="status" data-testid="removal-undo">
-    {#if removalUndo.stale}
-      <span
-        >Recording “{removalUndo.name}” removed. Another change happened since — restore it from the undo history
-        (Ctrl+Z) instead.</span
-      >
-      <button type="button" class="undo" data-testid="removal-undo-action" disabled>
-        <IconRotateCcw aria-hidden="true" />
-        <span>Undo</span>
-      </button>
-    {:else}
-      <span>Recording “{removalUndo.name}” removed.</span>
-      <button type="button" class="undo" data-testid="removal-undo-action" onclick={() => onUndoRemoval?.()}>
-        <IconRotateCcw aria-hidden="true" />
-        <span>Undo</span>
-      </button>
-    {/if}
-  </div>
-{/if}
-
 {#if dragging}
   <div class="drop-hint" aria-hidden="true"><span>Drop to add recordings</span></div>
 {/if}
@@ -774,46 +742,6 @@
 
   .hidden-input {
     display: none;
-  }
-
-  .undo-banner {
-    position: fixed;
-    left: 50%;
-    bottom: 1.25rem;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 0.9rem;
-    padding: 0.5rem 0.6rem 0.5rem 0.95rem;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--chrome-strong);
-    background: var(--panel);
-    color: var(--text);
-    box-shadow: var(--shadow-lg);
-    font-size: 0.85rem;
-    z-index: 15;
-  }
-
-  .undo-banner .undo {
-    color: var(--accent-strong);
-    background: transparent;
-    box-shadow: none;
-    border-color: transparent;
-  }
-
-  .undo-banner .undo:hover {
-    background: var(--accent-tint);
-    border-color: color-mix(in oklab, var(--accent) 30%, transparent);
-  }
-
-  .undo-banner .undo:disabled {
-    color: var(--muted);
-    cursor: default;
-  }
-
-  .undo-banner .undo:disabled:hover {
-    background: transparent;
-    border-color: transparent;
   }
 
   .drop-hint {
