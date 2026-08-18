@@ -1,6 +1,7 @@
 <script lang="ts">
   import BoundaryHandle from './BoundaryHandle.svelte';
   import LabelEditor from './LabelEditor.svelte';
+  import { clampToOpenTimeRange, type OpenTimeRange } from './openTimeRange';
   import type { IntervalData, PointData, TierInfo } from './types';
 
   interface EditingState {
@@ -65,13 +66,13 @@
 
   // Movable range of an interior boundary: strictly between the far edges of the
   // two intervals it separates, so a committed move never collapses an interval.
-  function boundaryRange(boundaryId: bigint): { lo: number; hi: number } | null {
+  function boundaryRange(boundaryId: bigint): OpenTimeRange | null {
     const i = intervals.findIndex((iv) => iv.endBoundary === boundaryId);
     if (i < 0 || i + 1 >= intervals.length) return null;
     return { lo: intervals[i].xmin, hi: intervals[i + 1].xmax };
   }
 
-  function snap(time: number, range: { lo: number; hi: number }) {
+  function snap(time: number, range: OpenTimeRange) {
     const rect = laneEl?.getBoundingClientRect();
     const width = rect?.width ?? 1;
     const thresholdT = (6 / Math.max(1, width)) * span;
@@ -88,9 +89,9 @@
     return best;
   }
 
-  function clampToRange(time: number, range: { lo: number; hi: number }) {
-    const eps = span * 1e-4;
-    return Math.min(range.hi - eps, Math.max(range.lo + eps, time));
+  function clampToRange(time: number, range: OpenTimeRange) {
+    const width = laneEl?.getBoundingClientRect().width ?? 1;
+    return clampToOpenTimeRange(time, range, span / Math.max(1, width) / 10);
   }
 
   function grab(boundaryId: bigint, clientX: number) {

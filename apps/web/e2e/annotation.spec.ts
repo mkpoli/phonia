@@ -353,6 +353,35 @@ test('arrow nudge moves the active boundary; Alt steps one frame', async ({ page
   expect(beforeAlt - afterAlt).toBeCloseTo(1 / 16000, 7);
 });
 
+test('arrow nudge stops before collapsing the neighboring interval', async ({ page }) => {
+  await loadFixture(page);
+  await page.getByTestId('add-interval-tier').click();
+  await dismissTierName(page);
+
+  // Leave less than one tier-lane pixel to the right of the boundary. A full
+  // ArrowRight step must stay inside that remaining interval.
+  const wave = await page.getByTestId('waveform-canvas').boundingBox();
+  if (!wave) throw new Error('waveform has no box');
+  await page.mouse.click(wave.x + wave.width - 0.5, wave.y + wave.height / 2);
+  await pane(page).focus();
+  await page.keyboard.press('s');
+  await expect(page.getByTestId('interval')).toHaveCount(2);
+
+  const right = page.getByTestId('interval').nth(1);
+  const before = Number(await right.getAttribute('data-xmin'));
+  const end = Number(await right.getAttribute('data-xmax'));
+  await page.keyboard.press('ArrowRight');
+
+  await expect
+    .poll(async () => Number(await right.getAttribute('data-xmin')))
+    .toBeGreaterThan(before);
+  const after = Number(await right.getAttribute('data-xmin'));
+  expect(after).toBeLessThan(end);
+  expect((await page.getByTestId('tier-status').allTextContents()).join(' ')).not.toContain(
+    'annotation mutation failed'
+  );
+});
+
 test('boundary drag moves the boundary through the journal and undoes', async ({ page }) => {
   await loadFixture(page);
   await page.getByTestId('add-interval-tier').focus();
@@ -369,7 +398,9 @@ test('boundary drag moves the boundary through the journal and undoes', async ({
   const box = await handle.boundingBox();
   if (!box) throw new Error('boundary handle has no box');
   const startX = box.x + box.width / 2;
-  const startY = box.y + box.height / 2;
+  // The tier controls occupy the lane's upper-left band. Grab the exposed
+  // lower part of a boundary that happens to pass behind those controls.
+  const startY = box.y + box.height * 0.8;
   await page.mouse.move(startX, startY);
   await page.mouse.down();
   await page.mouse.move(startX + 160, startY, { steps: 8 });

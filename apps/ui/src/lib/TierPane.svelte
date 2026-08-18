@@ -19,6 +19,7 @@
   import SearchBar from './SearchBar.svelte';
   import TierLane from './TierLane.svelte';
   import IpaPad from './IpaPad.svelte';
+  import { clampToOpenTimeRange, type OpenTimeRange } from './openTimeRange';
   import { getCommandRegistry, registerCommands } from './commands.svelte';
   import { chordFromEvent, getKeyBindings } from './keybindings.svelte';
   import type {
@@ -425,39 +426,70 @@
     return null;
   }
 
-  function boundaryTime(boundaryId: bigint): number | null {
-    for (const interval of activeIntervals) {
-      if (interval.startBoundary === boundaryId) return interval.xmin;
-      if (interval.endBoundary === boundaryId) return interval.xmax;
+  function boundaryContext(
+    boundaryId: bigint
+  ): { time: number; range: OpenTimeRange } | null {
+    for (const intervals of intervalsByTier.values()) {
+      const index = intervals.findIndex((interval) => interval.endBoundary === boundaryId);
+      if (index >= 0 && index + 1 < intervals.length) {
+        return {
+          time: intervals[index].xmax,
+          range: { lo: intervals[index].xmin, hi: intervals[index + 1].xmax }
+        };
+      }
     }
     return null;
+  }
+
+  function boundaryMargin() {
+    return (viewport.t1 - viewport.t0) / Math.max(1, rowsWidth) / 10;
+  }
+
+  function boundaryMoveError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('would collapse an interval')
+      ? 'The boundary has reached its neighboring interval edge.'
+      : message;
   }
 
   async function nudgeBoundary(direction: number, oneFrame: boolean) {
     if (!client || annotationId === null || activeTier?.kind !== 'interval') return;
     const boundary = activeBoundaryId();
     if (boundary === null) return;
-    const from = boundaryTime(boundary);
-    if (from === null) return;
+    const context = boundaryContext(boundary);
+    if (!context) return;
     const pixelSeconds = (viewport.t1 - viewport.t0) / Math.max(1, rowsWidth);
     const step = oneFrame && sampleRate > 0 ? 1 / sampleRate : pixelSeconds;
+    const to = clampToOpenTimeRange(
+      context.time + direction * step,
+      context.range,
+      boundaryMargin()
+    );
+    if (to === context.time) return;
     try {
-      await client.moveBoundary(annotationId, boundary, from + direction * step, true);
+      await client.moveBoundary(annotationId, boundary, to, true);
       status = '';
       await refresh();
     } catch (error) {
-      status = error instanceof Error ? error.message : String(error);
+      status = boundaryMoveError(error);
     }
   }
 
-  async function moveBoundaryTo(boundaryId: bigint, toTime: number) {
-    if (!client || annotationId === null) return;
+  async function moveBoundaryTo(boundaryId: bigint, toTime: number): Promise<number | null> {
+    if (!client || annotationId === null) return null;
+    const context = boundaryContext(boundaryId);
+    const to = context
+      ? clampToOpenTimeRange(toTime, context.range, boundaryMargin())
+      : toTime;
+    if (context && to === context.time) return to;
     try {
-      await client.moveBoundary(annotationId, boundaryId, toTime, true);
+      await client.moveBoundary(annotationId, boundaryId, to, true);
       status = '';
       await refresh();
+      return to;
     } catch (error) {
-      status = error instanceof Error ? error.message : String(error);
+      status = boundaryMoveError(error);
+      return null;
     }
   }
 
@@ -479,12 +511,13 @@
     if (activeTier?.kind === 'interval') {
       const boundary = activeBoundaryId();
       if (boundary === null) return;
-      const from = boundaryTime(boundary);
-      if (from === null) return;
-      const to = await onNearestZero(from);
+      const context = boundaryContext(boundary);
+      if (!context) return;
+      const to = await onNearestZero(context.time);
       if (!Number.isFinite(to)) return;
-      await moveBoundaryTo(boundary, to);
-      selectByTime(to);
+      const movedTo = await moveBoundaryTo(boundary, to);
+      if (movedTo === null) return;
+      selectByTime(movedTo);
     } else if (activeTier?.kind === 'point') {
       const point = activePoints[activeIndex];
       if (!point) return;

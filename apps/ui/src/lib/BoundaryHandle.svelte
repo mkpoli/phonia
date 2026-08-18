@@ -10,24 +10,27 @@
   }
 
   let { leftPct, active, linked, dragging, onGrab, onDrag, onRelease }: Props = $props();
+  let pointerId: number | null = null;
 
   function handlePointerDown(event: PointerEvent) {
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
+    pointerId = event.pointerId;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     onGrab(event.clientX);
   }
 
   function handlePointerMove(event: PointerEvent) {
-    if (!dragging) return;
+    if (pointerId !== event.pointerId) return;
     onDrag(event.clientX);
   }
 
   function handlePointerUp(event: PointerEvent) {
-    if (!dragging) return;
+    if (pointerId !== event.pointerId) return;
     const el = event.currentTarget as HTMLElement;
     if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
+    pointerId = null;
     onRelease(event.clientX);
   }
 </script>
