@@ -14,6 +14,7 @@ export type PlotKind =
   | 'pitch'
   | 'formant'
   | 'intensity'
+  | 'harmonicity'
   | 'spectralSlice'
   | 'ltas'
   | 'tiers'
@@ -26,6 +27,7 @@ export const PLOT_KINDS: { kind: PlotKind; label: string }[] = [
   { kind: 'pitch', label: 'Pitch' },
   { kind: 'formant', label: 'Formants' },
   { kind: 'intensity', label: 'Intensity' },
+  { kind: 'harmonicity', label: 'Harmonicity' },
   { kind: 'spectralSlice', label: 'Spectral slice' },
   { kind: 'ltas', label: 'LTAS' },
   { kind: 'tiers', label: 'Tiers' },
@@ -137,6 +139,7 @@ export function objectFigureSpec(
     pitch: obj.kind === 'pitch',
     formant: obj.kind === 'formant',
     intensity: obj.kind === 'intensity',
+    harmonicity: obj.kind === 'harmonicity',
     spectral_slice: obj.kind === 'spectralSlice',
     ltas: obj.kind === 'ltas',
     tiers: obj.kind === 'tiers'
@@ -174,6 +177,7 @@ export function objectFigureSpec(
     pitch_color: obj.kind === 'pitch' ? ink : null,
     formant_color: obj.kind === 'formant' ? ink : null,
     intensity_color: obj.kind === 'intensity' ? ink : null,
+    harmonicity_color: obj.kind === 'harmonicity' ? ink : null,
     axis_color: axisInk,
     show_grid: axis.showGrid
   };

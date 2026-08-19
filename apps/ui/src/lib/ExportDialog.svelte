@@ -59,6 +59,7 @@
     { key: 'pitch', label: 'Pitch' },
     { key: 'formant', label: 'Formants' },
     { key: 'intensity', label: 'Intensity' },
+    { key: 'harmonicity', label: 'Harmonicity' },
     { key: 'spectral_slice', label: 'Spectral slice' },
     { key: 'ltas', label: 'LTAS' },
     { key: 'tiers', label: 'Tiers' }
@@ -84,6 +85,7 @@
     pitch: true,
     formant: false,
     intensity: false,
+    harmonicity: false,
     spectral_slice: false,
     ltas: false,
     tiers: untrack(() => annotationId) !== null
@@ -179,6 +181,7 @@
       layers.pitch,
       layers.formant,
       layers.intensity,
+      layers.harmonicity,
       layers.tiers,
       width,
       height,

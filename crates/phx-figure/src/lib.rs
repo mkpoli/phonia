@@ -33,9 +33,9 @@ pub use backends::{PdfError, to_pdf};
 #[cfg(feature = "raster")]
 pub use backends::{PngError, to_png};
 pub use builder::{
-    FigureBuilder, formant_layer, intensity_layer, pitch_layer, reference_figure,
-    spectral_slice_layer, spectrogram_layer, tier_data, tiers_layer, waveform_layer,
-    waveform_minmax,
+    FigureBuilder, formant_layer, harmonicity_layer, intensity_layer, pitch_layer,
+    reference_figure, spectral_slice_layer, spectrogram_layer, tier_data, tiers_layer,
+    waveform_layer, waveform_minmax,
 };
 pub use model::{
     Axis, AxisScale, CaptionMeta, Figure, FigureError, IntervalData, Layer, LayerKind, LengthUnit,

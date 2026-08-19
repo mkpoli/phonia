@@ -645,6 +645,7 @@ export interface FigureLayerToggles {
   tiers: boolean;
   spectral_slice: boolean;
   ltas: boolean;
+  harmonicity: boolean;
 }
 
 /**
@@ -686,6 +687,8 @@ export interface FigureSpec {
   formant_color?: [number, number, number] | null;
   /** Intensity contour colour as `[r, g, b]`; the theme default when absent. */
   intensity_color?: [number, number, number] | null;
+  /** Harmonicity contour colour as `[r, g, b]`; the theme default when absent. */
+  harmonicity_color?: [number, number, number] | null;
   /** Axis-line and tick colour as `[r, g, b]`; the theme default when absent. */
   axis_color?: [number, number, number] | null;
   /** Whether interior grid lines are drawn on data panels. */

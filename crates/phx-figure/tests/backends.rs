@@ -83,6 +83,10 @@ fn all_layers_figure(theme: Theme) -> Figure {
         points: vec![(0.0, 40.0), (0.5, 65.0), (1.0, 55.0)],
         style: LineStyle::solid(1.0, RgbaColor::rgb(20, 160, 60)),
     };
+    let harmonicity = Layer::HarmonicityLine {
+        points: vec![(0.1, 12.0), (0.5, 18.0), (0.9, 15.0)],
+        style: LineStyle::solid(1.0, RgbaColor::rgb(180, 90, 30)),
+    };
     let slice = Layer::SpectralSlice {
         bins: vec![(0.0, -60.0), (2500.0, -20.0), (5000.0, -50.0)],
         style: LineStyle::default(),
@@ -139,6 +143,12 @@ fn all_layers_figure(theme: Theme) -> Figure {
             layers: vec![intensity],
             time_axis: time(),
             value_axis: Axis::linear(30.0, 90.0, Some("Intensity"), Some("dB")),
+            height_share: 0.15,
+        })
+        .panel(Panel {
+            layers: vec![harmonicity],
+            time_axis: time(),
+            value_axis: Axis::linear(0.0, 30.0, Some("Harmonicity"), Some("dB")),
             height_share: 0.15,
         })
         .panel(Panel {

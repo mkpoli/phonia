@@ -272,6 +272,13 @@ pub enum Layer {
         /// Stroke style.
         style: LineStyle,
     },
+    /// Harmonics-to-noise ratio contour as `(time, dB)` points.
+    HarmonicityLine {
+        /// Voiced analysis frames; silent and aperiodic frames are omitted.
+        points: Vec<(f64, f64)>,
+        /// Stroke style.
+        style: LineStyle,
+    },
     /// Annotation tiers.
     Tiers {
         /// Embedded tiers in draw order.
@@ -298,6 +305,7 @@ impl Layer {
             Layer::PitchLine { .. } => LayerKind::Pitch,
             Layer::FormantSpeckle { .. } => LayerKind::Formant,
             Layer::IntensityLine { .. } => LayerKind::Intensity,
+            Layer::HarmonicityLine { .. } => LayerKind::Harmonicity,
             Layer::Tiers { .. } => LayerKind::Tiers,
             Layer::SpectralSlice { .. } => LayerKind::SpectralSlice,
         }
@@ -317,6 +325,8 @@ pub enum LayerKind {
     Formant,
     /// Intensity contour.
     Intensity,
+    /// Harmonics-to-noise ratio contour.
+    Harmonicity,
     /// Annotation tiers.
     Tiers,
     /// Spectral slice.

@@ -58,6 +58,7 @@ fn figure_description(fig: &Figure) -> String {
             LayerKind::Pitch => "pitch contour",
             LayerKind::Formant => "formants",
             LayerKind::Intensity => "intensity contour",
+            LayerKind::Harmonicity => "harmonicity contour",
             LayerKind::Tiers => "annotation tiers",
             LayerKind::SpectralSlice => "spectral slice",
         })
@@ -187,7 +188,9 @@ fn layer_specs(layer: &Layer, panel: &Panel, width: f64, height: f64) -> Vec<Val
                 }),
             ]
         }
-        Layer::PitchLine { points, style, .. } | Layer::IntensityLine { points, style } => {
+        Layer::PitchLine { points, style, .. }
+        | Layer::IntensityLine { points, style }
+        | Layer::HarmonicityLine { points, style } => {
             vec![line_layer(points, &panel.value_axis, style)]
         }
         Layer::SpectralSlice { bins, style } => {

@@ -87,6 +87,21 @@ test('figure export: the LTAS layer adds a frequency-vs-dB panel', async ({ page
     .toBe(true);
 });
 
+test('figure export: the harmonicity layer adds a time-vs-dB panel', async ({ page }) => {
+  await loadFixture(page);
+  await openDialog(page);
+
+  // The default figure has no harmonicity panel, so its axis label is absent
+  // until the layer is turned on.
+  const base = await previewSource(page);
+  expect(base).not.toContain('Harmonicity');
+
+  await page.getByTestId('figure-layer-harmonicity').check();
+  await expect
+    .poll(async () => (await previewSource(page)).includes('Harmonicity'), { timeout: 15_000 })
+    .toBe(true);
+});
+
 test('figure export: preview re-renders on theme and format changes', async ({ page }) => {
   await loadFixture(page);
   await openDialog(page);

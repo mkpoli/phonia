@@ -470,6 +470,9 @@ fn draw_layer(s: &mut String, layer: &Layer, panel: &Panel, r: &PlotRect, pal: &
         Layer::IntensityLine { points, style } => {
             draw_line_series(s, points, panel, r, pal, *style);
         }
+        Layer::HarmonicityLine { points, style } => {
+            draw_line_series(s, points, panel, r, pal, *style);
+        }
         Layer::SpectralSlice { bins, style } => {
             // A spectral slice plots frequency (x) against dB (y): its own
             // axes already carry those ranges.

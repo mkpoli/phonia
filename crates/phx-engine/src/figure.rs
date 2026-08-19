@@ -14,9 +14,9 @@ use std::collections::BTreeMap;
 use phx_figure::{
     Axis, CodeExport, CodeLang, Figure, FigureBuilder, LayerKind, LengthUnit, LineStyle, Panel,
     PitchUnit, ProvenanceRecord, RgbaColor, SizeSpec, SpeckleStyle, TextExport, TierStyle,
-    formant_layer, intensity_layer, pitch_layer, spectral_slice_layer, spectrogram_layer,
-    tiers_layer, to_code, to_graphml, to_svg, to_tikz, to_typst, to_vega, waveform_layer,
-    waveform_minmax,
+    formant_layer, harmonicity_layer, intensity_layer, pitch_layer, spectral_slice_layer,
+    spectrogram_layer, tiers_layer, to_code, to_graphml, to_svg, to_tikz, to_typst, to_vega,
+    waveform_layer, waveform_minmax,
 };
 use phx_pitch::TimeSpan;
 use phx_render::{Colormap, DisplayMapping, Theme};
@@ -26,7 +26,7 @@ use serde::Deserialize;
 use crate::document::AnnotationId;
 use crate::error::EngineError;
 use crate::store::AudioId;
-use crate::{Engine, FormantParams, IntensityParams, PitchParams};
+use crate::{Engine, FormantParams, HarmonicityParams, IntensityParams, PitchParams};
 
 /// Which layers a figure includes, mirroring the editor's per-track toggles.
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -47,6 +47,8 @@ pub struct LayerToggles {
     pub spectral_slice: bool,
     /// Long-term average spectrum panel: frame spectra averaged against frequency.
     pub ltas: bool,
+    /// Harmonicity (HNR) contour panel, in dB against time.
+    pub harmonicity: bool,
 }
 
 /// Physical length unit for a figure request.
@@ -212,6 +214,9 @@ pub struct FigureRequest {
     /// Intensity contour colour as `[r, g, b]`; the theme default when absent.
     #[serde(default)]
     pub intensity_color: Option<[u8; 3]>,
+    /// Harmonicity contour colour as `[r, g, b]`; the theme default when absent.
+    #[serde(default)]
+    pub harmonicity_color: Option<[u8; 3]>,
     /// Axis-line and tick colour as `[r, g, b]`; the theme default when absent.
     #[serde(default)]
     pub axis_color: Option<[u8; 3]>,
@@ -458,6 +463,40 @@ impl Engine {
                 height_share: 0.16,
             });
             sources.push(intensity_provenance(&params));
+        }
+
+        if req.layers.harmonicity {
+            let params = HarmonicityParams::default();
+            let frames = self.harmonicity_track_span(audio_id, lo, hi)?;
+            let (mut db_lo, mut db_hi) = (f64::INFINITY, f64::NEG_INFINITY);
+            for &(_, db) in &frames {
+                if let Some(value) = db {
+                    db_lo = db_lo.min(value);
+                    db_hi = db_hi.max(value);
+                }
+            }
+            if db_lo.is_finite() && db_hi.is_finite() {
+                let pad = if db_hi > db_lo {
+                    (db_hi - db_lo) * 0.05
+                } else {
+                    1.0
+                };
+                panels.push(Panel {
+                    layers: vec![harmonicity_layer(
+                        &frames,
+                        line_style(req.harmonicity_color),
+                    )],
+                    time_axis: time_axis(),
+                    value_axis: Axis::linear(
+                        db_lo - pad,
+                        db_hi + pad,
+                        Some("Harmonicity"),
+                        Some("dB"),
+                    ),
+                    height_share: 0.16,
+                });
+                sources.push(harmonicity_provenance(&params));
+            }
         }
 
         if req.layers.spectral_slice {
@@ -761,6 +800,22 @@ fn intensity_provenance(params: &IntensityParams) -> ProvenanceRecord {
     )
 }
 
+fn harmonicity_provenance(params: &HarmonicityParams) -> ProvenanceRecord {
+    provenance(
+        LayerKind::Harmonicity,
+        &[
+            ("floor_hz", format!("{}", params.floor_hz)),
+            ("ceiling_hz", format!("{}", params.ceiling_hz)),
+            ("time_step_s", format!("{}", params.time_step)),
+            (
+                "periods_per_window",
+                format!("{}", params.periods_per_window),
+            ),
+        ],
+        None,
+    )
+}
+
 /// Default figure request over `[t0, t1]` of `audio`, all layers on, matching
 /// the inspector's default analysis parameters and a 16×12 cm dark figure.
 ///
@@ -789,6 +844,7 @@ pub fn default_figure_request(
             tiers: annotation.is_some(),
             spectral_slice: false,
             ltas: false,
+            harmonicity: false,
         },
         width: 16.0,
         height: 12.0,
@@ -811,6 +867,7 @@ pub fn default_figure_request(
         pitch_color: None,
         formant_color: None,
         intensity_color: None,
+        harmonicity_color: None,
         axis_color: None,
         show_grid: true,
     }
@@ -871,6 +928,7 @@ mod tests {
             tiers: false,
             spectral_slice: false,
             ltas: false,
+            harmonicity: false,
         };
         let figure = engine.build_figure(&req).unwrap();
         assert_eq!(layer_kinds(&figure), vec![LayerKind::Waveform]);
@@ -889,6 +947,7 @@ mod tests {
             tiers: false,
             spectral_slice: true,
             ltas: false,
+            harmonicity: false,
         };
         let figure = engine.build_figure(&req).unwrap();
         figure.validate().unwrap();
@@ -908,11 +967,34 @@ mod tests {
             tiers: false,
             spectral_slice: false,
             ltas: true,
+            harmonicity: false,
         };
         let figure = engine.build_figure(&req).unwrap();
         figure.validate().unwrap();
         // The long-term average spectrum renders through the spectral-slice layer.
         assert_eq!(layer_kinds(&figure), vec![LayerKind::SpectralSlice]);
+    }
+
+    #[test]
+    fn build_figure_emits_the_harmonicity_layer_when_toggled() {
+        let (engine, audio, duration) = engine_with_audio();
+        let mut req = default_figure_request(audio, None, 0.0, duration);
+        req.layers = LayerToggles {
+            waveform: false,
+            spectrogram: false,
+            pitch: false,
+            formant: false,
+            intensity: false,
+            tiers: false,
+            spectral_slice: false,
+            ltas: false,
+            harmonicity: true,
+        };
+        let figure = engine.build_figure(&req).unwrap();
+        figure.validate().unwrap();
+        assert_eq!(layer_kinds(&figure), vec![LayerKind::Harmonicity]);
+        assert_eq!(figure.caption_meta.sources.len(), 1);
+        assert_eq!(figure.caption_meta.sources[0].layer, LayerKind::Harmonicity);
     }
 
     #[test]
@@ -945,6 +1027,7 @@ mod tests {
             tiers: true,
             spectral_slice: false,
             ltas: false,
+            harmonicity: false,
         };
         let figure = engine.build_figure(&req).unwrap();
         assert_eq!(layer_kinds(&figure), vec![LayerKind::Tiers]);

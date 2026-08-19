@@ -208,7 +208,9 @@ fn build_item(
             });
             let _ = fig;
         }
-        Layer::PitchLine { points, style, .. } | Layer::IntensityLine { points, style } => {
+        Layer::PitchLine { points, style, .. }
+        | Layer::IntensityLine { points, style }
+        | Layer::HarmonicityLine { points, style } => {
             let file = format!("panel{idx}_{}.csv", layer_slug(layer));
             data_files.push(SidecarFile::text(&file, xy_csv(points)));
             items.push(Item::Line {
@@ -286,6 +288,7 @@ fn layer_slug(layer: &Layer) -> &'static str {
     match layer {
         Layer::PitchLine { .. } => "pitch",
         Layer::IntensityLine { .. } => "intensity",
+        Layer::HarmonicityLine { .. } => "harmonicity",
         _ => "line",
     }
 }

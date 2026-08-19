@@ -219,6 +219,19 @@ pub fn intensity_layer(track: &IntensityTrack, style: LineStyle) -> Layer {
     }
 }
 
+/// A harmonicity (HNR) contour layer from `(time, hnr_db)` frames, in dB.
+/// Unvoiced frames (no HNR) are dropped so the line spans only voiced regions.
+#[must_use]
+pub fn harmonicity_layer(frames: &[(f64, Option<f64>)], style: LineStyle) -> Layer {
+    Layer::HarmonicityLine {
+        points: frames
+            .iter()
+            .filter_map(|&(time, db)| db.map(|value| (time, value)))
+            .collect(),
+        style,
+    }
+}
+
 /// Converts one annotation [`TierSlot`] into embedded [`TierData`].
 #[must_use]
 pub fn tier_data(slot: &TierSlot) -> TierData {
@@ -434,5 +447,21 @@ fn tier_name(slot: &TierSlot) -> &str {
     match &slot.tier {
         Tier::Interval(tier) => &tier.name,
         Tier::Point(tier) => &tier.name,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn harmonicity_layer_drops_unvoiced_frames() {
+        let frames = [(0.0, Some(10.0)), (0.01, None), (0.02, Some(12.0))];
+        match harmonicity_layer(&frames, LineStyle::default()) {
+            Layer::HarmonicityLine { points, .. } => {
+                assert_eq!(points, vec![(0.0, 10.0), (0.02, 12.0)]);
+            }
+            other => panic!("expected a HarmonicityLine layer, got {other:?}"),
+        }
     }
 }

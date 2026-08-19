@@ -153,7 +153,9 @@ fn write_layer(
                 yb = fnum(f[1]),
             );
         }
-        Layer::PitchLine { points, style, .. } | Layer::IntensityLine { points, style } => {
+        Layer::PitchLine { points, style, .. }
+        | Layer::IntensityLine { points, style }
+        | Layer::HarmonicityLine { points, style } => {
             write_line(s, points, *style);
         }
         Layer::SpectralSlice { bins, style } => write_line(s, bins, *style),

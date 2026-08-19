@@ -284,7 +284,9 @@ fn draw_layer(
                 y1 = fnum(iy1),
             );
         }
-        Layer::PitchLine { points, style, .. } | Layer::IntensityLine { points, style } => {
+        Layer::PitchLine { points, style, .. }
+        | Layer::IntensityLine { points, style }
+        | Layer::HarmonicityLine { points, style } => {
             draw_line(s, points, panel, r, *style);
         }
         Layer::SpectralSlice { bins, style } => draw_line(s, bins, panel, r, *style),
