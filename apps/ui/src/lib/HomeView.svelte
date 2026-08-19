@@ -1315,4 +1315,141 @@
     background: color-mix(in oklab, var(--danger) 85%, #000);
     border-color: color-mix(in oklab, var(--danger) 85%, #000);
   }
+
+  @media (max-width: 720px) {
+    .home {
+      min-height: calc(100vh - var(--mobile-rail-height) - var(--safe-bottom));
+      min-height: calc(100dvh - var(--mobile-rail-height) - var(--safe-bottom));
+    }
+
+    .top {
+      padding: 0.5rem;
+    }
+
+    .tools {
+      width: 100%;
+      gap: 0.4rem;
+    }
+
+    .create {
+      width: 100%;
+      order: -1;
+    }
+
+    .create input {
+      min-width: 0;
+      height: 2.75rem;
+    }
+
+    .tools > .ghost:not(.icon-only) {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+
+    .icon-only {
+      width: 2.75rem;
+      padding: 0;
+    }
+
+    .body {
+      padding: 0.75rem;
+    }
+
+    .empty {
+      min-height: 26rem;
+      height: auto;
+      padding: 1.5rem 0.25rem;
+    }
+
+    .empty-actions,
+    .empty-links {
+      width: min(100%, 22rem);
+      flex-direction: column;
+    }
+
+    .empty-actions button {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .empty-links {
+      gap: 0.65rem;
+    }
+
+    .toolbar {
+      align-items: stretch;
+    }
+
+    .search {
+      max-width: none;
+      flex-basis: 100%;
+    }
+
+    .search-input {
+      min-height: 2.75rem;
+    }
+
+    .tool {
+      margin-left: auto;
+    }
+
+    .seltoolbar {
+      align-items: stretch;
+      flex-direction: column;
+      padding: 0.65rem;
+    }
+
+    .selactions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .selactions button {
+      justify-content: center;
+    }
+
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
+    }
+
+    .section {
+      margin-bottom: 1rem;
+    }
+
+    .disclose,
+    .dissolve,
+    .hint-close {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+
+    .group-head {
+      min-height: 2.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .palette-hint {
+      display: none;
+    }
+
+    .busy,
+    .export-progress {
+      bottom: calc(var(--mobile-rail-height) + var(--safe-bottom) + 0.75rem);
+      max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 1rem);
+    }
+
+    .modal-backdrop {
+      padding: 0.5rem;
+    }
+
+    .modal {
+      width: 100%;
+    }
+
+    .modal-actions button {
+      flex: 1;
+      justify-content: center;
+    }
+  }
 </style>

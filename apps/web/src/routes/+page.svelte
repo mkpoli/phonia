@@ -2017,6 +2017,40 @@
     min-height: 100dvh;
   }
 
+  @media (max-width: 720px) {
+    .app-content {
+      margin-left: 0;
+      min-height: calc(100dvh - var(--mobile-rail-height) - var(--safe-bottom));
+      padding-bottom: calc(var(--mobile-rail-height) + var(--safe-bottom));
+    }
+
+    .error,
+    .notice {
+      bottom: calc(var(--mobile-rail-height) + var(--safe-bottom) + 0.75rem);
+    }
+
+    .error {
+      right: calc(var(--safe-right) + 0.5rem);
+      left: calc(var(--safe-left) + 0.5rem);
+      max-width: none;
+    }
+
+    .notice {
+      width: calc(100vw - var(--safe-left) - var(--safe-right) - 1rem);
+      max-width: none;
+    }
+
+    .modal-backdrop {
+      padding: calc(var(--safe-top) + 0.5rem) calc(var(--safe-right) + 0.5rem)
+        calc(var(--safe-bottom) + var(--mobile-rail-height) + 0.5rem)
+        calc(var(--safe-left) + 0.5rem);
+    }
+
+    .modal {
+      width: min(26rem, 100%);
+    }
+  }
+
   /* Plots is a fixed-position overlay kept mounted to preserve its figure;
      display:none takes it (and its fixed children) fully out of view. */
   .plots-host.hidden {

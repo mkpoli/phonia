@@ -224,6 +224,12 @@
     transition: bottom 110ms linear;
   }
 
+  @media (max-width: 720px) {
+    .meter {
+      display: none;
+    }
+  }
+
   .peak-hold {
     position: absolute;
     left: 0;

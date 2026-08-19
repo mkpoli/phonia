@@ -493,4 +493,44 @@
     color: var(--muted);
     border-color: transparent;
   }
+
+  @media (max-width: 720px) {
+    .switcher,
+    .trigger {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .trigger {
+      min-height: 2.75rem;
+    }
+
+    .popover {
+      position: fixed;
+      top: calc(var(--safe-top) + 3.75rem);
+      right: calc(var(--safe-right) + 0.5rem);
+      left: calc(var(--safe-left) + 0.5rem);
+      width: auto;
+      max-height: calc(
+        100dvh - var(--safe-top) - var(--safe-bottom) - var(--mobile-rail-height) - 4.5rem
+      );
+    }
+
+    .search {
+      min-height: 3rem;
+    }
+
+    .option {
+      min-height: 3.75rem;
+      grid-template-columns: 64px minmax(0, 1fr) auto;
+    }
+
+    .thumb-box {
+      width: 64px;
+    }
+
+    .annot {
+      display: none;
+    }
+  }
 </style>

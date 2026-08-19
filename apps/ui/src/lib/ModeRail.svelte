@@ -187,6 +187,56 @@
     cursor: default;
   }
 
+  @media (max-width: 720px) {
+    .rail {
+      inset: auto 0 0;
+      width: auto;
+      height: calc(var(--mobile-rail-height) + var(--safe-bottom));
+      padding-right: var(--safe-right);
+      padding-bottom: var(--safe-bottom);
+      padding-left: var(--safe-left);
+      flex-direction: row;
+      border-top: 1px solid var(--chrome-strong);
+      border-right: none;
+      box-shadow: 0 -4px 16px rgb(0 0 0 / 0.08);
+    }
+
+    .brand {
+      display: none;
+    }
+
+    .modes {
+      width: 100%;
+      flex-direction: row;
+      gap: 0;
+    }
+
+    .mode {
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: var(--mobile-rail-height);
+      justify-content: center;
+      gap: 0.25rem;
+      padding: 0.4rem 0.25rem 0.3rem;
+      border-left: none;
+      border-top: 2px solid transparent;
+    }
+
+    .mode.active {
+      border-top-color: var(--accent);
+    }
+
+    .mode :global(svg) {
+      width: 1.3rem;
+      height: 1.3rem;
+    }
+
+    .mode span {
+      font-size: 0.64rem;
+      letter-spacing: 0.04em;
+    }
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     /* The brand draws itself in once on load — ring, then wave, then the gold
        dot pops and settles into a slow breathe. Hovering remounts the mark and

@@ -85,4 +85,11 @@
     width: 2px;
     background: var(--accent-strong);
   }
+
+  @media (pointer: coarse) {
+    .handle {
+      width: 2.75rem;
+      margin-left: -1.375rem;
+    }
+  }
 </style>

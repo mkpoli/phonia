@@ -163,6 +163,7 @@
         type="button"
         class="chip-button"
         data-testid="open-audio-export"
+        aria-label="Export audio"
         disabled={!audio}
         aria-pressed={audioExportOpen}
         onclick={onExportAudio}
@@ -175,6 +176,7 @@
       type="button"
       class="chip-button"
       data-testid="open-export"
+      aria-label="Export figure"
       disabled={!audio}
       aria-pressed={exportOpen}
       onclick={onToggleExportFigure}
@@ -187,6 +189,7 @@
       class="chip-button"
       class:on={inspectorOpen}
       data-testid="inspector-toggle"
+      aria-label="Inspector"
       aria-pressed={inspectorOpen}
       onclick={onToggleInspector}
     >
@@ -431,6 +434,58 @@
   @media (max-width: 900px) {
     .status .field:not(:last-child) {
       display: none;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .transport {
+      flex-wrap: wrap;
+      gap: 0.3rem 0.5rem;
+      padding: 0.35rem 0.4rem;
+    }
+
+    .controls {
+      gap: 0.1rem;
+    }
+
+    .icon-button,
+    .icon-button.play {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+
+    .record-pill {
+      min-height: 2.75rem;
+    }
+
+    .timecode {
+      min-width: 0;
+      margin-left: auto;
+      font-size: 0.82rem;
+    }
+
+    .timecode small,
+    .status,
+    .divider,
+    .spacer {
+      display: none;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      flex-basis: 100%;
+      gap: 0.3rem;
+    }
+
+    .chip-button {
+      min-height: 2.75rem;
+      justify-content: center;
+      padding: 0.2rem 0.35rem;
+    }
+
+    .chip-button span {
+      font-size: 0.72rem;
     }
   }
 </style>

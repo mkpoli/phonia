@@ -21,6 +21,7 @@
     selection?: Selection | null;
     onSelectionChange?: (selection: Selection | null) => void;
     onSeek?: (time: number) => void;
+    onViewportGesture?: (factor: number, anchorRatio: number, panRatio: number) => void;
     /** Multiplies the waveform amplitude scale by `factor`; the caller clamps it. */
     onScaleAmp?: (factor: number) => void;
     /** Restores the amplitude scale to its default. */
@@ -39,6 +40,7 @@
     selection = null,
     onSelectionChange,
     onSeek,
+    onViewportGesture,
     onScaleAmp,
     onResetAmp,
     onDoubleZoom,
@@ -524,6 +526,7 @@
       {selection}
       onChange={onSelectionChange}
       {onSeek}
+      {onViewportGesture}
       {onDoubleZoom}
     />
   {/if}

@@ -175,6 +175,26 @@
     overflow-y: auto;
   }
 
+  @media (max-width: 720px) {
+    .panel {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 8;
+      width: 100%;
+      max-height: min(65%, 32rem);
+      padding-bottom: calc(1rem + var(--safe-bottom));
+      border-top: 1px solid var(--chrome-strong);
+      border-left: none;
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      box-shadow: 0 -10px 30px rgb(0 0 0 / 0.18);
+    }
+
+    .close {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+  }
+
   header {
     display: flex;
     align-items: flex-start;

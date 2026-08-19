@@ -454,6 +454,43 @@
     background: var(--accent-tint);
   }
 
+  @media (max-width: 720px) {
+    .trigger {
+      width: 2.75rem;
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .strip {
+      width: 1.75rem;
+      height: 1.25rem;
+    }
+
+    .trigger-name,
+    .trigger .chev {
+      display: none;
+    }
+
+    .popover {
+      position: fixed;
+      top: calc(var(--safe-top) + 3.75rem);
+      right: calc(var(--safe-right) + 0.5rem);
+      left: calc(var(--safe-left) + 0.5rem);
+      width: auto;
+      max-height: calc(
+        100dvh - var(--safe-top) - var(--safe-bottom) - var(--mobile-rail-height) - 4.5rem
+      );
+    }
+
+    .option,
+    .new-row,
+    .invert-row {
+      min-height: 2.75rem;
+    }
+  }
+
   .invert-row {
     display: flex;
     align-items: center;

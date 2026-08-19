@@ -7,6 +7,8 @@
     selection: Selection | null;
     onChange: (selection: Selection | null) => void;
     onSeek?: (time: number) => void;
+    /** Applies an incremental two-finger time zoom and pan gesture. */
+    onViewportGesture?: (factor: number, anchorRatio: number, panRatio: number) => void;
     /**
      * Double-click intent: `zoom` when the second click lands inside the live
      * selection, `fit` when it lands on empty pane space.
@@ -14,7 +16,8 @@
     onDoubleZoom?: (intent: 'zoom' | 'fit') => void;
   }
 
-  let { viewport, mode, selection, onChange, onSeek, onDoubleZoom }: Props = $props();
+  let { viewport, mode, selection, onChange, onSeek, onViewportGesture, onDoubleZoom }: Props =
+    $props();
 
   let root = $state<HTMLDivElement | null>(null);
   let dragging = $state(false);
@@ -29,9 +32,29 @@
   let lastClickMs = 0;
   let lastClickX = 0;
   let lastClickY = 0;
+  const touchPointers = new Map<number, { x: number; y: number }>();
+  let gestureActive = false;
+  let gestureDistance = 0;
+  let gestureCenterX = 0;
 
   const CLICK_SLOP_PX = 3;
   const DOUBLE_CLICK_MS = 350;
+
+  function capturePointer(pointerId: number) {
+    try {
+      root?.setPointerCapture(pointerId);
+    } catch {
+      // Synthetic pointer tests have no browser-managed pointer to capture.
+    }
+  }
+
+  function releasePointer(pointerId: number) {
+    try {
+      if (root?.hasPointerCapture(pointerId)) root.releasePointerCapture(pointerId);
+    } catch {
+      // The browser may already have released a cancelled pointer.
+    }
+  }
 
   // Whether a signal point falls inside the current selection: time for a
   // waveform selection, time and frequency for a spectrogram box.
@@ -80,16 +103,36 @@
     if (event.button !== 0 || !root) return;
     // Own the gesture: the timeline's click-to-seek must not also fire.
     event.stopPropagation();
+    if (event.pointerType === 'touch') {
+      event.preventDefault();
+      touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      capturePointer(event.pointerId);
+      if (touchPointers.size >= 2) {
+        dragging = false;
+        gestureActive = true;
+        rememberGesture();
+        return;
+      }
+    }
     const { rx, ry } = ratios(event);
     startX = event.clientX;
     startY = event.clientY;
     startT = timeAt(rx);
     startF = freqAt(ry);
     dragging = true;
-    root.setPointerCapture(event.pointerId);
+    capturePointer(event.pointerId);
   }
 
   function onPointerMove(event: PointerEvent) {
+    if (event.pointerType === 'touch' && touchPointers.has(event.pointerId)) {
+      touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (gestureActive && touchPointers.size >= 2) {
+        event.preventDefault();
+        event.stopPropagation();
+        applyGesture();
+        return;
+      }
+    }
     if (!dragging) return;
     event.stopPropagation();
     const { rx, ry } = ratios(event);
@@ -97,10 +140,22 @@
   }
 
   function onPointerUp(event: PointerEvent) {
+    if (event.pointerType === 'touch' && touchPointers.has(event.pointerId)) {
+      touchPointers.delete(event.pointerId);
+      releasePointer(event.pointerId);
+      if (gestureActive) {
+        event.preventDefault();
+        event.stopPropagation();
+        dragging = false;
+        gestureDistance = 0;
+        if (touchPointers.size === 0) gestureActive = false;
+        return;
+      }
+    }
     if (!dragging) return;
     event.stopPropagation();
     dragging = false;
-    root?.releasePointerCapture(event.pointerId);
+    releasePointer(event.pointerId);
     const movedX = Math.abs(event.clientX - startX);
     const movedY = Math.abs(event.clientY - startY);
     const isClick = movedX < CLICK_SLOP_PX && (mode === 'time' || movedY < CLICK_SLOP_PX);
@@ -131,6 +186,41 @@
     }
     const { rx, ry } = ratios(event);
     onChange(build(timeAt(rx), freqAt(ry)));
+  }
+
+  function gesturePoints(): [{ x: number; y: number }, { x: number; y: number }] | null {
+    const points = [...touchPointers.values()];
+    return points.length >= 2 ? [points[0], points[1]] : null;
+  }
+
+  function rememberGesture() {
+    const points = gesturePoints();
+    if (!points) return;
+    const [a, b] = points;
+    gestureDistance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+    gestureCenterX = (a.x + b.x) / 2;
+  }
+
+  function applyGesture() {
+    const points = gesturePoints();
+    if (!points || !root) return;
+    const [a, b] = points;
+    const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+    const centerX = (a.x + b.x) / 2;
+    const rect = root.getBoundingClientRect();
+    const anchorRatio = Math.min(1, Math.max(0, (centerX - rect.left) / rect.width));
+    const factor = Math.min(2, Math.max(0.5, gestureDistance / distance));
+    const panRatio = (gestureCenterX - centerX) / Math.max(1, rect.width);
+    onViewportGesture?.(factor, anchorRatio, panRatio);
+    gestureDistance = distance;
+    gestureCenterX = centerX;
+  }
+
+  function onPointerCancel(event: PointerEvent) {
+    touchPointers.delete(event.pointerId);
+    dragging = false;
+    gestureDistance = 0;
+    if (touchPointers.size === 0) gestureActive = false;
   }
 
   // Selection geometry mapped to this pane's pixels, or null when the box has
@@ -166,6 +256,7 @@
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
   onpointerup={onPointerUp}
+  onpointercancel={onPointerCancel}
 >
   {#if rect}
     <div

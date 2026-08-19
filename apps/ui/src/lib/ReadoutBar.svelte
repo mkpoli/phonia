@@ -359,4 +359,33 @@
     color: var(--danger);
     border-color: color-mix(in oklab, var(--danger) 40%, var(--chrome-strong));
   }
+
+  @media (max-width: 720px) {
+    .readout {
+      display: block;
+      min-height: 0;
+      padding: 0.4rem;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+    }
+
+    .readout::-webkit-scrollbar {
+      display: none;
+    }
+
+    .fields,
+    .actions {
+      width: max-content;
+      flex-wrap: nowrap;
+    }
+
+    .actions {
+      margin-top: 0.4rem;
+    }
+
+    .actions button {
+      min-height: 2.75rem;
+    }
+  }
 </style>

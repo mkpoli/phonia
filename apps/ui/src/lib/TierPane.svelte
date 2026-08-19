@@ -1543,6 +1543,69 @@
     display: none;
   }
 
+  @media (max-width: 720px) {
+    .anno-toolbar {
+      flex: none;
+      flex-wrap: nowrap;
+      height: 3.25rem;
+      min-height: 3.25rem;
+      max-height: 3.25rem;
+      padding: 0.25rem 0.4rem;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+    }
+
+    .anno-toolbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .anno-toolbar .spacer {
+      flex: none;
+      width: 0.1rem;
+    }
+
+    .anno-toolbar .group {
+      flex: none;
+    }
+
+    .anno-toolbar button {
+      flex: none;
+      min-height: 2.75rem;
+    }
+
+    .anno-toolbar button kbd {
+      display: none;
+    }
+
+    .tier-rows {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .tier-row :global(.lane) {
+      height: 5rem;
+    }
+
+    .empty {
+      padding: 0.55rem 0.7rem;
+    }
+
+    .empty-keys {
+      display: none;
+    }
+
+    .tier-chip {
+      max-width: calc(100% - 0.6rem);
+    }
+
+    .tier-move,
+    .tier-remove {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+  }
+
   .status {
     padding: 0.25rem 0.6rem;
     color: var(--warn);

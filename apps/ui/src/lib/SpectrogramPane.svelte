@@ -39,6 +39,7 @@
     selection?: Selection | null;
     onSelectionChange?: (selection: Selection | null) => void;
     onSeek?: (time: number) => void;
+    onViewportGesture?: (factor: number, anchorRatio: number, panRatio: number) => void;
     /** Multiplies the frequency ceiling by `factor` (frequency-ruler drag). */
     onScaleFrequency?: (factor: number) => void;
     /** Restores the frequency ceiling to its default. */
@@ -67,6 +68,7 @@
     selection = null,
     onSelectionChange,
     onSeek,
+    onViewportGesture,
     onScaleFrequency,
     onResetFrequency,
     onDoubleZoom,
@@ -417,6 +419,7 @@
       {selection}
       onChange={onSelectionChange}
       {onSeek}
+      {onViewportGesture}
       {onDoubleZoom}
     />
   {/if}

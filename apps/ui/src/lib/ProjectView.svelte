@@ -775,4 +775,94 @@
     box-shadow: var(--shadow-lg);
     font-size: 0.85rem;
   }
+
+  @media (max-width: 720px) {
+    .project {
+      min-height: calc(100vh - var(--mobile-rail-height) - var(--safe-bottom));
+      min-height: calc(100dvh - var(--mobile-rail-height) - var(--safe-bottom));
+    }
+
+    .top {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.5rem;
+    }
+
+    .left,
+    .right {
+      min-width: 0;
+      gap: 0.4rem;
+    }
+
+    .left :global(.project-name),
+    .name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .icon-only {
+      width: 2.75rem;
+      min-width: 2.75rem;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .right {
+      justify-content: flex-end;
+    }
+
+    .dirty {
+      flex: 1;
+      font-size: 0.72rem;
+    }
+
+    .workbench {
+      position: relative;
+    }
+
+    .body {
+      padding: 0.75rem;
+    }
+
+    .toolbar {
+      align-items: stretch;
+    }
+
+    .search {
+      max-width: none;
+      flex-basis: 100%;
+    }
+
+    .search-input {
+      min-height: 2.75rem;
+    }
+
+    .toolbar-actions {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .toolbar-actions button {
+      justify-content: center;
+    }
+
+    .empty-actions {
+      width: min(100%, 22rem);
+      flex-direction: column;
+    }
+
+    .empty-actions button {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .busy {
+      bottom: calc(var(--mobile-rail-height) + var(--safe-bottom) + 0.75rem);
+      max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 1rem);
+    }
+  }
 </style>

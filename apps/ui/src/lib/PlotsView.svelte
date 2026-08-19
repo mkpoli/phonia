@@ -2399,4 +2399,137 @@
     background: var(--panel);
     color: var(--text);
   }
+
+  @media (max-width: 720px) {
+    .plots {
+      inset: var(--safe-top) var(--safe-right)
+        calc(var(--mobile-rail-height) + var(--safe-bottom)) var(--safe-left);
+    }
+
+    .bar {
+      gap: 0.4rem;
+      min-height: 3.25rem;
+      padding: 0.25rem 0.4rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .crumb-current,
+    .crumb-sep {
+      display: none;
+    }
+
+    .crumb {
+      flex: none;
+    }
+
+    .crumb-back :global(.inline-rename) {
+      display: none;
+    }
+
+    .crumb-back,
+    .add,
+    .ghost,
+    .export {
+      min-height: 2.75rem;
+    }
+
+    .crumb-back span {
+      display: none;
+    }
+
+    .crumb-back,
+    .ghost {
+      width: 2.75rem;
+      min-width: 2.75rem;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .add-menu,
+    .export-menu {
+      position: fixed;
+      top: calc(var(--safe-top) + 3.75rem);
+      right: calc(var(--safe-right) + 0.5rem);
+      left: calc(var(--safe-left) + 0.5rem);
+      min-width: 0;
+    }
+
+    .add-menu button,
+    .export-menu button {
+      min-height: 2.75rem;
+    }
+
+    .body {
+      flex-direction: column;
+    }
+
+    .canvas {
+      order: 1;
+      min-height: 40%;
+      touch-action: none;
+    }
+
+    .layers-panel {
+      order: 2;
+      width: 100%;
+      min-width: 0;
+      max-height: 5rem;
+      padding: 0.35rem;
+      border-top: 1px solid var(--chrome-strong);
+      border-right: none;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .layers-panel h2 {
+      display: none;
+    }
+
+    .layers {
+      width: max-content;
+      min-width: 100%;
+      flex-direction: row;
+    }
+
+    .layer {
+      min-width: 10rem;
+      min-height: 3.5rem;
+    }
+
+    .layer-eye,
+    .layer-del,
+    .layer-move {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+      opacity: 1;
+    }
+
+    .props {
+      order: 3;
+      width: 100%;
+      min-width: 0;
+      max-height: 38%;
+      padding: 0.65rem;
+      border-top: 1px solid var(--chrome-strong);
+      border-left: none;
+    }
+
+    .field input,
+    .field select,
+    .fit-paper,
+    .reset,
+    .window-actions .mini {
+      min-height: 2.75rem;
+    }
+
+    .artboard-wrap {
+      --hs: calc(18px / var(--z, 1));
+      --ho: calc(-10px / var(--z, 1));
+    }
+  }
 </style>

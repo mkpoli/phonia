@@ -553,4 +553,10 @@
     font-size: 0.66rem;
     line-height: 1.4;
   }
+
+  @media (max-width: 720px) {
+    .rail {
+      display: none;
+    }
+  }
 </style>

@@ -894,6 +894,31 @@
     padding-left: 2.05rem;
   }
 
+  @media (max-width: 720px) {
+    .inspector {
+      position: fixed;
+      z-index: 55;
+      right: var(--safe-right);
+      bottom: calc(var(--mobile-rail-height) + var(--safe-bottom));
+      left: var(--safe-left);
+      width: auto;
+      min-width: 0;
+      height: min(70dvh, 38rem);
+      padding-bottom: calc(1.5rem + var(--safe-bottom));
+      border-top: 1px solid var(--chrome-strong);
+      border-left: none;
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      box-shadow: 0 -12px 32px rgb(0 0 0 / 0.22);
+    }
+
+    .close,
+    .copy-cursor,
+    .eye {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+  }
+
   .formant-table {
     width: 100%;
     border-collapse: collapse;

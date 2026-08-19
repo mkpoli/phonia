@@ -378,7 +378,9 @@
   let viewport = $state<ViewportState>(defaultViewport());
   let overlayParams = $state<OverlayParams>(defaultOverlayParams());
   let overlayStats = $state<OverlayStats>({ pitchMaxHz: 0, formantMaxHz: 0 });
-  let inspectorOpen = $state(true);
+  let inspectorOpen = $state(
+    typeof window === 'undefined' || !window.matchMedia('(max-width: 720px)').matches
+  );
   let exportOpen = $state(false);
   let railOpen = $state(true);
   // A brief self-clearing status line for background actions (a contour copy).
@@ -1370,6 +1372,19 @@
     setViewport({ ...viewport, t0: viewport.t0 + deltaSeconds, t1: viewport.t1 + deltaSeconds });
   }
 
+  function handleViewportGesture(factor: number, anchorRatio: number, panRatio: number) {
+    if (!audio) return;
+    const span = viewport.t1 - viewport.t0;
+    const anchor = viewport.t0 + span * anchorRatio;
+    const nextSpan = span * factor;
+    const pan = span * panRatio;
+    setViewport({
+      ...viewport,
+      t0: anchor - nextSpan * anchorRatio + pan,
+      t1: anchor + nextSpan * (1 - anchorRatio) + pan
+    });
+  }
+
   function zoomVertical(factor: number) {
     const f1 = Math.max(200, Math.min(12000, viewport.f1 * factor));
     setViewport({ ...viewport, ampScale: viewport.ampScale / factor, f1 });
@@ -2191,6 +2206,7 @@
           {selection}
           onSelectionChange={handleSelectionChange}
           onSeek={seekFromPane}
+          onViewportGesture={handleViewportGesture}
           onScaleAmp={scaleAmplitude}
           onResetAmp={resetAmplitude}
           onDoubleZoom={handleDoubleZoom}
@@ -2209,6 +2225,7 @@
         {selection}
         onSelectionChange={handleSelectionChange}
         onSeek={seekFromPane}
+        onViewportGesture={handleViewportGesture}
         onScaleFrequency={scaleFrequencyCeiling}
         onResetFrequency={resetFrequencyCeiling}
         onDoubleZoom={handleDoubleZoom}
@@ -2569,6 +2586,7 @@
     min-width: 0;
     min-height: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 1.5rem minmax(9rem, 22vh) minmax(12rem, 1fr) minmax(7rem, 32vh);
     overflow: hidden;
     touch-action: none;
@@ -2601,5 +2619,88 @@
     box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
     font-size: 0.82rem;
     pointer-events: none;
+  }
+
+  @media (max-width: 720px) {
+    .editor {
+      height: calc(
+        100dvh - var(--safe-top) - var(--mobile-rail-height) - var(--safe-bottom)
+      );
+    }
+
+    .breadcrumb {
+      gap: 0.35rem;
+      min-height: 3.25rem;
+      padding: 0.25rem 0.4rem;
+    }
+
+    .crumb-group,
+    .crumb-sep,
+    .crumb-slash,
+    .meta-chips,
+    .save-state,
+    .crumb-spacer {
+      display: none;
+    }
+
+    .crumb-back {
+      width: 2.75rem;
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .crumb-back :global(.crumb-back-name),
+    .crumb-back > span {
+      display: none;
+    }
+
+    .breadcrumb > :global(.switcher) {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .crumb-import {
+      width: 2.75rem;
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .crumb-import span {
+      display: none;
+    }
+
+    .icon-button {
+      width: 2.75rem;
+      min-width: 2.75rem;
+      height: 2.75rem;
+    }
+
+    .ramp-editor-slot {
+      top: 3.75rem;
+      max-height: calc(100% - 4.25rem);
+    }
+
+    .workspace {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .timeline[data-waveform-visible='true'] {
+      grid-template-rows: 1.5rem minmax(4.5rem, 0.8fr) minmax(7rem, 1.5fr) minmax(6rem, 1fr) !important;
+    }
+
+    .timeline[data-waveform-visible='false'] {
+      grid-template-rows: 1.5rem minmax(8rem, 1.6fr) minmax(6rem, 1fr) !important;
+    }
+
+    .toast {
+      bottom: calc(var(--mobile-rail-height) + var(--safe-bottom) + 0.5rem);
+      width: max-content;
+      max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 1rem);
+      text-align: center;
+    }
   }
 </style>

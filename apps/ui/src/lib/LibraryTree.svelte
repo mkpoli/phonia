@@ -351,6 +351,7 @@
             class="rec-name"
             label="Rename recording"
             testId="rename-corpus"
+            onActivate={() => onOpen(rec.mediaId)}
             onRename={(next) => onRenameRecording(rec.mediaId, next)}
           />
           <span class="tag muted" data-testid="corpus-format">{formatLabel(rec.fileName)}</span>
@@ -668,5 +669,70 @@
 
   .act :global(svg) {
     font-size: 0.9rem;
+  }
+
+  @media (max-width: 720px) {
+    .tree {
+      border-radius: var(--radius-md);
+    }
+
+    .head {
+      display: none;
+    }
+
+    .row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.5rem;
+      min-height: 4rem;
+      padding: 0.5rem;
+    }
+
+    .row > .handle,
+    .row > .c-num,
+    .row > .c-annot {
+      display: none;
+    }
+
+    .main {
+      grid-column: 1;
+    }
+
+    .main.open > .disclose-spacer,
+    .main.open > .tag {
+      display: none;
+    }
+
+    .main :global(.inline-rename) {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .main :global(.rec-name) {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .c-actions {
+      grid-column: 2;
+      min-width: 8.55rem;
+    }
+
+    .act {
+      width: 2.75rem;
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+      opacity: 1;
+    }
+
+    .thumb-box {
+      width: 72px;
+    }
+
+    .tag {
+      font-size: 0.72rem;
+    }
   }
 </style>
