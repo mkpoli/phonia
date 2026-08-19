@@ -1,12 +1,17 @@
 {
   "name": "Phonia",
   "short_name": "Phonia",
+  "id": "/?app=1",
+  "lang": "en",
+  "dir": "ltr",
   "description": "Phonetics workstation for acoustic analysis: waveform, spectrogram, pitch, formant, and intensity views, and TextGrid annotation, running in the browser.",
   "start_url": "/?app=1",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#f7f6f3",
   "theme_color": "#0f766e",
+  "categories": ["education", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icon-192.png",

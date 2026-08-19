@@ -42,6 +42,7 @@
     type ProjectState
   } from '$lib/project/ProjectStore';
   import LandingPage from '$lib/landing/LandingPage.svelte';
+  import PwaStatus from '$lib/pwa/PwaStatus.svelte';
 
   type Route = 'home' | 'project' | 'editor' | 'plots';
 
@@ -1997,6 +1998,8 @@
 {/if}
 
 <CommandPalette registry={commands} />
+
+<PwaStatus />
 
 {#if keyBindings.promptDue}
   <FirstRunKeyModePrompt
