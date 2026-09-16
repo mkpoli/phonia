@@ -1,5 +1,6 @@
-//! Frame layout, analysis window, and the window-corrected autocorrelation of
-//! one frame (Boersma 1993 §1–§3).
+//! Frame layout, analysis window, and the per-frame correlation: the
+//! window-corrected autocorrelation of Boersma 1993 §1–§3, or the normalised
+//! forward cross-correlation of Praat's "To Pitch (cc)".
 
 use std::f64::consts::PI;
 
@@ -11,18 +12,33 @@ use crate::params::PitchParams;
 /// window's own autocorrelation the kept lags never come close.
 const WINDOW_ACF_EPSILON: f64 = 1e-10;
 
+/// How one frame is turned into a correlation over lag.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum Method {
+    /// Window-corrected autocorrelation (Boersma 1993): Hanning window over
+    /// three pitch-floor periods, or the Gaussian window over six when the
+    /// parameters ask for the very-accurate setting.
+    Autocorrelation,
+    /// Normalised forward cross-correlation of an unwindowed frame against
+    /// the samples that follow it, over `periods_per_window` periods.
+    CrossCorrelation { periods_per_window: f64 },
+}
+
 /// Sizes derived from the parameters and the sampling rate; everything the
 /// per-frame analysis needs to know about lags and buffers.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Layout {
     pub(crate) sample_rate: f64,
-    /// Gaussian window (the paper's postscript) instead of Hanning.
+    pub(crate) floor_hz: f64,
+    pub(crate) method: Method,
+    /// Gaussian window (autocorrelation with the very-accurate setting).
     pub(crate) gaussian: bool,
     /// Window length in periods of the pitch floor: 3 for the Hanning window,
-    /// 6 for the Gaussian one.
+    /// 6 for the Gaussian one, the caller's choice for cross-correlation.
     pub(crate) periods_per_window: f64,
-    /// Window duration in seconds, before rounding to samples. The frame grid
-    /// is built on this value.
+    /// Duration in seconds of the span one frame reads, before rounding to
+    /// samples: the window itself, plus one pitch-floor period of look-ahead
+    /// for cross-correlation. The frame grid is built on this value.
     pub(crate) window_seconds: f64,
     /// Window length in samples, forced even.
     pub(crate) window_samples: usize,
@@ -39,7 +55,7 @@ pub(crate) struct Layout {
     /// bound of the sinc interpolation around a maximum.
     pub(crate) max_lag: usize,
     /// Sinc interpolation depth for refining a maximum: 70 for the Hanning
-    /// window, 700 for the Gaussian one.
+    /// window, 700 for the Gaussian one and for cross-correlation.
     pub(crate) refine_depth: usize,
     /// Pitch ceiling clamped to Nyquist.
     pub(crate) ceiling_hz: f64,
@@ -50,15 +66,19 @@ pub(crate) struct Layout {
 
 impl Layout {
     /// Returns `None` when the window rounds to fewer than four samples.
-    pub(crate) fn new(params: &PitchParams, sample_rate: f64) -> Option<Self> {
+    pub(crate) fn new(params: &PitchParams, sample_rate: f64, method: Method) -> Option<Self> {
         let dx = 1.0 / sample_rate;
-        let (periods_per_window, interpolation_depth, refine_depth) = if params.very_accurate {
-            (6.0, 0.25, 700)
-        } else {
-            (3.0, 0.5, 70)
+        let refine_depth = if params.very_accurate { 700 } else { 70 };
+        let (periods_per_window, interpolation_depth, look_ahead) = match method {
+            Method::Autocorrelation if params.very_accurate => (6.0, 0.25, 0.0),
+            Method::Autocorrelation => (3.0, 0.5, 0.0),
+            Method::CrossCorrelation { periods_per_window } => {
+                (periods_per_window, 1.0, 1.0 / params.floor_hz)
+            }
         };
-        let window_seconds = periods_per_window / params.floor_hz;
-        let half_window = ((window_seconds / dx).floor() as usize / 2).checked_sub(1)?;
+        let window_duration = periods_per_window / params.floor_hz;
+        let window_seconds = window_duration + look_ahead;
+        let half_window = ((window_duration / dx).floor() as usize / 2).checked_sub(1)?;
         if half_window < 2 {
             return None;
         }
@@ -72,7 +92,9 @@ impl Layout {
         let ceiling_hz = params.ceiling_hz.min(0.5 * sample_rate);
         Some(Self {
             sample_rate,
-            gaussian: params.very_accurate,
+            floor_hz: params.floor_hz,
+            method,
+            gaussian: params.very_accurate && method == Method::Autocorrelation,
             periods_per_window,
             window_seconds,
             window_samples,
@@ -94,10 +116,13 @@ impl Layout {
     /// for the very-accurate setting, the Gaussian of the paper's postscript.
     /// Both are sampled so that the window's zeros fall one sample outside
     /// either end, and the Gaussian is shifted and rescaled to reach exactly
-    /// zero there.
+    /// zero there. Cross-correlation frames are not windowed.
     pub(crate) fn window(&self) -> Vec<f64> {
         let n = self.window_samples;
         let span = (n + 1) as f64;
+        if let Method::CrossCorrelation { .. } = self.method {
+            return vec![1.0; n];
+        }
         if self.gaussian {
             let mid = 0.5 * span;
             let edge = (-12.0_f64).exp();
@@ -115,6 +140,13 @@ impl Layout {
     }
 }
 
+/// Index of the last sample at or before `time`, with sample `k` centred at
+/// `(k + ½)·dx`: `⌊(time − dx/2) / dx⌋`, evaluated in that form.
+fn low_sample_index(time: f64, sample_rate: f64) -> i64 {
+    let dx = 1.0 / sample_rate;
+    ((time - 0.5 * dx) / dx).floor() as i64
+}
+
 /// Reusable state for analysing frames of one signal: the window, its
 /// normalised autocorrelation `r_w` (eq. 8, computed numerically so it is
 /// exact for either window shape), the FFT plan, and scratch buffers.
@@ -125,6 +157,8 @@ pub(crate) struct FrameAnalyzer {
     plan: RealFftPlan,
     frame: Vec<f64>,
     acf: Vec<f64>,
+    /// Mean-removed samples of the cross-correlation span.
+    span: Vec<f64>,
 }
 
 impl FrameAnalyzer {
@@ -133,12 +167,17 @@ impl FrameAnalyzer {
         let mut plan = RealFftPlan::new();
         let mut frame = vec![0.0; layout.fft_len];
         let mut acf = vec![0.0; layout.fft_len];
-        frame[..window.len()].copy_from_slice(&window);
-        plan.autocorrelate_into(&mut frame, &mut acf);
-        let window_acf: Vec<f64> = acf[..=layout.max_lag]
-            .iter()
-            .map(|&value| value / acf[0])
-            .collect();
+        let window_acf: Vec<f64> = match layout.method {
+            Method::Autocorrelation => {
+                frame[..window.len()].copy_from_slice(&window);
+                plan.autocorrelate_into(&mut frame, &mut acf);
+                acf[..=layout.max_lag]
+                    .iter()
+                    .map(|&value| value / acf[0])
+                    .collect()
+            }
+            Method::CrossCorrelation { .. } => Vec::new(),
+        };
         Self {
             layout,
             window,
@@ -146,18 +185,23 @@ impl FrameAnalyzer {
             plan,
             frame,
             acf,
+            span: Vec::new(),
         }
     }
 
-    /// Window-corrected autocorrelation `r_x(τ)` of the frame centred at
-    /// `time`, for lags `0..=max_lag`, written into `r` (eq. 9), plus the
-    /// frame's local peak relative to `global_peak` (the intensity that
-    /// drives the unvoiced candidate, eq. 23).
+    /// Correlation of the frame centred at `time` over lags `0..=max_lag`,
+    /// written into `r`, plus the frame's local peak relative to
+    /// `global_peak` (the intensity that drives the unvoiced candidate,
+    /// eq. 23).
     ///
     /// The frame's DC offset is removed with the local mean over one pitch
     /// period to either side of the centre (§4 step 3), and the local peak is
     /// read over half a period to either side of the centre of the windowed
-    /// frame.
+    /// frame. For autocorrelation `r` is the window-corrected `r_x(τ)`
+    /// (eq. 9); for cross-correlation it is the normalised product of the
+    /// frame with the same-length span `τ` samples later, the frame itself
+    /// starting half a pitch-floor period before the usual position so that
+    /// the lagged spans stay centred on `time`.
     pub(crate) fn correlate(
         &mut self,
         signal: &[f64],
@@ -167,9 +211,11 @@ impl FrameAnalyzer {
     ) -> f64 {
         let layout = self.layout;
         debug_assert_eq!(r.len(), layout.max_lag + 1);
-        // Sample `k` sits at time `(k + ½)/rate`; `left` is the last sample at
-        // or before `time`.
-        let left = (time * layout.sample_rate - 0.5).floor().max(0.0) as isize;
+        // Sample `k` sits at time `(k + ½)·dx`; `left` is the last sample at
+        // or before `time`, found the way Praat forms it, `⌊(t − x₁)/dx⌋`,
+        // so a frame centre that falls exactly on a sample rounds the same
+        // way on both sides.
+        let left = low_sample_index(time, layout.sample_rate).max(0) as isize;
         let right = left + 1;
         let n = signal.len() as isize;
 
@@ -209,6 +255,10 @@ impl FrameAnalyzer {
             r[1..].fill(0.0);
             return intensity;
         }
+        if let Method::CrossCorrelation { .. } = layout.method {
+            self.cross_correlate(signal, local_mean, time, r);
+            return intensity;
+        }
         self.plan.autocorrelate_into(&mut self.frame, &mut self.acf);
         let zero = self.acf[0];
         for ((value, &raw), &rw) in r[1..=layout.max_lag]
@@ -224,6 +274,42 @@ impl FrameAnalyzer {
         }
         intensity
     }
+
+    /// Normalised forward cross-correlation for lags `1..maximum_lag`, with
+    /// lags beyond that left at zero. The reference span starts at
+    /// `time − (period + window)/2` and the running sum of squares of the
+    /// lagged span is updated one sample at a time.
+    fn cross_correlate(&mut self, signal: &[f64], local_mean: f64, time: f64, r: &mut [f64]) {
+        let layout = self.layout;
+        let n = layout.window_samples;
+        let start_time = time - 0.5 * (1.0 + layout.periods_per_window) / layout.floor_hz;
+        let start = low_sample_index(start_time, layout.sample_rate).max(0) as usize;
+        let available = signal.len().saturating_sub(start);
+        let span = (layout.maximum_lag + n).min(available);
+        let local_maximum_lag = span.saturating_sub(n);
+        r[1..].fill(0.0);
+        if local_maximum_lag == 0 {
+            return;
+        }
+        self.span.clear();
+        self.span
+            .extend(signal[start..start + span].iter().map(|&v| v - local_mean));
+        let x = &self.span;
+        let sum_x2: f64 = x[..n].iter().map(|&v| v * v).sum();
+        let mut sum_y2 = sum_x2;
+        for lag in 1..=local_maximum_lag {
+            let dropped = x[lag - 1];
+            let added = x[lag + n - 1];
+            sum_y2 += added * added - dropped * dropped;
+            let product: f64 = x[..n]
+                .iter()
+                .zip(&x[lag..lag + n])
+                .map(|(&a, &b)| a * b)
+                .sum();
+            let norm = (sum_x2 * sum_y2).sqrt();
+            r[lag] = if norm > 0.0 { product / norm } else { 0.0 };
+        }
+    }
 }
 
 #[cfg(test)]
@@ -238,7 +324,7 @@ mod tests {
             very_accurate: true,
             ..PitchParams::default()
         };
-        let layout = Layout::new(&params, 16_000.0).unwrap();
+        let layout = Layout::new(&params, 16_000.0, Method::Autocorrelation).unwrap();
         // 6 / 65 s at 16 kHz = 1476.9 samples → 1476 → half 737 → 1474.
         assert_eq!(layout.window_samples, 1474);
         assert_eq!(layout.period_samples, 246);
@@ -249,7 +335,8 @@ mod tests {
         assert_eq!(layout.refine_depth, 700);
         assert_eq!(layout.max_candidates, 15);
 
-        let hanning = Layout::new(&PitchParams::default(), 44_100.0).unwrap();
+        let hanning =
+            Layout::new(&PitchParams::default(), 44_100.0, Method::Autocorrelation).unwrap();
         assert_eq!(
             hanning.window_samples,
             (44_100.0_f64 * 3.0 / 75.0) as usize / 2 * 2 - 2
@@ -259,22 +346,77 @@ mod tests {
     }
 
     #[test]
+    fn cross_correlation_layout_adds_a_period_of_look_ahead() {
+        let params = PitchParams::default();
+        let layout = Layout::new(
+            &params,
+            16_000.0,
+            Method::CrossCorrelation {
+                periods_per_window: 1.0,
+            },
+        )
+        .unwrap();
+        // 1 / 75 s at 16 kHz = 213.3 samples → 213 → half 105 → 210.
+        assert_eq!(layout.window_samples, 210);
+        assert!((layout.window_seconds - 2.0 / 75.0).abs() < 1e-12);
+        // ⌊210 / 1⌋ + 2 clamps to the window length.
+        assert_eq!(layout.maximum_lag, 210);
+        assert_eq!(layout.max_lag, 210);
+        assert_eq!(layout.refine_depth, 70);
+        assert!(!layout.gaussian);
+        assert!(layout.window().iter().all(|&w| w == 1.0));
+    }
+
+    #[test]
+    fn cross_correlation_of_a_tone_peaks_at_its_period() {
+        let rate = 16_000.0;
+        // Two periods per window: lags run to ⌊424 / 2⌋ + 2 = 214 while the
+        // correlation buffer reaches 424, so the tail past 214 stays zero.
+        let layout = Layout::new(
+            &PitchParams::default(),
+            rate,
+            Method::CrossCorrelation {
+                periods_per_window: 2.0,
+            },
+        )
+        .unwrap();
+        assert_eq!(layout.maximum_lag, 214);
+        let mut analyzer = FrameAnalyzer::new(layout);
+        let period = 100.0;
+        let signal: Vec<f64> = (0..16_000)
+            .map(|i| 0.3 + (2.0 * PI * i as f64 / period).sin())
+            .collect();
+        let mut r = vec![0.0; layout.max_lag + 1];
+        let intensity = analyzer.correlate(&signal, 1.0, 0.5, &mut r);
+        assert!(intensity > 0.9, "{intensity}");
+        assert!((r[100] - 1.0).abs() < 1e-6, "r[100] = {}", r[100]);
+        assert!(r[50] < -0.99, "r[50] = {}", r[50]);
+        assert!((r[200] - 1.0).abs() < 1e-6, "r[200] = {}", r[200]);
+        assert_eq!(r[300], 0.0, "past the last computed lag");
+    }
+
+    #[test]
     fn layout_rejects_windows_too_short_to_analyse() {
         // 3 / 75 s at 80 Hz sampling is three samples: no frame fits.
-        assert!(Layout::new(&PitchParams::default(), 80.0).is_none());
+        assert!(Layout::new(&PitchParams::default(), 80.0, Method::Autocorrelation).is_none());
         // A floor above the sampling rate leaves no period to examine.
         let params = PitchParams {
             floor_hz: 20_000.0,
             ceiling_hz: 30_000.0,
             ..PitchParams::default()
         };
-        assert!(Layout::new(&params, 16_000.0).is_none());
+        assert!(Layout::new(&params, 16_000.0, Method::Autocorrelation).is_none());
         // The ceiling never exceeds Nyquist.
         let params = PitchParams {
             ceiling_hz: 20_000.0,
             ..PitchParams::default()
         };
-        assert_eq!(Layout::new(&params, 16_000.0).unwrap().ceiling_hz, 8_000.0);
+        assert_eq!(
+            Layout::new(&params, 16_000.0, Method::Autocorrelation)
+                .unwrap()
+                .ceiling_hz,
+            8_000.0
+        );
     }
 
     #[test]
@@ -283,7 +425,7 @@ mod tests {
             very_accurate: true,
             ..PitchParams::default()
         };
-        let layout = Layout::new(&params, 16_000.0).unwrap();
+        let layout = Layout::new(&params, 16_000.0, Method::Autocorrelation).unwrap();
         let window = layout.window();
         let n = window.len();
         assert!(window[0] > 0.0 && window[0] < 1e-3, "{}", window[0]);
@@ -298,7 +440,8 @@ mod tests {
 
     #[test]
     fn window_acf_is_one_at_zero_lag_and_decays() {
-        let layout = Layout::new(&PitchParams::default(), 16_000.0).unwrap();
+        let layout =
+            Layout::new(&PitchParams::default(), 16_000.0, Method::Autocorrelation).unwrap();
         let analyzer = FrameAnalyzer::new(layout);
         assert!((analyzer.window_acf[0] - 1.0).abs() < 1e-12);
         let mid = analyzer.window_acf[layout.max_lag / 2];
@@ -320,7 +463,7 @@ mod tests {
     #[test]
     fn pure_tone_correlates_to_one_at_its_period() {
         let rate = 16_000.0;
-        let layout = Layout::new(&PitchParams::default(), rate).unwrap();
+        let layout = Layout::new(&PitchParams::default(), rate, Method::Autocorrelation).unwrap();
         let mut analyzer = FrameAnalyzer::new(layout);
         let period = 100.0;
         let signal: Vec<f64> = (0..16_000)

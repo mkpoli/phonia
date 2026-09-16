@@ -1,5 +1,6 @@
-//! Window-corrected autocorrelation candidates + Viterbi path finder
-//! (Boersma 1993); full parameter surface with Praat-documented defaults.
+//! Window-corrected autocorrelation candidates (Boersma 1993) or forward
+//! cross-correlation candidates, plus a Viterbi path finder; full parameter
+//! surface with Praat-documented defaults.
 #![warn(missing_docs)]
 
 mod analysis;
@@ -27,23 +28,59 @@ pub use types::{PitchCandidate, PitchFrame, PitchTrack, TimeSpan};
 /// costs when it picks [`PitchFrame::f0`].
 #[must_use]
 pub fn pitch_track(audio: AudioView<'_>, params: &PitchParams) -> PitchTrack {
+    track(audio, params, analysis::Method::Autocorrelation)
+}
+
+/// Computes a pitch track by normalised forward cross-correlation, Praat's
+/// "Sound: To Pitch (cc)...".
+///
+/// Each frame of `periods_per_window` pitch-floor periods is compared,
+/// unwindowed, with the same-length span that follows it at every lag up to
+/// one period; the frame grid therefore spans one period more than the
+/// window. Candidates, refinement, and the path finder are those of
+/// [`pitch_track`] (`very_accurate` selects the refinement depth, 700 over
+/// 70, as there); the automatic time step is `0.25 / floor`.
+/// Praat's command analyses one period per window; its cross-correlation
+/// harmonicity passes its own value.
+#[must_use]
+pub fn pitch_track_cc(
+    audio: AudioView<'_>,
+    params: &PitchParams,
+    periods_per_window: f64,
+) -> PitchTrack {
+    if !(periods_per_window.is_finite() && periods_per_window > 0.0) {
+        return PitchTrack::new(Vec::new());
+    }
+    let method = analysis::Method::CrossCorrelation { periods_per_window };
+    track(audio, params, method)
+}
+
+fn track(audio: AudioView<'_>, params: &PitchParams, method: analysis::Method) -> PitchTrack {
     if !params.is_valid_for_analysis() {
         return PitchTrack::new(Vec::new());
     }
-    let Some(step) = params.resolved_step() else {
+    let automatic_step_periods = match method {
+        analysis::Method::Autocorrelation => 0.75,
+        analysis::Method::CrossCorrelation { .. } => 0.25,
+    };
+    let Some(step) = params.resolved_step(automatic_step_periods) else {
         return PitchTrack::new(Vec::new());
     };
     let sample_rate = audio.sample_rate();
-    let Some(layout) = analysis::Layout::new(params, sample_rate) else {
+    let Some(layout) = analysis::Layout::new(params, sample_rate, method) else {
         return PitchTrack::new(Vec::new());
     };
-    let grid = FrameGrid::new(audio.duration(), layout.window_seconds, step);
+    let mono = audio.mono_mix();
+    let signal: Vec<f64> = mono.iter().map(|&sample| f64::from(sample)).collect();
+    // The grid is laid on the discrete duration `n · (1/rate)`, the product
+    // Praat forms; `frames / rate` can land one ulp below an integer frame
+    // count and lose the last frame.
+    let duration = signal.len() as f64 * (1.0 / sample_rate);
+    let grid = FrameGrid::new(duration, layout.window_seconds, step);
     if grid.is_empty() {
         return PitchTrack::new(Vec::new());
     }
 
-    let mono = audio.mono_mix();
-    let signal: Vec<f64> = mono.iter().map(|&sample| f64::from(sample)).collect();
     let mean = signal.iter().sum::<f64>() / signal.len() as f64;
     let global_peak = signal
         .iter()
@@ -103,6 +140,24 @@ mod tests {
         );
         let mean = track.mean_hz(TimeSpan::new(0.1, 0.4)).unwrap();
         assert_relative_close(mean, f0, 0.001);
+    }
+
+    #[test]
+    fn cross_correlation_tracks_a_pure_tone() {
+        let sample_rate = 16_000.0;
+        let f0 = 150.0;
+        let audio = audio_from_signal(sine(f0, sample_rate, 0.5), sample_rate);
+        let track = pitch_track_cc(
+            audio.slice_samples(0..audio.frames()),
+            &PitchParams::default(),
+            1.0,
+        );
+        // The automatic step is a quarter period of the floor: 3.33 ms.
+        assert!(track.frames().len() > 130, "{}", track.frames().len());
+        let mean = track.mean_hz(TimeSpan::new(0.1, 0.4)).unwrap();
+        assert_relative_close(mean, f0, 0.001);
+        let frame = &track.frames()[track.frames().len() / 2];
+        assert!(frame.strength > 0.99, "{}", frame.strength);
     }
 
     #[test]

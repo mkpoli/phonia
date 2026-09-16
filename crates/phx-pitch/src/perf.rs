@@ -74,8 +74,13 @@ fn breakdown(label: &str, signal: Vec<f32>, params: &PitchParams) {
     let audio = Audio::new(vec![signal], SAMPLE_RATE).expect("valid audio");
     let view = audio.slice_samples(0..audio.frames());
     let sample_rate = view.sample_rate();
-    let step = params.resolved_step().unwrap();
-    let layout = Layout::new(params, sample_rate).unwrap();
+    let step = params.resolved_step(0.75).unwrap();
+    let layout = Layout::new(
+        params,
+        sample_rate,
+        crate::analysis::Method::Autocorrelation,
+    )
+    .unwrap();
     let grid = FrameGrid::new(view.duration(), layout.window_seconds, step);
     let signal: Vec<f64> = view.mono_mix().iter().map(|&s| f64::from(s)).collect();
     let mean = signal.iter().sum::<f64>() / signal.len() as f64;
@@ -132,4 +137,62 @@ fn perf_three_cases() {
         breakdown("clean-sine", clean_sine(), params);
         breakdown("silence", silence(), params);
     }
+}
+
+#[test]
+#[ignore = "timing harness; run manually in release"]
+fn perf_cross_correlation_hnr() {
+    let bytes = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/audio/arctic_slt_a0001.wav"
+    ))
+    .unwrap();
+    let audio = Audio::from_wav_bytes(&bytes).unwrap();
+    let view = audio.slice_samples(0..audio.frames());
+    let params = PitchParams {
+        time_step: Some(0.02),
+        floor_hz: 65.0,
+        ceiling_hz: 8_000.0,
+        silence_threshold: 0.1,
+        voicing_threshold: 0.0,
+        octave_cost: 0.0,
+        octave_jump_cost: 0.0,
+        voiced_unvoiced_cost: 0.0,
+        ..PitchParams::default()
+    };
+    let start = Instant::now();
+    let track = crate::pitch_track_cc(view.clone(), &params, 4.5);
+    let ms = start.elapsed().as_secs_f64() * 1e3;
+    // Correlation alone, on the same grid.
+    let layout = Layout::new(
+        &params,
+        view.sample_rate(),
+        crate::analysis::Method::CrossCorrelation {
+            periods_per_window: 4.5,
+        },
+    )
+    .unwrap();
+    let grid = FrameGrid::new(view.duration(), layout.window_seconds, 0.02);
+    let signal: Vec<f64> = view.mono_mix().iter().map(|&s| f64::from(s)).collect();
+    let mut analyzer = crate::analysis::FrameAnalyzer::new(layout);
+    let mut r = vec![0.0; layout.max_lag + 1];
+    let start = Instant::now();
+    for time in grid.centers() {
+        analyzer.correlate(&signal, 1.0, time, &mut r);
+    }
+    println!(
+        "correlation alone: {:.1} ms",
+        start.elapsed().as_secs_f64() * 1e3
+    );
+    let candidates: Vec<usize> = track
+        .frames()
+        .iter()
+        .map(|f| f.candidates.len() - 1)
+        .collect();
+    println!(
+        "hnr-cc 4.5 periods: {ms:.1} ms for {} frames; voiced candidates/frame mean={:.1} max={}",
+        track.frames().len(),
+        candidates.iter().sum::<usize>() as f64 / candidates.len().max(1) as f64,
+        candidates.iter().max().unwrap_or(&0)
+    );
 }

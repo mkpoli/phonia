@@ -53,8 +53,11 @@ impl Default for PitchParams {
 }
 
 impl PitchParams {
-    pub(crate) fn resolved_step(&self) -> Option<f64> {
-        let step = self.time_step.unwrap_or(0.75 / self.floor_hz);
+    /// The frame step: the caller's, or the documented automatic one —
+    /// `0.75 / floor` for autocorrelation, `0.25 / floor` for
+    /// cross-correlation (the manual's "Time step" defaults).
+    pub(crate) fn resolved_step(&self, automatic_periods: f64) -> Option<f64> {
+        let step = self.time_step.unwrap_or(automatic_periods / self.floor_hz);
         (step.is_finite() && step > 0.0).then_some(step)
     }
 
@@ -64,6 +67,6 @@ impl PitchParams {
             && self.floor_hz > 0.0
             && self.ceiling_hz > self.floor_hz
             && self.max_candidates > 0
-            && self.resolved_step().is_some()
+            && self.resolved_step(0.75).is_some()
     }
 }
