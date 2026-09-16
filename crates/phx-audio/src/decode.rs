@@ -1,4 +1,4 @@
-//! AIFF and FLAC decoding through `symphonia`.
+//! AIFF, FLAC and MP3 decoding through `symphonia`.
 //!
 //! `symphonia`'s per-sample-format conversion tables (`i16 -> f32` divides by
 //! `32_768.0`, `i24 -> f32` by `8_388_608.0`, `i32 -> f32` by
@@ -17,13 +17,14 @@ use symphonia::core::formats::{FormatOptions, TrackType};
 use symphonia::core::io::{MediaSource, MediaSourceStream, MediaSourceStreamOptions};
 use symphonia::core::meta::MetadataOptions;
 
-use crate::AudioError;
+use crate::{AudioError, check_planar_allocation};
 
-/// The two symphonia-backed container formats this crate decodes.
+/// The symphonia-backed container formats this crate decodes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ContainerKind {
     Aiff,
     Flac,
+    Mp3,
 }
 
 impl ContainerKind {
@@ -31,6 +32,7 @@ impl ContainerKind {
         match self {
             Self::Aiff => "aiff",
             Self::Flac => "flac",
+            Self::Mp3 => "mp3",
         }
     }
 
@@ -38,6 +40,7 @@ impl ContainerKind {
         match self {
             Self::Aiff => AudioError::MalformedAiff(reason.into()),
             Self::Flac => AudioError::MalformedFlac(reason.into()),
+            Self::Mp3 => AudioError::MalformedMp3(reason.into()),
         }
     }
 
@@ -47,6 +50,9 @@ impl ContainerKind {
                 reason: reason.into(),
             },
             Self::Flac => AudioError::UnsupportedFlac {
+                reason: reason.into(),
+            },
+            Self::Mp3 => AudioError::UnsupportedMp3 {
                 reason: reason.into(),
             },
         }
@@ -97,6 +103,11 @@ pub(crate) fn decode(
         .as_ref()
         .map(|channels| channels.count());
 
+    // The default options keep gapless decoding on: when an MP3 stream
+    // carries a LAME/Xing header, the encoder delay and padding it declares
+    // are trimmed and the decoded samples line up with the encoder's input,
+    // as libsndfile, ffmpeg and the browsers' decoders do. AIFF and FLAC
+    // carry no such padding.
     let mut decoder = symphonia::default::get_codecs()
         .make_audio_decoder(&codec_params, &AudioDecoderOptions::default())
         .map_err(|err| map_error(kind, err))?;
@@ -114,9 +125,16 @@ pub(crate) fn decode(
             continue;
         }
 
-        let decoded: GenericAudioBufferRef<'_> = decoder
-            .decode(&packet)
-            .map_err(|err| map_error(kind, err))?;
+        let decoded: GenericAudioBufferRef<'_> = match decoder.decode(&packet) {
+            Ok(decoded) => decoded,
+            // A damaged MP3 frame, or a false sync the demuxer took for one,
+            // is undecodable on its own; symphonia's contract is that the
+            // caller skips it and goes on, which is what every player does.
+            // AIFF and FLAC frames are not resynchronised this way, so a
+            // decode failure there stays an error.
+            Err(SymphoniaError::DecodeError(_)) if kind == ContainerKind::Mp3 => continue,
+            Err(err) => return Err(map_error(kind, err)),
+        };
         decoded.copy_to_vecs_planar::<f32>(&mut scratch);
 
         if planar.is_empty() && !scratch.is_empty() {
@@ -125,13 +143,21 @@ pub(crate) fn decode(
         if scratch.len() != planar.len() {
             return Err(kind.malformed("channel count changed mid-stream"));
         }
+        // The stream declares no reliable length ahead of the decode (MP3
+        // least of all), so the allocation limit is checked as it grows.
+        let frames = planar[0].len() + scratch.first().map_or(0, Vec::len);
+        check_planar_allocation(planar.len(), frames)?;
         for (dst, src) in planar.iter_mut().zip(&scratch) {
             dst.extend_from_slice(src);
         }
     }
 
     if planar.is_empty() {
+        // An empty PCM or FLAC stream is a valid recording of no samples;
+        // an MP3 that decoded nothing (a tag with no frames, or nothing but
+        // damaged frames) is not.
         let channels = declared_channels
+            .filter(|_| kind != ContainerKind::Mp3)
             .ok_or_else(|| kind.unsupported("stream has no decodable audio frames"))?;
         planar = vec![Vec::new(); channels];
     }

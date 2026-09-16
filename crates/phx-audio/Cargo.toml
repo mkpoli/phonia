@@ -12,5 +12,6 @@ rubato = { workspace = true }
 symphonia = { workspace = true, default-features = false, features = [
     "aiff",
     "flac",
+    "mp3",
     "pcm",
 ] }

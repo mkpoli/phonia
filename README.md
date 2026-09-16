@@ -65,7 +65,7 @@ so published crates use the `phx-` prefix. Each crate owns one concern:
 
 | Crate | Responsibility |
 | --- | --- |
-| [`phx-audio`](crates/phx-audio) | Planar f32 audio with sample rate; WAV, AIFF, FLAC; resampling |
+| [`phx-audio`](crates/phx-audio) | Planar f32 audio with sample rate; WAV, AIFF, FLAC, MP3; resampling |
 | [`phx-dsp`](crates/phx-dsp) | Windows, real FFT wrappers, absolute-time frame grids, interpolation, pre-emphasis |
 | [`phx-spectrogram`](crates/phx-spectrogram) | Gaussian-window STFT spectral density in dB, viewport-independent tiles |
 | [`phx-pitch`](crates/phx-pitch) | Autocorrelation candidates and Viterbi tracking |

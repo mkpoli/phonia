@@ -126,19 +126,38 @@ impl Audio {
         Self::new(channels, sample_rate)
     }
 
-    /// Reads a WAV, AIFF, or FLAC byte buffer, detecting the container from
-    /// its leading signature.
+    /// Reads an MP3 byte buffer into planar `f32` samples.
     ///
-    /// This is the entry point for a caller that accepts any of the three
+    /// MPEG-1/2/2.5 Layer III through `symphonia`. When the stream carries
+    /// a LAME/Xing header, the encoder delay and padding it declares are
+    /// trimmed, so the decoded buffer is exactly as long as the encoder's
+    /// input and starts where it did — the convention libsndfile, ffmpeg
+    /// and the browsers' decoders follow. Praat's own MP3 reader does not
+    /// trim and returns a different sample count for the same file, so MP3
+    /// timings are not comparable with Praat's to the sample. A stream
+    /// without that header keeps every decoded frame. A damaged frame is
+    /// skipped; a stream that decodes to no frames at all is an error. MP3
+    /// is lossy: the samples are the decoder's reconstruction, not the
+    /// source PCM.
+    pub fn from_mp3_bytes(bytes: &[u8]) -> Result<Self, AudioError> {
+        let (channels, sample_rate) = decode::decode(bytes, decode::ContainerKind::Mp3)?;
+        Self::new(channels, sample_rate)
+    }
+
+    /// Reads a WAV, AIFF, FLAC, or MP3 byte buffer, detecting the container
+    /// from its leading signature.
+    ///
+    /// This is the entry point for a caller that accepts any of the four
     /// formats without deciding ahead of time which one it has; a caller
     /// that already knows the format should call
-    /// [`Audio::from_wav_bytes`]/[`Audio::from_aiff_bytes`]/[`Audio::from_flac_bytes`]
+    /// [`Audio::from_wav_bytes`]/[`Audio::from_aiff_bytes`]/[`Audio::from_flac_bytes`]/[`Audio::from_mp3_bytes`]
     /// directly instead.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, AudioError> {
         match sniff_container(bytes) {
             Some(Container::Wav) => Self::from_wav_bytes(bytes),
             Some(Container::Aiff) => Self::from_aiff_bytes(bytes),
             Some(Container::Flac) => Self::from_flac_bytes(bytes),
+            Some(Container::Mp3) => Self::from_mp3_bytes(bytes),
             None => Err(AudioError::UnrecognizedFormat),
         }
     }
@@ -705,7 +724,14 @@ pub enum AudioError {
         /// Human-readable reason.
         reason: String,
     },
-    /// The input bytes do not start with a WAV, AIFF, or FLAC signature.
+    /// MP3 data is malformed, truncated, or fails to demux/decode.
+    MalformedMp3(String),
+    /// MP3 data is well-formed but holds no decodable Layer III audio.
+    UnsupportedMp3 {
+        /// Human-readable reason.
+        reason: String,
+    },
+    /// The input bytes do not start with a WAV, AIFF, FLAC, or MP3 signature.
     UnrecognizedFormat,
     /// Channel count or channel length validation failed.
     ChannelCountMismatch {
@@ -752,8 +778,13 @@ impl fmt::Display for AudioError {
             Self::UnsupportedAiff { reason } => write!(f, "unsupported AIFF data: {reason}"),
             Self::MalformedFlac(reason) => write!(f, "malformed FLAC data: {reason}"),
             Self::UnsupportedFlac { reason } => write!(f, "unsupported FLAC data: {reason}"),
+            Self::MalformedMp3(reason) => write!(f, "malformed MP3 data: {reason}"),
+            Self::UnsupportedMp3 { reason } => write!(f, "unsupported MP3 data: {reason}"),
             Self::UnrecognizedFormat => {
-                write!(f, "input is not a recognized WAV, AIFF, or FLAC stream")
+                write!(
+                    f,
+                    "input is not a recognized WAV, AIFF, FLAC, or MP3 stream"
+                )
             }
             Self::ChannelCountMismatch { expected, actual } => {
                 write!(
@@ -789,13 +820,19 @@ enum Container {
     Wav,
     Aiff,
     Flac,
+    Mp3,
 }
 
-/// Detects a WAV, AIFF, or FLAC container from its leading bytes.
+/// Detects a WAV, AIFF, FLAC, or MP3 container from its leading bytes.
 ///
-/// Reads only the fixed-offset signature bytes; every access is bounds
-/// checked, so an empty or truncated buffer reports no match rather than
-/// panicking.
+/// An ID3v2 tag at the start is stepped over (taggers put one in front of
+/// FLAC files too) and the bytes after it are sniffed; a tag followed by
+/// nothing recognisable is taken for MP3, whose frames need no signature.
+/// MP3 itself is recognised by a Layer III frame header (11 sync bits, then
+/// a layer index of `01`); a stream that opens with junk before its first
+/// frame is not detected. Reads only the fixed-offset signature bytes;
+/// every access is bounds checked, so an empty or truncated buffer reports
+/// no match rather than panicking.
 fn sniff_container(bytes: &[u8]) -> Option<Container> {
     let head = bytes.get(0..4)?;
     if head == b"fLaC" {
@@ -810,7 +847,32 @@ fn sniff_container(bytes: &[u8]) -> Option<Container> {
             return Some(Container::Aiff);
         }
     }
+    if let Some(tag_len) = id3v2_tag_length(bytes) {
+        return Some(sniff_container(&bytes[tag_len.min(bytes.len())..]).unwrap_or(Container::Mp3));
+    }
+    if head[0] == 0xFF && head[1] & 0xE6 == 0xE2 {
+        return Some(Container::Mp3);
+    }
     None
+}
+
+/// The length of the ID3v2 tag `bytes` starts with, header included, or
+/// `None` when they do not start with one. The header is `ID3`, two version
+/// bytes below `0xFF`, a flags byte and a 28-bit syncsafe size; a footer
+/// (flag bit 4) adds ten bytes.
+fn id3v2_tag_length(bytes: &[u8]) -> Option<usize> {
+    let header = bytes.get(0..10)?;
+    if &header[0..3] != b"ID3" || header[3] == 0xFF || header[4] == 0xFF {
+        return None;
+    }
+    if header[6..10].iter().any(|&b| b & 0x80 != 0) {
+        return None;
+    }
+    let size = header[6..10]
+        .iter()
+        .fold(0usize, |acc, &b| (acc << 7) | usize::from(b & 0x7F));
+    let footer = if header[5] & 0x10 != 0 { 10 } else { 0 };
+    Some(10 + size + footer)
 }
 
 fn validate_sample_rate(sample_rate: f64) -> Result<(), AudioError> {
