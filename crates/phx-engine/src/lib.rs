@@ -1921,7 +1921,9 @@ impl Engine {
 
     /// Encodes the whole of `id` resampled to `target_hz` as WAV bytes at `bits`
     /// — Praat's Sound "Resample", as a new take. A source already at the target
-    /// rate is re-encoded unchanged.
+    /// rate is re-encoded unchanged. This is an export, so it resamples with
+    /// [`ResampleQuality::Best`] (rubato); the analyses that must match
+    /// Praat's numbers resample internally with [`ResampleQuality::PRAAT`].
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store

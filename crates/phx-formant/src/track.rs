@@ -1,4 +1,4 @@
-use phx_audio::{Audio, AudioView, ResampleQuality};
+use phx_audio::{Audio, AudioView, ResampleQuality, band_limited_grid};
 use phx_dsp::{FrameGrid, Window, preemphasis_in_place, window_samples};
 
 use crate::burg::burg_lpc;
@@ -74,9 +74,23 @@ pub fn formant_track(audio: AudioView<'_>, params: &FormantParams) -> FormantTra
     let owned = Audio::new(vec![mono.iter().copied().collect()], audio.sample_rate())
         .expect("AudioView mono mix has a valid sample rate and channel length");
     let target_hz = 2.0 * params.ceiling_hz;
+    // A signal too short to yield a sample at the analysis rate has no frame
+    // either: an empty track, as for any signal shorter than the window. The
+    // only other failure is the transform's workspace exceeding the
+    // allocation limit (about 67 M source samples; see docs/plan/horizon.md),
+    // which must not pass as silence.
+    let (count, first_time) = band_limited_grid(owned.frames(), owned.sample_rate(), target_hz);
+    if count == 0 {
+        return FormantTrack {
+            frames: Vec::new(),
+            params: *params,
+            duration: audio.duration(),
+            frame_grid: frame_grid(0.0, params),
+        };
+    }
     let resampled = owned
-        .resampled(target_hz, ResampleQuality::Best)
-        .expect("resampling to the finite positive formant ceiling rate should succeed");
+        .resampled(target_hz, ResampleQuality::PRAAT)
+        .expect("the resampler's whole-signal workspace fits the allocation limit");
     let mut samples = resampled
         .mono_mix()
         .iter()
@@ -90,14 +104,18 @@ pub fn formant_track(audio: AudioView<'_>, params: &FormantParams) -> FormantTra
 
     // Frame count follows the resampled signal Praat actually analyses: its
     // sample count times its sampling period, matching Praat's `dx * nx`
-    // discrete duration rather than a rounded `duration()` quotient.
+    // discrete duration rather than a rounded `duration()` quotient. That
+    // signal's samples sit on a grid centred on the original duration, so
+    // frames are placed in its own coordinates and reported shifted by the
+    // centring offset — up to a quarter of a resampled sample.
     let grid_duration = samples.len() as f64 * (1.0 / resampled.sample_rate());
+    let offset = first_time - 0.5 / resampled.sample_rate();
     let analysis = Analysis::new(resampled.sample_rate(), grid_duration, params);
     let frames = analysis
         .grid
         .centers()
         .map(|time| FormantFrame {
-            time,
+            time: time + offset,
             formants: analysis.frame_formants(&samples, time),
         })
         .collect();
@@ -106,7 +124,7 @@ pub fn formant_track(audio: AudioView<'_>, params: &FormantParams) -> FormantTra
         frames,
         params: *params,
         duration: audio.duration(),
-        frame_grid: analysis.grid,
+        frame_grid: analysis.grid.shifted(offset),
     }
 }
 
@@ -362,6 +380,40 @@ fn validate_tracking_refs(refs: &TrackingRefs) {
 #[must_use]
 pub(crate) fn grid_for_params(duration: f64, params: &FormantParams) -> FrameGrid {
     frame_grid(duration, params)
+}
+
+#[cfg(test)]
+mod offset_tests {
+    use phx_audio::Audio;
+
+    use crate::{FormantParams, formant_track};
+
+    #[test]
+    fn short_audio_yields_an_empty_track() {
+        let audio = Audio::new(vec![vec![0.0; 2]], 44_100.0).unwrap();
+        let track = formant_track(audio.slice_samples(0..2), &FormantParams::default());
+        assert!(track.frames.is_empty());
+        assert!(track.frame_grid.is_empty());
+    }
+
+    #[test]
+    fn frame_times_carry_the_resampling_offset() {
+        // 16 001 samples at 16 kHz resample to 11 001 at 11 kHz, a grid
+        // 14.2 µs longer than the source; 16 002 samples round the other
+        // way. The expected times are parselmouth 0.4.7's `to_formant_burg`
+        // first frame on the same signals (0.02503125 s and 0.0250625 s).
+        for (n, expected_first) in [(16_001usize, 0.025_031_25), (16_002, 0.025_062_5)] {
+            let signal: Vec<f32> = (0..n).map(|i| (i as f32 * 0.05).sin()).collect();
+            let audio = Audio::new(vec![signal], 16_000.0).unwrap();
+            let track = formant_track(audio.slice_samples(0..n), &FormantParams::default());
+            let first = track.frames[0].time;
+            assert!(
+                (first - expected_first).abs() < 1e-9,
+                "n = {n}: first frame at {first}, want {expected_first}"
+            );
+            assert!((track.frame_grid.center(0).unwrap() - first).abs() < 1e-12);
+        }
+    }
 }
 
 #[cfg(test)]

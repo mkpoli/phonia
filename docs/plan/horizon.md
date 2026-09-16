@@ -14,6 +14,23 @@ documentation only, oracles as black boxes, no GPL source consulted.
 
 ## Standing practices
 
+- **Formant analysis of very long recordings.** The Praat-matching
+  resampler transforms the whole signal in `f64` (32 bytes per transform
+  sample), so a formant analysis of more than about 67 million source
+  samples — 25 minutes at 44.1 kHz — exceeds the 2 GiB workspace limit and
+  the request errors; the wasm build cannot allocate the workspace for a
+  file a few minutes shorter than that. Praat transforms the whole signal
+  too. A block-wise band-limit with overlap would remove the ceiling and
+  needs its own oracle case; until then the engine should analyse long
+  files in spans. First step: a `resample-long` case on a synthetic file.
+- **The last eight formant points** (gates T2.6, closure 2026-09-16). With
+  Praat's resampler in front of the Burg analysis the corpus disagrees on
+  8/6717 points: three frames of `arctic_bdl_a0001` where a root near
+  50–75 Hz survives the 50 Hz gate here and not in Praat, and one F2 off
+  by 72 Hz. They are marginal root decisions in the LPC stage; the item is
+  to find what Praat's root gate or polishing does differently, with a
+  fixture built to sit on that boundary. First step: dump both root sets
+  for those three frames.
 - **Autocorrelation harmonicity on the pitch machinery** (algorithms report
   §5.1). `phx_voice::hnr_track` has its own Hanning-window ACF; parselmouth's
   `to_harmonicity_ac` grid length says Praat's is the Gaussian-window

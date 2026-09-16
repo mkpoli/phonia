@@ -43,6 +43,13 @@ VOICE_F0_RELATIVE = F0_FINE_RELATIVE
 HNR_ABSOLUTE_DB = 0.5
 HNR_VOICING_AGREEMENT_MIN = 0.99
 
+# Resample (2026-09-16): sample for sample against `Sound.resample`, as a
+# fraction of the reference's peak amplitude. The references carry six
+# decimals, so the recorded 1.3-1.5e-6 is their rounding; a full-precision
+# comparison reached 1e-12 at integer rate ratios and 1e-6 otherwise. The
+# band leaves room for a different transform library's rounding.
+RESAMPLE_RELATIVE_TO_PEAK = 1e-5
+
 # --- T2.6 / T4.6 accept-with-documentation bands (docs/plan/gates.md) ---
 #
 # These encode the specific residuals the phase-2 and phase-4 gate reviews
@@ -78,12 +85,14 @@ STRENGTH_ABSOLUTE = 0.02
 # fails.
 FORMANT_MISSING_MAX = 0
 
-# T2.6: "After pinning the anti-alias cutoff to the destination Nyquist
-# (ResampleQuality::Best), violations are 487/6717 (7.3%)" -- aggregated
-# over the whole formant corpus (all of SPEECH_AND_VOWEL_CORPUS), not
-# per-fixture (individual fixtures range from ~0.4% to ~14%). Margin over
-# the recorded corpus-wide rate.
-FORMANT_CORPUS_VIOLATION_RATE_MAX = 0.08
+# T2.6 addendum (2026-09-16): with Praat's resampling in front of the Burg
+# analysis (ResampleQuality::PRAAT), violations are 8/6717 (0.12%) over the
+# whole formant corpus -- the same 8 points as when parselmouth's own
+# resampled audio is analysed, all on `arctic_bdl_a0001` (8/1530 there,
+# 0.52%). The band holds that fixture on its own as well as the corpus and
+# leaves it room for seven more points (the 8 are marginal root decisions
+# near the 50 Hz gate that a different libm could move).
+FORMANT_CORPUS_VIOLATION_RATE_MAX = 0.01
 
 # Intensity: a null on one side with a value on the other was not part of
 # the accepted residual; any occurrence fails.

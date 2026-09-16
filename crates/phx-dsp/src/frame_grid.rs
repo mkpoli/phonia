@@ -96,6 +96,16 @@ impl FrameGrid {
         self.duration
     }
 
+    /// The same grid with every centre moved by `offset` seconds: the grid
+    /// of a signal that starts at `offset` rather than at zero.
+    #[must_use]
+    pub fn shifted(&self, offset: f64) -> Self {
+        Self {
+            first_center: self.first_center + offset,
+            ..*self
+        }
+    }
+
     /// Absolute time of frame `i`, or `None` if `i` is out of range.
     #[must_use]
     pub fn center(&self, i: usize) -> Option<f64> {
@@ -111,6 +121,16 @@ impl FrameGrid {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shifting_moves_every_centre() {
+        let g = FrameGrid::new(1.0, 0.04, 0.01);
+        let s = g.shifted(-0.25);
+        assert_eq!(s.len(), g.len());
+        for (a, b) in g.centers().zip(s.centers()) {
+            assert!((a - 0.25 - b).abs() < 1e-12);
+        }
+    }
 
     #[test]
     fn count_and_centering() {
