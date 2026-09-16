@@ -12,10 +12,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from oracle.params import FormantParams, HarmonicityParams, IntensityParams, PitchParams
+from oracle.params import (
+    FormantParams,
+    HarmonicityParams,
+    IntensityParams,
+    PitchParams,
+    ResampleParams,
+)
 
 Measure = Literal[
-    "pitch", "pitch-cc", "formant", "intensity", "harmonicity", "spectrogram", "voice"
+    "pitch", "pitch-cc", "formant", "intensity", "harmonicity", "resample", "spectrogram", "voice"
 ]
 
 SPEECH_AND_VOWEL_CORPUS = (
@@ -52,7 +58,9 @@ VOICE_REPORT_SPANS: dict[str, tuple[float, float]] = {
 class Case:
     name: str
     measure: Measure
-    params: PitchParams | IntensityParams | FormantParams | HarmonicityParams | None
+    params: (
+        PitchParams | IntensityParams | FormantParams | HarmonicityParams | ResampleParams | None
+    )
     default_audio: tuple[str, ...]
     description: str
 
@@ -111,6 +119,35 @@ CASES: dict[str, Case] = {
         description=(
             "Cross-correlation harmonicity with a 20 ms step, a 65 Hz floor and "
             "4.5 periods per window: the setting a speech-comparison tool uses."
+        ),
+    ),
+    "resample-down": Case(
+        name="resample-down",
+        measure="resample",
+        params=ResampleParams(target_hz=11000.0),
+        default_audio=("synth_vowel_a.wav", "arctic_slt_a0001.wav"),
+        description=(
+            "Sound.resample to 11 kHz at precision 50: the band-limiting cut and the "
+            "centred output grid, sample for sample."
+        ),
+    ),
+    "resample-half": Case(
+        name="resample-half",
+        measure="resample",
+        params=ResampleParams(target_hz=8000.0),
+        default_audio=("arctic_slt_a0001.wav",),
+        description="Sound.resample to 8 kHz at precision 50: an integer rate ratio.",
+    ),
+    "resample-up": Case(
+        name="resample-up",
+        measure="resample",
+        params=ResampleParams(target_hz=22050.0),
+        default_audio=("synth_vowel_a.wav", "arctic_bdl_a0001.wav"),
+        description=(
+            "Sound.resample to 22.05 kHz at precision 50: interpolation alone at a "
+            "rate ratio that is not a binary fraction, sample for sample. An exact "
+            "doubling is deliberately not a case: Praat takes another path there "
+            "(algorithms report §6.1)."
         ),
     ),
     "formant-defaults": Case(

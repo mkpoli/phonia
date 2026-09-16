@@ -17,6 +17,7 @@
 //!   - `pitch-defaults`         -> `phx_pitch::pitch_track`
 //!   - `pitch-accurate-speech`  -> `phx_pitch::pitch_track` (Gaussian window, 20 ms step, 65-500 Hz)
 //!   - `harmonicity-cc-defaults`, `harmonicity-cc-speech` -> `phx_voice::hnr_track_cc`
+//!   - `resample-down`, `resample-half`, `resample-up` -> `phx_audio::Audio::resampled` with `ResampleQuality::PRAAT`
 //!   - `formant-defaults`       -> `phx_formant::formant_track`
 //!   - `intensity-defaults`     -> `phx_intensity::intensity_track`
 //!   - `voice-report-defaults`  -> `phx_voice::voice_report`
@@ -39,7 +40,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use phx_audio::{Audio, AudioView};
+use phx_audio::{Audio, AudioView, ResampleQuality, band_limited_grid};
 use phx_formant::{FormantParams, formant_track};
 use phx_intensity::{IntensityParams, intensity_track};
 use phx_pitch::{PitchParams, PitchTrack, TimeSpan, pitch_track, pitch_track_cc};
@@ -50,10 +51,13 @@ use json::Json;
 /// The oracle cases this bridge covers, in the order `cases.py` declares
 /// them. `spectrogram-slice-defaults` is intentionally absent (see the
 /// module doc comment).
-const CASES: [&str; 8] = [
+const CASES: [&str; 11] = [
     "pitch-defaults",
     "pitch-accurate-speech",
     "pitch-cc-defaults",
+    "resample-down",
+    "resample-half",
+    "resample-up",
     "harmonicity-cc-defaults",
     "harmonicity-cc-speech",
     "formant-defaults",
@@ -164,6 +168,13 @@ fn main() -> ExitCode {
                     "pitch-cc-defaults",
                     PitchParams::default(),
                 ),
+                "resample-down" => {
+                    resample_payload(&audio, audio_filename, "resample-down", 11_000.0)
+                }
+                "resample-half" => {
+                    resample_payload(&audio, audio_filename, "resample-half", 8_000.0)
+                }
+                "resample-up" => resample_payload(&audio, audio_filename, "resample-up", 22_050.0),
                 "harmonicity-cc-defaults" => harmonicity_payload(
                     view.clone(),
                     audio_filename,
@@ -289,6 +300,46 @@ fn pitch_payload(
         ("audio", audio_field(audio_filename)),
         ("params", pitch_params_json(&params)),
         ("frames", Json::Array(frames)),
+    ])
+}
+
+/// Resamples with `ResampleQuality::PRAAT` and emits the samples the way
+/// `oracle.measures.resample_samples` does, with the first sample's time on
+/// the centred grid.
+fn resample_payload(audio: &Audio, audio_filename: &str, case_name: &str, target_hz: f64) -> Json {
+    let resampled = audio
+        .resampled(target_hz, ResampleQuality::PRAAT)
+        .expect("fixture audio resamples");
+    let (count, first_time) = band_limited_grid(audio.frames(), audio.sample_rate(), target_hz);
+    assert_eq!(count, resampled.frames());
+    Json::object(vec![
+        ("case", Json::String(case_name.to_string())),
+        ("measure", Json::String("resample".to_string())),
+        ("audio", audio_field(audio_filename)),
+        (
+            "params",
+            Json::object(vec![
+                ("target_hz", Json::number(target_hz)),
+                ("precision", Json::number(50.0)),
+            ]),
+        ),
+        (
+            "resampled",
+            Json::object(vec![
+                ("sample_rate", Json::number(target_hz)),
+                ("first_time", Json::number(first_time)),
+                (
+                    "samples",
+                    Json::Array(
+                        resampled
+                            .channel(0)
+                            .iter()
+                            .map(|&v| Json::number(f64::from(v)))
+                            .collect(),
+                    ),
+                ),
+            ]),
+        ),
     ])
 }
 

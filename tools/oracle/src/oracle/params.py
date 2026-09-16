@@ -69,3 +69,14 @@ class HarmonicityParams:
 
     def as_dict(self) -> dict:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class ResampleParams:
+    """`Sound.resample(new_frequency, precision)`."""
+
+    target_hz: float = 11000.0
+    precision: int = 50
+
+    def as_dict(self) -> dict:
+        return asdict(self)

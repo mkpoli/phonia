@@ -83,6 +83,10 @@ def run_case(case: Case, audio_filename: str, parselmouth_module=None) -> dict[s
         payload["report"] = measures.voice_report(sound, case.params, span)
         return payload
 
+    if case.measure == "resample":
+        payload["resampled"] = measures.resample_samples(sound, case.params)
+        return payload
+
     frame_fn = _MEASURE_FN[case.measure]
     payload["frames"] = frame_fn(sound, case.params)
     return payload
