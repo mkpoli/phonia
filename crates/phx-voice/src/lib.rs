@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use phx_audio::AudioView;
 use phx_dsp::{FrameGrid, RealFftPlan, Window, next_pow2, sinc_interpolate_max, window_samples};
-use phx_pitch::{PitchParams, PitchTrack, TimeSpan, pitch_track};
+use phx_pitch::{PitchParams, PitchTrack, TimeSpan, pitch_track, pitch_track_cc};
 
 const EPSILON: f64 = 1e-12;
 
@@ -125,14 +125,16 @@ pub enum ShimmerKind {
 /// Defaults match Praat "Sound: To Harmonicity (ac)...": time step `0.01` s,
 /// pitch floor `75` Hz, silence threshold `0.1`, and `4.5` periods per window.
 /// The ceiling `600` Hz is the Praat pitch ceiling default used to bound the
-/// autocorrelation peak search.
+/// autocorrelation peak search; the cross-correlation variant
+/// ([`hnr_track_cc`]) searches up to Nyquist and ignores it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HarmonicityParams {
     /// Frame step in seconds.
     pub time_step: f64,
     /// Lowest searched fundamental frequency in hertz.
     pub floor_hz: f64,
-    /// Highest searched fundamental frequency in hertz.
+    /// Highest searched fundamental frequency in hertz (autocorrelation
+    /// variant only).
     pub ceiling_hz: f64,
     /// Silence threshold relative to the global peak absolute amplitude.
     pub silence_threshold: f64,
@@ -152,14 +154,31 @@ impl Default for HarmonicityParams {
     }
 }
 
+impl HarmonicityParams {
+    /// Praat's defaults for "Sound: To Harmonicity (cc)...": one period per
+    /// window, otherwise as [`Default`]. The ceiling is carried but unused
+    /// by [`hnr_track_cc`].
+    #[must_use]
+    pub fn cross_correlation() -> Self {
+        Self {
+            periods_per_window: 1.0,
+            ..Self::default()
+        }
+    }
+}
+
 /// One harmonicity frame.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HnrFrame {
     /// Frame centre time in seconds.
     pub time: f64,
-    /// Harmonics-to-noise ratio in decibels, absent for silent or invalid frames.
+    /// Harmonics-to-noise ratio in decibels, absent for a frame whose best
+    /// candidate is the unvoiced one (silence, or aperiodic sound at any
+    /// level under the cross-correlation variant).
     pub hnr_db: Option<f64>,
-    /// Corrected normalized autocorrelation peak used as the periodic fraction.
+    /// The correlation `r` the HNR was taken from: the corrected
+    /// autocorrelation peak, or the cross-correlation coefficient of the
+    /// selected candidate.
     pub periodic_fraction: Option<f64>,
 }
 
@@ -483,6 +502,67 @@ pub fn hnr_track(audio: AudioView<'_>, params: &HarmonicityParams) -> HnrTrack {
         })
         .collect();
 
+    HnrTrack {
+        frames,
+        params: *params,
+    }
+}
+
+/// Computes a harmonicity track by forward cross-correlation, Praat's
+/// "Sound: To Harmonicity (cc)...".
+///
+/// Each frame is analysed as a cross-correlation pitch frame
+/// ([`phx_pitch::pitch_track_cc`]) with the voicing threshold and every path
+/// cost at zero and the ceiling at Nyquist, so the frame's best candidate is
+/// simply its strongest correlation `r`, or the unvoiced candidate when the
+/// frame is quiet relative to `silence_threshold`. The HNR is
+/// `10·log10(r / (1 − r))` dB, capped at 150 dB for a correlation within
+/// 1e-15 of one (a finite cap of this implementation's own; no fixture
+/// reaches it); an unvoiced frame has no value.
+/// `params.ceiling_hz` is neither used nor validated.
+#[must_use]
+pub fn hnr_track_cc(audio: AudioView<'_>, params: &HarmonicityParams) -> HnrTrack {
+    if !valid_hnr_cc_params(params) || audio.frames() == 0 {
+        return HnrTrack {
+            frames: Vec::new(),
+            params: *params,
+        };
+    }
+    let pitch_params = PitchParams {
+        time_step: Some(params.time_step),
+        floor_hz: params.floor_hz,
+        ceiling_hz: 0.5 * audio.sample_rate(),
+        // Raised inside the analysis to the ceiling-to-floor ratio, so every
+        // positive maximum up to Nyquist can be retained.
+        max_candidates: 15,
+        // The harmonicity refines at the deep setting: the oracle agrees to
+        // the printed digit at 700 and drifts by up to 0.13 dB at 70.
+        very_accurate: true,
+        silence_threshold: params.silence_threshold,
+        voicing_threshold: 0.0,
+        octave_cost: 0.0,
+        octave_jump_cost: 0.0,
+        voiced_unvoiced_cost: 0.0,
+    };
+    let track = pitch_track_cc(audio, &pitch_params, params.periods_per_window);
+    let frames = track
+        .frames()
+        .iter()
+        .map(|frame| {
+            let r = frame.f0.is_some().then_some(frame.strength);
+            HnrFrame {
+                time: frame.time,
+                hnr_db: r.map(|r| {
+                    if r > 1.0 - 1e-15 {
+                        150.0
+                    } else {
+                        10.0 * (r / (1.0 - r)).log10()
+                    }
+                }),
+                periodic_fraction: r,
+            }
+        })
+        .collect();
     HnrTrack {
         frames,
         params: *params,
@@ -1131,12 +1211,18 @@ fn local_db_shimmer(amplitudes: &[f64]) -> Option<f64> {
 }
 
 fn valid_hnr_params(params: &HarmonicityParams) -> bool {
+    valid_hnr_cc_params(params)
+        && params.ceiling_hz.is_finite()
+        && params.ceiling_hz > params.floor_hz
+}
+
+/// The fields both harmonicity variants use; the ceiling is the
+/// autocorrelation variant's alone.
+fn valid_hnr_cc_params(params: &HarmonicityParams) -> bool {
     params.time_step.is_finite()
         && params.time_step > 0.0
         && params.floor_hz.is_finite()
         && params.floor_hz > 0.0
-        && params.ceiling_hz.is_finite()
-        && params.ceiling_hz > params.floor_hz
         && params.silence_threshold.is_finite()
         && params.silence_threshold >= 0.0
         && params.periods_per_window.is_finite()
@@ -1642,5 +1728,77 @@ mod tests {
         // Fewer than two positive periods yields no spread.
         assert_eq!(period_sd(&[0.010]), None);
         assert_eq!(period_sd(&[]), None);
+    }
+}
+
+#[cfg(test)]
+mod hnr_cc_tests {
+    use std::f64::consts::PI;
+
+    use phx_audio::Audio;
+
+    use super::{HarmonicityParams, hnr_track_cc};
+
+    fn track(signal: Vec<f32>, params: &HarmonicityParams) -> super::HnrTrack {
+        let audio = Audio::new(vec![signal], 16_000.0).unwrap();
+        hnr_track_cc(audio.slice_samples(0..audio.frames()), params)
+    }
+
+    #[test]
+    fn pure_tone_is_almost_entirely_periodic() {
+        let signal: Vec<f32> = (0..16_000)
+            .map(|i| (2.0 * PI * 150.0 * i as f64 / 16_000.0).sin() as f32)
+            .collect();
+        for params in [
+            HarmonicityParams::cross_correlation(),
+            HarmonicityParams {
+                periods_per_window: 4.5,
+                ..HarmonicityParams::cross_correlation()
+            },
+        ] {
+            let track = track(signal.clone(), &params);
+            assert!(track.frames.len() > 50);
+            let mid = &track.frames[track.frames.len() / 2];
+            assert!(mid.hnr_db.is_some_and(|db| db > 30.0), "{:?}", mid.hnr_db);
+        }
+    }
+
+    #[test]
+    fn ceiling_is_not_validated_for_cross_correlation() {
+        let signal: Vec<f32> = (0..16_000)
+            .map(|i| (2.0 * PI * 150.0 * i as f64 / 16_000.0).sin() as f32)
+            .collect();
+        let params = HarmonicityParams {
+            ceiling_hz: f64::NAN,
+            ..HarmonicityParams::cross_correlation()
+        };
+        assert!(!track(signal, &params).frames.is_empty());
+    }
+
+    #[test]
+    fn noise_is_far_less_periodic_than_a_tone_and_silence_is_unvoiced() {
+        let mut seed = 0x2545_f491_4f6c_dd1d_u64;
+        let mut noise = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            ((seed >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0) as f32
+        };
+        let signal: Vec<f32> = (0..16_000)
+            .map(|i| if i < 8_000 { 0.0 } else { noise() })
+            .collect();
+        let params = HarmonicityParams::cross_correlation();
+        let track = track(signal, &params);
+        let silent = track.frames.iter().filter(|f| f.time < 0.4);
+        assert!(silent.clone().count() > 10);
+        assert!(silent.clone().all(|f| f.hnr_db.is_none()));
+        let noisy: Vec<f64> = track
+            .frames
+            .iter()
+            .filter(|f| f.time > 0.6)
+            .filter_map(|f| f.hnr_db)
+            .collect();
+        assert!(!noisy.is_empty());
+        assert!(noisy.iter().all(|&db| db < 0.0), "{noisy:?}");
     }
 }
