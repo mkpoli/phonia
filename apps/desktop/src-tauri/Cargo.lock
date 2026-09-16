@@ -2910,7 +2910,7 @@ dependencies = [
 
 [[package]]
 name = "phonix-desktop"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "blake3",
@@ -2941,6 +2941,7 @@ name = "phx-audio"
 version = "0.0.1"
 dependencies = [
  "hound",
+ "phx-dsp",
  "rubato",
  "symphonia",
 ]
