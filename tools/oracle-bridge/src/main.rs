@@ -16,6 +16,7 @@
 //! `docs/plan/tasks/phase-4.md` T4.2/T4.5):
 //!   - `pitch-defaults`         -> `phx_pitch::pitch_track`
 //!   - `pitch-accurate-speech`  -> `phx_pitch::pitch_track` (Gaussian window, 20 ms step, 65-500 Hz)
+//!   - `harmonicity-cc-defaults`, `harmonicity-cc-speech` -> `phx_voice::hnr_track_cc`
 //!   - `formant-defaults`       -> `phx_formant::formant_track`
 //!   - `intensity-defaults`     -> `phx_intensity::intensity_track`
 //!   - `voice-report-defaults`  -> `phx_voice::voice_report`
@@ -41,17 +42,20 @@ use std::process::ExitCode;
 use phx_audio::{Audio, AudioView};
 use phx_formant::{FormantParams, formant_track};
 use phx_intensity::{IntensityParams, intensity_track};
-use phx_pitch::{PitchParams, TimeSpan, pitch_track};
-use phx_voice::voice_report;
+use phx_pitch::{PitchParams, PitchTrack, TimeSpan, pitch_track, pitch_track_cc};
+use phx_voice::{HarmonicityParams, hnr_track_cc, voice_report};
 
 use json::Json;
 
 /// The oracle cases this bridge covers, in the order `cases.py` declares
 /// them. `spectrogram-slice-defaults` is intentionally absent (see the
 /// module doc comment).
-const CASES: [&str; 5] = [
+const CASES: [&str; 8] = [
     "pitch-defaults",
     "pitch-accurate-speech",
+    "pitch-cc-defaults",
+    "harmonicity-cc-defaults",
+    "harmonicity-cc-speech",
     "formant-defaults",
     "intensity-defaults",
     "voice-report-defaults",
@@ -154,6 +158,29 @@ fn main() -> ExitCode {
                         ..PitchParams::default()
                     },
                 ),
+                "pitch-cc-defaults" => pitch_payload(
+                    view.clone(),
+                    audio_filename,
+                    "pitch-cc-defaults",
+                    PitchParams::default(),
+                ),
+                "harmonicity-cc-defaults" => harmonicity_payload(
+                    view.clone(),
+                    audio_filename,
+                    "harmonicity-cc-defaults",
+                    HarmonicityParams::cross_correlation(),
+                ),
+                "harmonicity-cc-speech" => harmonicity_payload(
+                    view.clone(),
+                    audio_filename,
+                    "harmonicity-cc-speech",
+                    HarmonicityParams {
+                        time_step: 0.02,
+                        floor_hz: 65.0,
+                        periods_per_window: 4.5,
+                        ..HarmonicityParams::cross_correlation()
+                    },
+                ),
                 "formant-defaults" => formant_payload(view.clone(), audio_filename),
                 "intensity-defaults" => intensity_payload(view.clone(), audio_filename),
                 "voice-report-defaults" => voice_payload(view.clone(), audio_filename),
@@ -227,7 +254,11 @@ fn pitch_payload(
     case_name: &str,
     params: PitchParams,
 ) -> Json {
-    let track = pitch_track(view, &params);
+    let track: PitchTrack = if case_name == "pitch-cc-defaults" {
+        pitch_track_cc(view, &params, 1.0)
+    } else {
+        pitch_track(view, &params)
+    };
 
     let frames = track
         .frames()
@@ -244,9 +275,61 @@ fn pitch_payload(
 
     Json::object(vec![
         ("case", Json::String(case_name.to_string())),
-        ("measure", Json::String("pitch".to_string())),
+        (
+            "measure",
+            Json::String(
+                if case_name == "pitch-cc-defaults" {
+                    "pitch-cc"
+                } else {
+                    "pitch"
+                }
+                .to_string(),
+            ),
+        ),
         ("audio", audio_field(audio_filename)),
         ("params", pitch_params_json(&params)),
+        ("frames", Json::Array(frames)),
+    ])
+}
+
+/// Runs `phx_voice::hnr_track_cc` with the parameter set `oracle.cases.CASES`
+/// declares for `case_name` and builds its measured payload. The `params`
+/// block mirrors `oracle.params.HarmonicityParams.as_dict()`, which carries no
+/// ceiling: the cross-correlation harmonicity searches up to Nyquist.
+fn harmonicity_payload(
+    view: AudioView<'_>,
+    audio_filename: &str,
+    case_name: &str,
+    params: HarmonicityParams,
+) -> Json {
+    let track = hnr_track_cc(view, &params);
+    let frames = track
+        .frames
+        .iter()
+        .map(|frame| {
+            Json::object(vec![
+                ("time", Json::number(frame.time)),
+                ("voiced", Json::Bool(frame.hnr_db.is_some())),
+                ("hnr_db", frame.hnr_db.map_or(Json::Null, Json::number)),
+            ])
+        })
+        .collect();
+    Json::object(vec![
+        ("case", Json::String(case_name.to_string())),
+        ("measure", Json::String("harmonicity".to_string())),
+        ("audio", audio_field(audio_filename)),
+        (
+            "params",
+            Json::object(vec![
+                ("time_step", Json::number(params.time_step)),
+                ("floor_hz", Json::number(params.floor_hz)),
+                ("silence_threshold", Json::number(params.silence_threshold)),
+                (
+                    "periods_per_window",
+                    Json::number(params.periods_per_window),
+                ),
+            ]),
+        ),
         ("frames", Json::Array(frames)),
     ])
 }

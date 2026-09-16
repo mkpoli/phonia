@@ -12,9 +12,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from oracle.params import FormantParams, IntensityParams, PitchParams
+from oracle.params import FormantParams, HarmonicityParams, IntensityParams, PitchParams
 
-Measure = Literal["pitch", "formant", "intensity", "spectrogram", "voice"]
+Measure = Literal[
+    "pitch", "pitch-cc", "formant", "intensity", "harmonicity", "spectrogram", "voice"
+]
 
 SPEECH_AND_VOWEL_CORPUS = (
     "arctic_bdl_a0001.wav",
@@ -50,7 +52,7 @@ VOICE_REPORT_SPANS: dict[str, tuple[float, float]] = {
 class Case:
     name: str
     measure: Measure
-    params: PitchParams | IntensityParams | FormantParams | None
+    params: PitchParams | IntensityParams | FormantParams | HarmonicityParams | None
     default_audio: tuple[str, ...]
     description: str
 
@@ -81,6 +83,34 @@ CASES: dict[str, Case] = {
             "the window-ACF normalisation, the path finder's time-step "
             "correction, and a non-default floor, none of which "
             "`pitch-defaults` exercises."
+        ),
+    ),
+    "pitch-cc-defaults": Case(
+        name="pitch-cc-defaults",
+        measure="pitch-cc",
+        params=PitchParams(),
+        default_audio=SPEECH_AND_VOWEL_CORPUS,
+        description="Forward cross-correlation pitch, Praat's documented defaults.",
+    ),
+    "harmonicity-cc-defaults": Case(
+        name="harmonicity-cc-defaults",
+        measure="harmonicity",
+        params=HarmonicityParams(),
+        default_audio=SPEECH_AND_VOWEL_CORPUS,
+        description="Cross-correlation harmonicity, Praat's documented defaults.",
+    ),
+    "harmonicity-cc-speech": Case(
+        name="harmonicity-cc-speech",
+        measure="harmonicity",
+        params=HarmonicityParams(
+            time_step=0.02,
+            floor_hz=65.0,
+            periods_per_window=4.5,
+        ),
+        default_audio=SPEECH_AND_VOWEL_CORPUS,
+        description=(
+            "Cross-correlation harmonicity with a 20 ms step, a 65 Hz floor and "
+            "4.5 periods per window: the setting a speech-comparison tool uses."
         ),
     ),
     "formant-defaults": Case(

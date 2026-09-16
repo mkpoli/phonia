@@ -42,6 +42,8 @@ def versions(parselmouth_module) -> dict[str, str]:
 
 
 _MEASURE_FN = {
+    "harmonicity": measures.harmonicity_cc_frames,
+    "pitch-cc": measures.pitch_cc_frames,
     "pitch": measures.pitch_frames,
     "formant": measures.formant_frames,
     "intensity": measures.intensity_frames,

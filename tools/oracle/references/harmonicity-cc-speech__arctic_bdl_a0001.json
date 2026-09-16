@@ -1,0 +1,806 @@
+{
+  "audio": "tests/fixtures/audio/arctic_bdl_a0001.wav",
+  "case": "harmonicity-cc-speech",
+  "frames": [
+    {
+      "hnr_db": null,
+      "time": 0.047531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 2.299843,
+      "time": 0.067531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.506147,
+      "time": 0.087531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.391698,
+      "time": 0.107531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 8.376694,
+      "time": 0.127531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.523506,
+      "time": 0.147531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 3.328524,
+      "time": 0.167531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 3.809798,
+      "time": 0.187531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 5.740807,
+      "time": 0.207531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 0.227531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.247531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.267531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.287531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 6.772686,
+      "time": 0.307531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.938552,
+      "time": 0.327531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.407501,
+      "time": 0.347531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 10.579129,
+      "time": 0.367531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 11.567844,
+      "time": 0.387531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 8.934966,
+      "time": 0.407531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.057006,
+      "time": 0.427531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.705196,
+      "time": 0.447531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 9.150058,
+      "time": 0.467531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 0.487531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.507531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.527531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.547531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.567531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 3.905797,
+      "time": 0.587531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.891295,
+      "time": 0.607531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.198071,
+      "time": 0.627531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 0.647531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.667531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 0.687531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 3.679093,
+      "time": 0.707531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 3.381228,
+      "time": 0.727531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.018882,
+      "time": 0.747531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.587064,
+      "time": 0.767531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.13733,
+      "time": 0.787531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.018537,
+      "time": 0.807531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.52162,
+      "time": 0.827531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 9.736943,
+      "time": 0.847531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 15.699356,
+      "time": 0.867531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 16.48244,
+      "time": 0.887531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 17.341216,
+      "time": 0.907531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 12.111315,
+      "time": 0.927531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 0.947531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 2.095698,
+      "time": 0.967531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 0.501288,
+      "time": 0.987531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.7281,
+      "time": 1.007531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.600425,
+      "time": 1.027531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.450597,
+      "time": 1.047531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.654018,
+      "time": 1.067531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 1.087531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.107531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.127531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.147531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.167531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.187531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.207531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.227531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 5.309077,
+      "time": 1.247531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.593965,
+      "time": 1.267531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 9.443719,
+      "time": 1.287531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 9.154317,
+      "time": 1.307531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.461495,
+      "time": 1.327531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.52354,
+      "time": 1.347531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 3.711255,
+      "time": 1.367531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.98771,
+      "time": 1.387531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.682009,
+      "time": 1.407531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 1.162912,
+      "time": 1.427531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.048992,
+      "time": 1.447531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.177293,
+      "time": 1.467531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 1.487531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 3.794662,
+      "time": 1.507531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 1.527531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.547531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.567531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.587531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.607531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.627531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.647531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.667531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.687531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.707531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 3.349112,
+      "time": 1.727531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.231986,
+      "time": 1.747531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 7.048205,
+      "time": 1.767531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 9.836003,
+      "time": 1.787531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 9.214136,
+      "time": 1.807531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 10.174412,
+      "time": 1.827531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.919847,
+      "time": 1.847531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.174345,
+      "time": 1.867531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 1.774299,
+      "time": 1.887531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.779714,
+      "time": 1.907531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 1.927531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.947531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.967531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 1.987531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 2.120009,
+      "time": 2.007531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.073562,
+      "time": 2.027531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.628517,
+      "time": 2.047531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.647138,
+      "time": 2.067531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.400562,
+      "time": 2.087531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 2.107531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 2.127531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 2.147531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 5.932364,
+      "time": 2.167531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.15177,
+      "time": 2.187531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.397413,
+      "time": 2.207531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.751329,
+      "time": 2.227531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.759117,
+      "time": 2.247531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.517774,
+      "time": 2.267531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 5.640267,
+      "time": 2.287531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.819671,
+      "time": 2.307531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.339662,
+      "time": 2.327531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 3.888491,
+      "time": 2.347531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.001518,
+      "time": 2.367531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 1.386972,
+      "time": 2.387531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.018101,
+      "time": 2.407531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.320499,
+      "time": 2.427531,
+      "voiced": true
+    },
+    {
+      "hnr_db": -0.791737,
+      "time": 2.447531,
+      "voiced": true
+    },
+    {
+      "hnr_db": -1.763338,
+      "time": 2.467531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 2.487531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 6.240246,
+      "time": 2.507531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 2.527531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 2.547531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 4.876131,
+      "time": 2.567531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 6.673083,
+      "time": 2.587531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 2.607531,
+      "voiced": false
+    },
+    {
+      "hnr_db": -2.070993,
+      "time": 2.627531,
+      "voiced": true
+    },
+    {
+      "hnr_db": -1.566929,
+      "time": 2.647531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 2.667531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 2.687531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 2.707531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 2.727531,
+      "voiced": false
+    },
+    {
+      "hnr_db": 3.359039,
+      "time": 2.747531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 3.241539,
+      "time": 2.767531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 4.621589,
+      "time": 2.787531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 5.579661,
+      "time": 2.807531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 2.619153,
+      "time": 2.827531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 1.378436,
+      "time": 2.847531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 0.789487,
+      "time": 2.867531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 0.700397,
+      "time": 2.887531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 0.583125,
+      "time": 2.907531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 2.927531,
+      "voiced": false
+    },
+    {
+      "hnr_db": -0.562268,
+      "time": 2.947531,
+      "voiced": true
+    },
+    {
+      "hnr_db": 0.117083,
+      "time": 2.967531,
+      "voiced": true
+    },
+    {
+      "hnr_db": -2.202426,
+      "time": 2.987531,
+      "voiced": true
+    },
+    {
+      "hnr_db": null,
+      "time": 3.007531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.027531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.047531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.067531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.087531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.107531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.127531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.147531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.167531,
+      "voiced": false
+    },
+    {
+      "hnr_db": null,
+      "time": 3.187531,
+      "voiced": false
+    }
+  ],
+  "measure": "harmonicity",
+  "params": {
+    "floor_hz": 65.0,
+    "periods_per_window": 4.5,
+    "silence_threshold": 0.1,
+    "time_step": 0.02
+  },
+  "parselmouth_version": "0.4.7",
+  "praat_version": "6.1.38",
+  "praat_version_date": "2 January 2021"
+}

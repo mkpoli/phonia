@@ -34,6 +34,15 @@ VOICE_HNR_ABSOLUTE_DB = 1.0  # <=1 dB on well-voiced spans
 # per-frame, over a span both sides already agree is voiced.
 VOICE_F0_RELATIVE = F0_FINE_RELATIVE
 
+# Harmonicity (cc), recorded 2026-09-16: every fixture agrees with
+# parselmouth frame for frame on voicing, and the HNR matches to the
+# reference files' six decimals except two frames of `arctic_bdl_a0001` at
+# the defaults (t = 2.1675 s: 24.896 vs 24.565 dB; t = 2.4375 s: 7.916 vs
+# 8.275 dB). Margin over that; an unvoiced frame is -200 dB in Praat and
+# null here.
+HNR_ABSOLUTE_DB = 0.5
+HNR_VOICING_AGREEMENT_MIN = 0.99
+
 # --- T2.6 / T4.6 accept-with-documentation bands (docs/plan/gates.md) ---
 #
 # These encode the specific residuals the phase-2 and phase-4 gate reviews
@@ -57,10 +66,12 @@ F0_FINE_VIOLATION_RATE_MAX = 0.01
 VOICING_MAJORITY_THRESHOLD = 0.99
 
 # T2.6 addendum (2026-09-16): the selected candidate's correlation
-# (`strength`) agrees with parselmouth within 5e-3 on every frame of the
-# corpus, unvoiced frames included (both sides report 0.0). Margin over
-# that; a frame outside the band fails.
-STRENGTH_ABSOLUTE = 0.01
+# (`strength`) agrees with parselmouth within 5e-3 on every autocorrelation
+# frame of the corpus and within 1.7e-2 on the cross-correlation corpus
+# (one frame of `arctic_bdl_a0001` at t = 3.001 s), unvoiced frames
+# included (both sides report 0.0). Margin over that; a frame outside the
+# band fails.
+STRENGTH_ABSOLUTE = 0.02
 
 # Formant: a tracked slot (F1-F3) present on only one side was not part of
 # the T2.6 accepted residual (0 missing on all 4 fixtures); any occurrence

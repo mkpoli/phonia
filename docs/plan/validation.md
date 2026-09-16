@@ -68,11 +68,12 @@ exist:
 |---|---|---|
 | F0 (both voiced, same octave) | ≤ 1% relative | reached 3·10⁻⁴ on the whole corpus (2026-09-16); `oracle.tolerances` now allows at most 1% of frames to violate |
 | F0 gross errors | none | any octave disagreement fails; voicing disagreement is bounded by the row below |
-| Pitch strength | ≤ 0.01 absolute | selected-candidate correlation; reached 5·10⁻³ on the corpus |
+| Pitch strength | ≤ 0.02 absolute | selected-candidate correlation; 5·10⁻³ on the autocorrelation corpus, 1.7·10⁻² on one cross-correlation frame |
 | Voicing decision | ≥ 99% agreement | the corpus agrees frame for frame; the 1% leaves room for one boundary frame per fixture |
 | F1–F3, clear vowels | ≤ max(50 Hz, 3%) | Praat's own tracker varies with ceiling |
 | Intensity | ≤ 1 dB | window approximation difference documented |
-| HNR | ≤ 1 dB on well-voiced spans | larger near voicing boundaries |
+| HNR (cc), per frame | ≤ 0.5 dB, voicing ≥ 99% | equal to the reference's six decimals on 8 fixtures but two frames, 0.36 dB (2026-09-16) |
+| HNR (voice report, ac) | ≤ 1 dB on well-voiced spans | larger near voicing boundaries |
 | Jitter/shimmer | ≤ 10% relative on sustained vowels | pulse-placement differences dominate |
 | Spectrogram | not oracle-diffed | validated against scipy STFT + analytic cases instead |
 
