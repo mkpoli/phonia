@@ -688,8 +688,37 @@ parameter (default 50) sets the interpolation depth in samples. Precision 1 is
 linear interpolation; Precision > 1 is sin(x)/x (sinc) interpolation with depth
 equal to Precision — higher is slower but more accurate. When the target rate is
 below the source rate, Praat applies anti-aliasing low-pass filtering before
-resampling. The exact window over the truncated sinc is not published; treat it as
-a parameter to calibrate against parselmouth output if numeric parity matters.
+resampling. `phx_audio::ResampleQuality::BandLimitedSinc` (`PRAAT` at depth
+50) is this algorithm as the oracle reproduces it — sample for sample within
+the reference files' six-decimal rounding on the `resample-down`,
+`resample-half` and `resample-up` cases; a full-precision comparison outside
+the committed references reached 10⁻¹² of the signal at integer rate ratios
+and 10⁻⁶ at others — with the details the manual leaves open settled the way
+§1.2 settles the pitch conventions (2026-09-16):
+
+- The low-pass is a cut in the transform of the zero-padded signal
+  (1000 samples each side, power-of-two length `N`): with `r` the rate
+  ratio, every bin `k ≥ ⌊r·N/2⌋` is zero, and when `⌊r·N⌋` is even so is the
+  imaginary part of bin `⌊r·N/2⌋ − 1`. The rule was found by a black-box
+  sweep of cut positions against parselmouth's `Sound.resample`, over the
+  packed half-complex layout `[re₀, re₁, im₁, …]` in which it reads "zero
+  from entry `⌊r·N⌋ − 2`" — that layout was the ansatz, the oracle the
+  arbiter; the padding was swept too (none, 1000 and 2000 samples agree).
+  No filtering when the rate rises.
+- The taper over the truncated sinc is the one of eq. 22 in §1.2
+  (`phx_dsp::sinc_interpolate`), with the depth reduced to the samples
+  available at either end; where that leaves one sample per side the read is
+  linear and where it leaves two it is the cubic through the four neighbours,
+  which is what the first samples of a resampled signal showed.
+- The output holds `round(frames · target / source)` samples on a grid
+  centred on the original duration (first sample at
+  `½·(duration − (count − 1)/target)`), and each is read at its own time on
+  the source's `(k + ½)/source` grid.
+
+With this resampler in front of the Burg analysis the formant corpus
+disagrees with parselmouth on 8 of 6717 points (0.12%; median 0.3 Hz), the
+same 8 as when parselmouth's own resampled audio is analysed, so the
+remainder belongs to the LPC stage.
 
 ### 6.2 Anti-aliasing
 

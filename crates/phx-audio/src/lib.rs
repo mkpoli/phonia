@@ -20,6 +20,7 @@ pub use stream::{
     StreamingWav, WavStreamInfo,
 };
 
+use phx_dsp::{RealFftPlan, next_pow2};
 use rubato::audioadapter_buffers::owned::{InterleavedOwned, SequentialOwned};
 use rubato::{
     Async, FixedAsync, Resampler, SincInterpolationParameters, SincInterpolationType,
@@ -294,8 +295,9 @@ impl Audio {
 
     /// Returns a resampled copy at `target_hz`.
     ///
-    /// The implementation uses `rubato::Async::new_sinc` with the selected
-    /// windowed-sinc quality preset.
+    /// [`ResampleQuality::Best`] runs `rubato::Async::new_sinc` with its
+    /// windowed-sinc preset; [`ResampleQuality::BandLimitedSinc`] runs
+    /// Praat's band-limit-then-interpolate algorithm.
     pub fn resampled(&self, target_hz: f64, quality: ResampleQuality) -> Result<Self, AudioError> {
         validate_sample_rate(target_hz)?;
         if self.channels.is_empty() || self.frames() == 0 {
@@ -312,6 +314,47 @@ impl Audio {
             return Ok(cloned);
         }
 
+        if let ResampleQuality::BandLimitedSinc { depth } = quality {
+            if depth == 0 {
+                return Err(AudioError::Resample(
+                    "band-limited sinc resampling needs a depth of at least one sample".into(),
+                ));
+            }
+            let (count, _) = band_limited_grid(self.frames(), self.sample_rate, target_hz);
+            if count == 0 {
+                return Err(AudioError::Resample(format!(
+                    "{} samples at {} Hz round to no samples at {target_hz} Hz",
+                    self.frames(),
+                    self.sample_rate
+                )));
+            }
+            check_planar_allocation(self.channels.len(), count)?;
+            // Checked before anything is allocated; the guard counts in f32
+            // samples, hence the division.
+            let fft_len = next_pow2(self.frames() + 2 * BAND_LIMIT_PADDING);
+            check_planar_allocation(BAND_LIMIT_WORKSPACE_BYTES / size_of::<f32>(), fft_len)?;
+            let mut plan = RealFftPlan::new();
+            let channels: Vec<Vec<f32>> = self
+                .channels
+                .iter()
+                .map(|channel| {
+                    resample_band_limited_sinc(
+                        channel,
+                        self.sample_rate,
+                        target_hz,
+                        depth,
+                        count,
+                        &mut plan,
+                    )
+                })
+                .collect();
+            return Ok(Self {
+                channels,
+                sample_rate: target_hz,
+                name: self.name.clone(),
+            });
+        }
+
         let output_frames = (self.frames() as f64 * target_hz / self.sample_rate).ceil() as usize;
         check_planar_allocation(self.channels.len(), output_frames)?;
 
@@ -325,7 +368,7 @@ impl Audio {
             actual: self.channels.iter().map(Vec::len).sum(),
         })?;
 
-        let params = quality.sinc_parameters();
+        let params = rubato_parameters();
         let mut resampler = Async::<f32>::new_sinc(
             target_hz / self.sample_rate,
             1.0,
@@ -493,6 +536,28 @@ impl BitDepth {
 /// Resampling quality preset.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ResampleQuality {
+    /// Band-limit by FFT, then interpolate with a tapered sinc of `depth`
+    /// samples per side: Praat's "Sound: Resample..." with its *Precision*
+    /// argument (default 50), which the formant analysis runs before its
+    /// LPC so that its numbers match Praat's.
+    ///
+    /// When the target rate is lower, the whole signal is transformed, the
+    /// spectrum is cut at the new Nyquist frequency and the signal is
+    /// transformed back; the new samples are then read off the band-limited
+    /// signal at their own times with [`phx_dsp::sinc_interpolate`]. No
+    /// anti-aliasing is needed when the rate rises. The output holds
+    /// `round(frames · target / source)` samples on a grid centred on the
+    /// original duration; the returned [`Audio`] labels them from time zero
+    /// as any audio, so the centring offset (up to a quarter of a sample)
+    /// is not carried on the object. The cut's exact position, the centred
+    /// grid and the fixed thousand samples of zero padding around the
+    /// transform are parity conventions settled against parselmouth's
+    /// `Sound.resample`, not quality knobs; the `resample-*` oracle cases
+    /// hold the result within the references' six-decimal rounding.
+    BandLimitedSinc {
+        /// Samples per side of the interpolation; Praat's default is 50.
+        depth: usize,
+    },
     /// Offline windowed-sinc resampling with a Blackman-Harris window.
     ///
     /// `sinc_len = 256`, `oversampling_factor = 128`, cubic interpolation, and
@@ -511,15 +576,108 @@ pub enum ResampleQuality {
 }
 
 impl ResampleQuality {
-    fn sinc_parameters(self) -> SincInterpolationParameters {
-        match self {
-            Self::Best => SincInterpolationParameters::new(256, WindowFunction::BlackmanHarris2)
-                .oversampling_factor(128)
-                .interpolation(SincInterpolationType::Cubic)
-                .f_cutoff(1.0),
-        }
-    }
+    /// Praat's resampling at its default precision of 50.
+    pub const PRAAT: Self = Self::BandLimitedSinc { depth: 50 };
 }
+
+/// The output grid of [`ResampleQuality::BandLimitedSinc`]: how many samples
+/// `frames` at `source_hz` become at `target_hz`, and the time of the first
+/// one — the grid is centred on the original duration, so its first sample
+/// sits at `½·(duration − (count − 1)/target)` rather than at half a sample.
+/// The returned [`Audio`] does not carry that time; an analysis that reports
+/// times on the original axis adds `first_time − ½/target_hz` to its own.
+#[must_use]
+pub fn band_limited_grid(frames: usize, source_hz: f64, target_hz: f64) -> (usize, f64) {
+    let count = (frames as f64 * target_hz / source_hz).round() as usize;
+    let duration = frames as f64 * (1.0 / source_hz);
+    let first_time = 0.5 * (duration - (count as f64 - 1.0) / target_hz);
+    (count, first_time)
+}
+
+/// Bytes the band-limited resampler holds per transform sample while it
+/// works on one channel: the padded signal, its spectrum and the filtered
+/// signal in `f64`, with the `f64` copy of the input live alongside.
+const BAND_LIMIT_WORKSPACE_BYTES: usize = 4 * size_of::<f64>();
+
+/// rubato's parameters for [`ResampleQuality::Best`].
+fn rubato_parameters() -> SincInterpolationParameters {
+    SincInterpolationParameters::new(256, WindowFunction::BlackmanHarris2)
+        .oversampling_factor(128)
+        .interpolation(SincInterpolationType::Cubic)
+        .f_cutoff(1.0)
+}
+
+/// One channel resampled the way Praat resamples: band-limited by FFT when
+/// the rate falls, then read at the new sample times by tapered sinc
+/// interpolation of `depth` samples per side.
+fn resample_band_limited_sinc(
+    samples: &[f32],
+    source_hz: f64,
+    target_hz: f64,
+    depth: usize,
+    count: usize,
+    plan: &mut RealFftPlan,
+) -> Vec<f32> {
+    let n = samples.len();
+    let signal: Vec<f64> = samples.iter().map(|&s| f64::from(s)).collect();
+    let (band_limited, offset) = if target_hz < source_hz {
+        // Band-limit through the transform of the zero-padded signal. The
+        // cut: every bin `k ≥ ⌊r·N/2⌋` is zero, and when `⌊r·N⌋` is even the
+        // imaginary part of bin `⌊r·N/2⌋ − 1` is zero as well (`r` the rate
+        // ratio, `N` the transform length). Found by a black-box sweep of cut
+        // positions against parselmouth, over the packed half-complex layout
+        // `[re₀, re₁, im₁, …]` in which the rule is "zero from entry
+        // `⌊r·N⌋ − 2`"; that layout was the ansatz, the oracle the arbiter.
+        let fft_len = next_pow2(n + 2 * BAND_LIMIT_PADDING);
+        let mut buffer = vec![0.0; fft_len];
+        buffer[BAND_LIMIT_PADDING..BAND_LIMIT_PADDING + n].copy_from_slice(&signal);
+        let mut spectrum = plan.rfft(&mut buffer);
+        let packed = ((target_hz / source_hz) * fft_len as f64).floor() as usize;
+        let packed = packed.saturating_sub(2);
+        let bin = packed.div_ceil(2);
+        let first_zeroed = if packed.is_multiple_of(2) && bin < spectrum.len() {
+            spectrum[bin].im = 0.0;
+            bin + 1
+        } else {
+            bin
+        };
+        if first_zeroed < spectrum.len() {
+            spectrum[first_zeroed..].fill(Default::default());
+        }
+        let mut filtered = plan.irfft(&mut spectrum, fft_len);
+        let scale = 1.0 / fft_len as f64;
+        for value in &mut filtered[BAND_LIMIT_PADDING..BAND_LIMIT_PADDING + n] {
+            *value *= scale;
+        }
+        (filtered, BAND_LIMIT_PADDING)
+    } else {
+        (signal, 0)
+    };
+    let source = &band_limited[offset..offset + n];
+    let source_dx = 1.0 / source_hz;
+    let target_dx = 1.0 / target_hz;
+    let (_, first) = band_limited_grid(n, source_hz, target_hz);
+    (0..count)
+        .map(|i| {
+            let time = first + i as f64 * target_dx;
+            let index = (time - 0.5 * source_dx) / source_dx;
+            // Praat's precision 1 reads zero where the position falls outside
+            // the source's sample centres; deeper reads clamp to the edge
+            // sample. Within them, depth 1 is linear in `sinc_interpolate`.
+            if depth == 1 && (index < 0.0 || index > (n - 1) as f64) {
+                return 0.0;
+            }
+            phx_dsp::sinc_interpolate(source, index, depth) as f32
+        })
+        .collect()
+}
+
+/// Samples of zero padding on either side of the signal before the
+/// band-limiting transform, so the circular wrap of the transform does not
+/// fold the signal's end into its start. The oracle comparison is the same
+/// with none and with twice as much; this is comfortably past the sinc's
+/// reach at either edge.
+const BAND_LIMIT_PADDING: usize = 1000;
 
 /// Errors produced by audio decoding, encoding, buffer validation, and resampling.
 #[derive(Debug, Clone, PartialEq)]
@@ -874,6 +1032,108 @@ mod tests {
             (peak_frequency - tone_hz).abs() <= 0.1,
             "peak frequency {peak_frequency} Hz"
         );
+    }
+
+    #[test]
+    fn band_limited_sinc_upsampling_reproduces_a_tone() {
+        use std::f64::consts::PI;
+        let source_hz = 16_000.0_f64;
+        let target_hz = 22_050.0;
+        let tone_hz = 1_234.5;
+        let samples: Vec<f32> = (0..16_000)
+            .map(|k| (2.0 * PI * tone_hz * (k as f64 + 0.5) / source_hz).sin() as f32)
+            .collect();
+        let audio = Audio::new(vec![samples], source_hz).unwrap();
+        let up = audio.resampled(target_hz, ResampleQuality::PRAAT).unwrap();
+        assert_eq!(
+            up.frames(),
+            (16_000.0 * target_hz / source_hz).round() as usize
+        );
+        let count = up.frames() as f64;
+        let first = 0.5 * (1.0 - (count - 1.0) / target_hz);
+        // The first and last few samples read past the source's ends, where
+        // the interpolation clamps to the edge sample; the `resample-up`
+        // oracle case pins that behaviour, this test the interior.
+        let worst = up
+            .channel(0)
+            .iter()
+            .enumerate()
+            .skip(100)
+            .take(up.frames() - 200)
+            .map(|(i, &v)| {
+                let t = first + i as f64 / target_hz;
+                (f64::from(v) - (2.0 * PI * tone_hz * t).sin()).abs()
+            })
+            .fold(0.0, f64::max);
+        assert!(worst < 2e-4, "worst error {worst}");
+    }
+
+    #[test]
+    fn band_limited_sinc_downsampling_removes_content_above_the_new_nyquist() {
+        use std::f64::consts::PI;
+        let source_hz = 16_000.0_f64;
+        let target_hz = 11_000.0;
+        let samples: Vec<f32> = (0..32_000)
+            .map(|k| {
+                let t = (k as f64 + 0.5) / source_hz;
+                (0.5 * (2.0 * PI * 1_000.0 * t).sin() + 0.5 * (2.0 * PI * 7_000.0 * t).sin()) as f32
+            })
+            .collect();
+        let audio = Audio::new(vec![samples], source_hz).unwrap();
+        let down = audio.resampled(target_hz, ResampleQuality::PRAAT).unwrap();
+        assert_eq!(down.frames(), 22_000);
+        // The 7 kHz tone would alias to 4 kHz; the 1 kHz tone survives.
+        let n = down.frames();
+        let kept = dft_magnitude(down.channel(0), (1_000.0 * n as f64 / target_hz) as usize);
+        let aliased = dft_magnitude(down.channel(0), (4_000.0 * n as f64 / target_hz) as usize);
+        assert!(kept > 0.4 * n as f64 / 2.0, "kept {kept}");
+        assert!(aliased < kept * 1e-3, "aliased {aliased} vs kept {kept}");
+    }
+
+    #[test]
+    fn band_limited_sinc_handles_each_channel_and_rejects_degenerate_requests() {
+        let left: Vec<f32> = (0..4_000).map(|k| (k as f32 * 0.01).sin()).collect();
+        let right: Vec<f32> = left.iter().map(|v| -v).collect();
+        let audio = Audio::new(vec![left, right], 16_000.0).unwrap();
+        let down = audio.resampled(8_000.0, ResampleQuality::PRAAT).unwrap();
+        assert_eq!(down.channel_count(), 2);
+        assert_eq!(down.frames(), 2_000);
+        for (a, b) in down.channel(0).iter().zip(down.channel(1)) {
+            assert!((a + b).abs() < 1e-6);
+        }
+        assert!(matches!(
+            audio.resampled(8_000.0, ResampleQuality::BandLimitedSinc { depth: 0 }),
+            Err(AudioError::Resample(_))
+        ));
+        let short = Audio::new(vec![vec![0.5, 0.25]], 16_000.0).unwrap();
+        assert!(matches!(
+            short.resampled(1_000.0, ResampleQuality::PRAAT),
+            Err(AudioError::Resample(_))
+        ));
+        let one = Audio::new(vec![vec![0.5]], 8_000.0).unwrap();
+        let up = one.resampled(16_000.0, ResampleQuality::PRAAT).unwrap();
+        assert_eq!(up.channel(0), &[0.5, 0.5]);
+    }
+
+    #[test]
+    fn depth_one_is_linear_with_zeros_past_the_ends() {
+        // Praat's precision 1 on the ramp 1..=10 from 16 kHz to 22.05 kHz:
+        // 14 samples, the two outermost past the source's centres read 0.
+        let ramp: Vec<f32> = (1..=10).map(|v| v as f32).collect();
+        let audio = Audio::new(vec![ramp], 16_000.0).unwrap();
+        let up = audio
+            .resampled(22_050.0, ResampleQuality::BandLimitedSinc { depth: 1 })
+            .unwrap();
+        assert_eq!(up.frames(), 14);
+        let v = up.channel(0);
+        assert_eq!(v[0], 0.0);
+        assert_eq!(v[13], 0.0);
+        assert!((v[1] - 1.5091).abs() < 1e-3, "{}", v[1]);
+        assert!((v[12] - 9.4909).abs() < 1e-3, "{}", v[12]);
+        // At the default depth the same positions clamp to the edge samples.
+        let deep = audio.resampled(22_050.0, ResampleQuality::PRAAT).unwrap();
+        assert_eq!(deep.channel(0)[0], 1.0);
+        assert_eq!(deep.channel(0)[13], 10.0);
     }
 
     #[test]

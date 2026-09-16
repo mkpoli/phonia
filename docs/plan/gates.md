@@ -48,15 +48,29 @@ duration as n·(1/fs)).
   the 1 dB band. Residual: 7 frames on one fixture (max 3.5 dB), all on
   sharp onsets, reproduced identically by an ideal reference Kaiser-20 —
   intrinsic to the documented window match, mean absolute error 0.068 dB.
-- **Formants** — raw Burg vs raw Burg. With Praat-resampled input the
-  pipeline agrees at 8/6717 checked points (0.1%), which isolates every
-  divergence to the resampling stage. After pinning the anti-alias cutoff
-  to the destination Nyquist (`ResampleQuality::Best`), violations are
-  487/6717 (7.3%; F1/F2/F3 median residuals 116/180/191 Hz on violating
-  frames). The remainder is attributable to Praat's unpublished
-  precision-50 sinc window and cannot be closed clean-room. Accepted with
-  this record; the framing, Gaussian window, pre-emphasis, Burg recursion,
-  root-solving, and gating stages are verified exact.
+- **Formants** — raw Burg vs raw Burg. The control experiment: with
+  parselmouth's own resampled input the pipeline agreed at 8/6717 checked
+  points (0.1%), which isolated every divergence to the resampling stage.
+  After pinning the anti-alias cutoff to the destination Nyquist
+  (`ResampleQuality::Best`), violations were 487/6717 (7.3%; F1/F2/F3
+  median residuals 116/180/191 Hz on violating frames). The remainder was
+  at the time attributed to Praat's unpublished precision-50 sinc window
+  and accepted as not closable clean-room; the framing, Gaussian window,
+  pre-emphasis, Burg recursion, root-solving, and gating stages were
+  verified exact.
+  *2026-09-16:* closed. Praat's resampling was reproduced from the manual's
+  description plus four conventions settled against parselmouth's
+  `Sound.resample` (the cut's position in the packed spectrum, the centred
+  output grid, the sample-time mapping, and linear/cubic interpolation at
+  the two shallowest depths; algorithms report §6.1). The `resample-down`
+  and `resample-up` oracle cases hold it sample for sample within the
+  reference files' six-decimal rounding (1.5·10⁻⁶ of peak). With it in
+  front of the Burg analysis the corpus disagrees on 8/6717 points (0.12%)
+  — the same points as the control experiment: three frames of
+  `arctic_bdl_a0001` (0.477, 0.502, 2.414 s) where a root near 50–75 Hz is
+  kept here and not by Praat, plus one F2 at 3.208 s off by 72 Hz. Median
+  residual 0.3 Hz. Band 1% per fixture and corpus, against the recorded
+  0.52% on that fixture.
 - **Spectrogram** — exempt from the Praat oracle per `validation.md`;
   validated against scipy as under T1.7.
 - Formant DP-tracking weights remain provisional (no numeric values in the

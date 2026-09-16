@@ -21,6 +21,13 @@ use std::f64::consts::PI;
 /// the first sample returns `y[0]`, `x` past the last returns the last sample,
 /// and an integer `x` returns `y[x]` exactly.
 ///
+/// A depth of two or less, whether asked for or forced by the edges, is not a
+/// sinc at all: one sample per side interpolates linearly and two per side
+/// with the cubic through the four neighbours (the Hermite form whose end
+/// slopes are the central differences), as Praat's interpolation does at
+/// those depths. The switch was settled against the oracle (a resampled
+/// signal's first samples).
+///
 /// Each side is summed by [`tapered_sinc_sum`], which generates both the sinc
 /// and the taper by recurrence.
 #[must_use]
@@ -43,15 +50,25 @@ pub fn sinc_interpolate(y: &[f64], x: f64, depth: usize) -> f64 {
     let nl = nl as usize;
     let nr = nl + 1;
     let depth = depth.min(nl + 1).min(n - nr);
-    if depth == 0 {
-        return y[(x + 0.5).floor() as usize];
+    let phi = x - nl as f64;
+    match depth {
+        0 => return y[(x + 0.5).floor() as usize],
+        1 => return y[nl] + phi * (y[nr] - y[nl]),
+        2 => {
+            let (yl, yr) = (y[nl], y[nr]);
+            let dyl = 0.5 * (yr - y[nl - 1]);
+            let dyr = 0.5 * (y[nr + 1] - yl);
+            let fir = 1.0 - phi;
+            return yl * fir + yr * phi
+                - phi * fir * (0.5 * (dyr - dyl) + (phi - 0.5) * (dyl + dyr - 2.0 * (yr - yl)));
+        }
+        _ => {}
     }
 
-    // Left side: samples nl, nl−1, …, nl+1−depth at distances φ_l, φ_l+1, ….
-    let phi_l = x - nl as f64;
-    let left = tapered_sinc_sum(y[nr - depth..=nl].iter().rev(), phi_l, depth);
-    // Right side: samples nr, nr+1, …, nl+depth at distances φ_r, φ_r+1, ….
-    let right = tapered_sinc_sum(y[nr..=nl + depth].iter(), 1.0 - phi_l, depth);
+    // Left side: samples nl, nl−1, …, nl+1−depth at distances φ, φ+1, ….
+    let left = tapered_sinc_sum(y[nr - depth..=nl].iter().rev(), phi, depth);
+    // Right side: samples nr, nr+1, …, nl+depth at distances 1−φ, 2−φ, ….
+    let right = tapered_sinc_sum(y[nr..=nl + depth].iter(), 1.0 - phi, depth);
     left + right
 }
 
@@ -250,12 +267,12 @@ mod tests {
 
     #[test]
     fn reduces_depth_near_the_edges() {
-        // Left of x = 1.3 only two samples exist, so both sides run at depth
-        // 2 and the taper spans φ + 2.
+        // Left of x = 2.3 three samples exist, so both sides run at depth 3,
+        // the smallest sinc depth, and the taper spans φ + 3.
         let y: Vec<f64> = (0..32).map(|i| (0.41 * i as f64).cos()).collect();
-        let x = 1.3_f64;
-        let depth = 2usize;
-        let nl = 1usize;
+        let x = 2.3_f64;
+        let depth = 3usize;
+        let nl = 2usize;
         let phi_l = x - nl as f64;
         let phi_r = 1.0 - phi_l;
         let mut expected = 0.0;
@@ -269,6 +286,21 @@ mod tests {
         }
         let got = sinc_interpolate(&y, x, 12);
         assert!((got - expected).abs() < 1e-12, "{got} vs {expected}");
+    }
+
+    #[test]
+    fn shallow_depths_interpolate_linearly_and_cubically() {
+        let y = [0.0, 1.0, 4.0, 9.0, 16.0, 25.0];
+        // One sample per side: linear between y[0] and y[1].
+        assert!((sinc_interpolate(&y, 0.25, 12) - 0.25).abs() < 1e-12);
+        // Two per side: the cubic through y[0..4] reproduces the parabola.
+        assert!((sinc_interpolate(&y, 1.5, 2) - 2.25).abs() < 1e-12);
+        assert!((sinc_interpolate(&y, 1.5, 12) - 2.25).abs() < 1e-12);
+        // Off the midpoint the Hermite form with central-difference slopes
+        // differs from the Lagrange cubic through the same four points: at
+        // x = 1.25 on [0, 1, 3, 2] it gives 1.5 where Lagrange gives 1.5625.
+        let bumpy = [0.0, 1.0, 3.0, 2.0, 5.0, 4.0];
+        assert!((sinc_interpolate(&bumpy, 1.25, 2) - 1.5).abs() < 1e-12);
     }
 
     #[test]

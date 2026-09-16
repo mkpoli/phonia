@@ -126,12 +126,11 @@ def _cmd_diff_all(args: argparse.Namespace) -> int:
     """Diff every reference file in `references/` against a measured directory
     holding same-named files (the Rust CLI's dump directory).
 
-    Formant is gated on a corpus-wide aggregate rather than each fixture's
-    own `passed`: docs/plan/gates.md T2.6 records the accepted residual as
-    487/6717 (7.3%) violations summed over the whole formant corpus, and
-    individual fixtures range from well under that rate to well over it.
-    Every other measure's `passed` already reflects gates.md's per-fixture
-    acceptance record (see `oracle.diff`), so it gates the run directly.
+    Every report's own `passed` gates the run, and formant is additionally
+    gated on a corpus-wide aggregate (`formant_verdict`): docs/plan/gates.md
+    T2.6 records the accepted residual as 8/6717 (0.12%) violations summed
+    over the whole formant corpus, all on one fixture (0.52% there), and the
+    band holds both.
     """
     ref_dir = references_dir()
     measured_dir = Path(args.measured_dir)
@@ -140,10 +139,8 @@ def _cmd_diff_all(args: argparse.Namespace) -> int:
         print(f"SKIP: no reference files found in {ref_dir}")
         return SKIP_EXIT_CODE
 
-    overall_pass = True
-    formant_checked = 0
-    formant_violations = 0
-    formant_missing = 0
+    reports = []
+    structural_failure = False
     for ref_path in ref_files:
         reference = jsonio.read_json(ref_path)
         if reference.get("measure") == "spectrogram":
@@ -152,42 +149,56 @@ def _cmd_diff_all(args: argparse.Namespace) -> int:
         measured_path = measured_dir / ref_path.name
         if not measured_path.is_file():
             print(f"[MISSING] no measured file for {ref_path.name} (expected {measured_path})")
-            overall_pass = False
+            structural_failure = True
             continue
         measured = jsonio.read_json(measured_path)
         try:
             report = diff(reference, measured)
         except DiffError as exc:
             print(f"[ERROR] {ref_path.name}: {exc}")
-            overall_pass = False
+            structural_failure = True
             continue
         _print_report(report)
+        reports.append(report)
 
-        if report.measure == "formant":
-            formant_checked += report.summary["checked_points"]
-            formant_violations += report.summary["violations"]
-            formant_missing += report.summary["missing_points"]
-        else:
-            overall_pass = overall_pass and report.passed
-
-    if formant_checked:
-        formant_violation_rate = formant_violations / formant_checked
-        formant_ok = (
-            formant_missing <= tol.FORMANT_MISSING_MAX
-            and formant_violation_rate <= tol.FORMANT_CORPUS_VIOLATION_RATE_MAX
-        )
+    aggregate = formant_aggregate(reports)
+    if aggregate is not None:
+        formant_ok, checked, violations, missing = aggregate
         print(
             f"[{'PASS' if formant_ok else 'FAIL'}] measure=formant (corpus aggregate)\n"
-            f"  checked_points: {formant_checked}\n"
-            f"  violations: {formant_violations}\n"
-            f"  violation_rate: {formant_violation_rate:.4f}\n"
+            f"  checked_points: {checked}\n"
+            f"  violations: {violations}\n"
+            f"  violation_rate: {violations / checked:.4f}\n"
             f"  violation_rate_max: {tol.FORMANT_CORPUS_VIOLATION_RATE_MAX}\n"
-            f"  missing_points: {formant_missing}\n"
+            f"  missing_points: {missing}\n"
             f"  missing_points_max: {tol.FORMANT_MISSING_MAX}"
         )
-        overall_pass = overall_pass and formant_ok
 
-    return 0 if overall_pass else 1
+    return 0 if verdict(reports, structural_failure) else 1
+
+
+def formant_aggregate(reports) -> tuple[bool, int, int, int] | None:
+    """The corpus-wide formant verdict `(ok, checked, violations, missing)`,
+    or `None` when no formant report is present."""
+    checked = sum(r.summary["checked_points"] for r in reports if r.measure == "formant")
+    if not checked:
+        return None
+    violations = sum(r.summary["violations"] for r in reports if r.measure == "formant")
+    missing = sum(r.summary["missing_points"] for r in reports if r.measure == "formant")
+    ok = (
+        missing <= tol.FORMANT_MISSING_MAX
+        and violations / checked <= tol.FORMANT_CORPUS_VIOLATION_RATE_MAX
+    )
+    return ok, checked, violations, missing
+
+
+def verdict(reports, structural_failure: bool = False) -> bool:
+    """`diff-all`'s decision: every report passes on its own, the formant
+    corpus passes as a whole, and nothing was missing or malformed."""
+    if structural_failure or not all(r.passed for r in reports):
+        return False
+    aggregate = formant_aggregate(reports)
+    return aggregate is None or aggregate[0]
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -44,7 +44,7 @@ Arrows point at dependencies. Analysis crates depend on `phx-dsp` only;
 they take sample slices, so they stay usable outside this project.
 
 ```
-phx-audio ──────────────┐
+phx-audio ──► phx-dsp ──┐
 phx-dsp ◄── phx-spectrogram, phx-pitch, phx-formant, phx-intensity
 phx-voice ──► phx-pitch, phx-dsp
 phx-annot ◄── phx-textgrid
@@ -57,7 +57,7 @@ phx-wasm ──► phx-engine
 
 | Crate | Responsibility | Key external deps |
 |---|---|---|
-| phx-audio | `Audio` (planar f32 samples + f64 sample rate), WAV via hound, broad decode via symphonia (opt-in features; MPL-2.0 unmodified), resampling via rubato | hound, symphonia, rubato |
+| phx-audio | `Audio` (planar f32 samples + f64 sample rate), WAV via hound, broad decode via symphonia (opt-in features; MPL-2.0 unmodified), resampling via rubato or Praat's band-limited sinc | hound, symphonia, rubato, phx-dsp |
 | phx-dsp | Hanning/Gaussian/Kaiser windows, real FFT wrappers, absolute-time frame grid, windowed-sinc interpolation, pre-emphasis | realfft, rustfft, ndarray |
 | phx-spectrogram | Gaussian-window STFT power spectral density; viewport-independent tile computation in dB | phx-dsp |
 | phx-pitch | Window-corrected autocorrelation candidates + Viterbi path finder (Boersma 1993); full parameter surface with Praat-documented defaults | phx-dsp |

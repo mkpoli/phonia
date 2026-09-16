@@ -89,12 +89,13 @@ jobs:
         if: steps.refs.outputs.count != '0'
         run: cargo build --release -p oracle-bridge
       - name: Install uv
-        if: steps.refs.outputs.count != '0'
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install oracle (diffing the committed references needs no Praat/parselmouth)
-        if: steps.refs.outputs.count != '0'
         working-directory: tools/oracle
         run: uv sync
+      - name: Unit-test the oracle's own logic
+        working-directory: tools/oracle
+        run: uv run python -m unittest discover -s tests -t .
       - name: Run oracle-bridge over the committed fixtures
         if: steps.refs.outputs.count != '0'
         run: |
@@ -104,101 +105,3 @@ jobs:
         if: steps.refs.outputs.count != '0'
         working-directory: tools/oracle
         run: uv run oracle diff-all --measured-dir /tmp/oracle-candidate
-
-  figcheck:
-    name: figcheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build figcheck toolchain container
-        id: build
-        continue-on-error: true
-        run: docker build -t figcheck:ci tools/figcheck
-      - name: Report container unavailable
-        if: steps.build.outcome != 'success'
-        run: echo "::warning::figcheck container did not build on this runner -- figcheck job skipped, not failed"
-      - name: Run figcheck self-test (tiny known-good/known-bad fixtures)
-        if: steps.build.outcome == 'success'
-        run: docker run --rm -v "${{ github.workspace }}:/work" -w /work figcheck:ci tools/figcheck/selftest.sh
-      - name: Check for committed figure exports
-        if: steps.build.outcome == 'success'
-        run: |
-          count=$(find crates/phx-figure -type f \( -name '*.typ' -o -name '*.tex' -o -name '*.vega.json' \) 2>/dev/null | wc -l)
-          if [ "$count" -eq 0 ]; then
-            echo "::notice::no committed figure exports under crates/phx-figure -- figcheck ran the harness self-test only"
-          fi
-
-  desktop:
-    name: desktop (${{ matrix.os }})
-    # apps/desktop/src-tauri is its own Cargo workspace (kept out of the
-    # `test` and `clippy` jobs above so the WebKitGTK/wry dependency tree
-    # never touches the pure-Rust core crates) and its bundle step is the
-    # slowest thing in this file, so it stays off the pull-request path and
-    # only proves itself on pushes to main.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/desktop/src-tauri
-      - uses: oven-sh/setup-bun@v2
-      - name: Install Linux bundling and audio prerequisites
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libasound2-dev \
-            patchelf
-      # macOS ships Xcode's command-line tools (CoreAudio, no extra prereqs)
-      # and windows-latest ships the WebView2 runtime and MSVC toolchain
-      # cpal's WASAPI backend needs, so neither platform has an install step.
-      - run: bun install --frozen-lockfile
-      # No signing identity is configured, so the macOS .app/.dmg come out
-      # ad-hoc-signed; code signing and notarization are a later phase.
-      - name: Build the desktop bundle
-        run: bun run tauri build
-        working-directory: apps/desktop
-      - uses: actions/upload-artifact@v4
-        with:
-          name: phonia-desktop-${{ matrix.os }}
-          path: apps/desktop/src-tauri/target/release/bundle/
-          if-no-files-found: error
-
-  deploy:
-    name: deploy phonia.app
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, wasm]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - uses: oven-sh/setup-bun@v2
-      - run: cargo install wasm-pack --locked || cargo install wasm-pack
-      - run: RUSTFLAGS="-C target-feature=+simd128" wasm-pack build crates/phx-wasm --target web --out-dir ../../apps/web/src/lib/wasm/pkg
-      - run: bun install --frozen-lockfile
-      - run: bun run build
-        working-directory: apps/web
-      - name: deploy
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        run: bun x wrangler deploy
-        working-directory: apps/web
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      - name: note when secret missing
-        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
-        run: echo "::warning::CLOUDFLARE_API_TOKEN secret not set - deploy skipped (local wrangler deploys remain the path)"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

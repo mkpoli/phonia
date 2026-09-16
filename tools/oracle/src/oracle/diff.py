@@ -5,7 +5,7 @@ side; the Rust side dumps the same shape from its own analysis run):
 
     {
       "case": "pitch-defaults",
-      "measure": "pitch" | "pitch-cc" | "formant" | "intensity" | "harmonicity",
+      "measure": "pitch" | "pitch-cc" | "formant" | "intensity" | "harmonicity" | "resample",
       "audio": "tests/fixtures/audio/....wav",
       "params": {...},
       "frames": [ ... ]
@@ -232,6 +232,7 @@ def diff_formant(reference: dict, measured: dict) -> DiffReport:
     ref_frames = reference["frames"]
     meas_frames = measured["frames"]
     _require_same_length(ref_frames, meas_frames)
+    _require_same_times(ref_frames, meas_frames)
 
     checked = 0
     missing: list[dict] = []
@@ -265,10 +266,9 @@ def diff_formant(reference: dict, measured: dict) -> DiffReport:
     violation_rate = len(violations) / checked if checked else 0.0
     # Per docs/plan/gates.md T2.6: missing tracked slots fail outright (never
     # part of the accepted residual); the violation rate is checked against
-    # the corpus-aggregate band recorded there. This per-file check alone is
-    # stricter than that aggregate on some fixtures -- `oracle diff-all`
-    # additionally aggregates checked/violations across the whole formant
-    # corpus and gates on that number, matching how the record was measured.
+    # the band recorded there, which holds each fixture on its own;
+    # `oracle diff-all` gates on this verdict and additionally on the same
+    # band over the whole formant corpus.
     passed = (
         len(missing) <= tol.FORMANT_MISSING_MAX
         and violation_rate <= tol.FORMANT_CORPUS_VIOLATION_RATE_MAX
@@ -341,6 +341,38 @@ def diff_harmonicity(reference: dict, measured: dict) -> DiffReport:
         },
         violations=violations,
         notes=[f"voicing mismatch at frame {v['frame']} (t={v['time']})" for v in voicing_mismatches],
+    )
+
+
+def diff_resample(reference: dict, measured: dict) -> DiffReport:
+    r, m = reference["resampled"], measured["resampled"]
+    if len(r["samples"]) != len(m["samples"]):
+        raise DiffError(
+            f"sample count mismatch: reference {len(r['samples'])}, measured {len(m['samples'])}"
+        )
+    if abs(r["first_time"] - m["first_time"]) > 1e-9:
+        raise DiffError(
+            f"grid mismatch: first sample at {r['first_time']} vs {m['first_time']}"
+        )
+    peak = max(abs(v) for v in r["samples"]) or 1.0
+    worst = 0.0
+    worst_index = 0
+    for i, (a, b) in enumerate(zip(r["samples"], m["samples"])):
+        d = abs(a - b) / peak
+        if d > worst:
+            worst, worst_index = d, i
+    passed = worst <= tol.RESAMPLE_RELATIVE_TO_PEAK
+    return DiffReport(
+        measure="resample",
+        passed=passed,
+        summary={
+            "samples": len(r["samples"]),
+            "max_diff_relative_to_peak": worst,
+            "at_sample": worst_index,
+            "tolerance": tol.RESAMPLE_RELATIVE_TO_PEAK,
+        },
+        violations=[] if passed else [{"sample": worst_index, "relative_diff": worst}],
+        notes=[],
     )
 
 
@@ -561,6 +593,7 @@ def diff_voice(reference: dict, measured: dict) -> DiffReport:
 _DIFFERS = {
     "harmonicity": diff_harmonicity,
     "pitch-cc": diff_pitch,
+    "resample": diff_resample,
     "pitch": diff_pitch,
     "formant": diff_formant,
     "intensity": diff_intensity,

@@ -13,7 +13,13 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from oracle.params import FormantParams, HarmonicityParams, IntensityParams, PitchParams
+from oracle.params import (
+    FormantParams,
+    HarmonicityParams,
+    IntensityParams,
+    PitchParams,
+    ResampleParams,
+)
 
 
 def _clean(value: float) -> float | None:
@@ -123,6 +129,16 @@ def harmonicity_cc_frames(sound: Any, params: HarmonicityParams) -> list[dict]:
             }
         )
     return frames
+
+
+def resample_samples(sound: Any, params: ResampleParams) -> dict:
+    """The resampled sound's samples and grid via `Sound.resample`."""
+    resampled = sound.resample(params.target_hz, params.precision)
+    return {
+        "sample_rate": float(resampled.sampling_frequency),
+        "first_time": float(resampled.x1),
+        "samples": [float(v) for v in resampled.values[0]],
+    }
 
 
 def intensity_frames(sound: Any, params: IntensityParams) -> list[dict]:
