@@ -66,9 +66,10 @@ exist:
 
 | Measure | Band | Notes |
 |---|---|---|
-| F0 (both voiced, same octave) | ≤ 1% relative | finer target after tuning: 0.5% |
-| F0 gross errors | listed individually | investigate; voicing/octave mismatches are the expected disagreement mode |
-| Voicing decision | majority agreement on clean speech | boundary frames reported separately |
+| F0 (both voiced, same octave) | ≤ 1% relative | reached 3·10⁻⁴ on the whole corpus (2026-09-16); `oracle.tolerances` now allows at most 1% of frames to violate |
+| F0 gross errors | none | any octave disagreement fails; voicing disagreement is bounded by the row below |
+| Pitch strength | ≤ 0.01 absolute | selected-candidate correlation; reached 5·10⁻³ on the corpus |
+| Voicing decision | ≥ 99% agreement | the corpus agrees frame for frame; the 1% leaves room for one boundary frame per fixture |
 | F1–F3, clear vowels | ≤ max(50 Hz, 3%) | Praat's own tracker varies with ceiling |
 | Intensity | ≤ 1 dB | window approximation difference documented |
 | HNR | ≤ 1 dB on well-voiced spans | larger near voicing boundaries |

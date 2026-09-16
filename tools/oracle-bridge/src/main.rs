@@ -15,6 +15,7 @@
 //! Case -> phx crate mapping (`docs/plan/tasks/phase-2.md` T2.1-T2.3,
 //! `docs/plan/tasks/phase-4.md` T4.2/T4.5):
 //!   - `pitch-defaults`         -> `phx_pitch::pitch_track`
+//!   - `pitch-accurate-speech`  -> `phx_pitch::pitch_track` (Gaussian window, 20 ms step, 65-500 Hz)
 //!   - `formant-defaults`       -> `phx_formant::formant_track`
 //!   - `intensity-defaults`     -> `phx_intensity::intensity_track`
 //!   - `voice-report-defaults`  -> `phx_voice::voice_report`
@@ -48,8 +49,9 @@ use json::Json;
 /// The oracle cases this bridge covers, in the order `cases.py` declares
 /// them. `spectrogram-slice-defaults` is intentionally absent (see the
 /// module doc comment).
-const CASES: [&str; 4] = [
+const CASES: [&str; 5] = [
     "pitch-defaults",
+    "pitch-accurate-speech",
     "formant-defaults",
     "intensity-defaults",
     "voice-report-defaults",
@@ -133,7 +135,25 @@ fn main() -> ExitCode {
             }
 
             let payload = match case_name {
-                "pitch-defaults" => pitch_payload(view.clone(), audio_filename),
+                "pitch-defaults" => pitch_payload(
+                    view.clone(),
+                    audio_filename,
+                    "pitch-defaults",
+                    PitchParams::default(),
+                ),
+                "pitch-accurate-speech" => pitch_payload(
+                    view.clone(),
+                    audio_filename,
+                    "pitch-accurate-speech",
+                    PitchParams {
+                        time_step: Some(0.02),
+                        floor_hz: 65.0,
+                        ceiling_hz: 500.0,
+                        very_accurate: true,
+                        voicing_threshold: 0.5,
+                        ..PitchParams::default()
+                    },
+                ),
                 "formant-defaults" => formant_payload(view.clone(), audio_filename),
                 "intensity-defaults" => intensity_payload(view.clone(), audio_filename),
                 "voice-report-defaults" => voice_payload(view.clone(), audio_filename),
@@ -196,12 +216,17 @@ fn audio_field(audio_filename: &str) -> Json {
     Json::String(format!("tests/fixtures/audio/{audio_filename}"))
 }
 
-/// Runs `phx_pitch::pitch_track` with `PitchParams::default()` -- the same
-/// defaults `oracle.params.PitchParams()` declares (both mirror Praat's
-/// "Sound: To Pitch (raw autocorrelation)..." documented defaults) -- and
-/// builds the `pitch-defaults` measured payload.
-fn pitch_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
-    let params = PitchParams::default();
+/// Runs `phx_pitch::pitch_track` with the parameter set `oracle.cases.CASES`
+/// declares for `case_name` (`pitch-defaults` mirrors Praat's "Sound: To
+/// Pitch (raw autocorrelation)..." documented defaults; `pitch-accurate-speech`
+/// the Gaussian-window speech setting) and builds that case's measured
+/// payload.
+fn pitch_payload(
+    view: AudioView<'_>,
+    audio_filename: &str,
+    case_name: &str,
+    params: PitchParams,
+) -> Json {
     let track = pitch_track(view, &params);
 
     let frames = track
@@ -218,7 +243,7 @@ fn pitch_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
         .collect();
 
     Json::object(vec![
-        ("case", Json::String("pitch-defaults".to_string())),
+        ("case", Json::String(case_name.to_string())),
         ("measure", Json::String("pitch".to_string())),
         ("audio", audio_field(audio_filename)),
         ("params", pitch_params_json(&params)),

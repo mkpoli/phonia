@@ -2,7 +2,7 @@
 //! (Boersma 1993); full parameter surface with Praat-documented defaults.
 #![warn(missing_docs)]
 
-mod acf;
+mod analysis;
 mod candidates;
 mod params;
 mod path;
@@ -12,46 +12,49 @@ mod types;
 mod perf;
 
 use phx_audio::AudioView;
-use phx_dsp::{FrameGrid, RealFftPlan};
+use phx_dsp::FrameGrid;
 
 pub use params::PitchParams;
 pub use types::{PitchCandidate, PitchFrame, PitchTrack, TimeSpan};
 
 /// Computes a window-corrected autocorrelation pitch track.
+///
+/// Frames are centred on a grid that spans the signal symmetrically
+/// ([`FrameGrid`]) with the analysis window's nominal duration (three pitch
+/// periods, six for the very-accurate Gaussian window). Each frame yields
+/// candidates ([`PitchFrame::candidates`]) whose strengths are raw
+/// correlations; the path finder applies the octave cost and the transition
+/// costs when it picks [`PitchFrame::f0`].
 #[must_use]
 pub fn pitch_track(audio: AudioView<'_>, params: &PitchParams) -> PitchTrack {
     if !params.is_valid_for_analysis() {
         return PitchTrack::new(Vec::new());
     }
-
-    let sample_rate = audio.sample_rate();
     let Some(step) = params.resolved_step() else {
         return PitchTrack::new(Vec::new());
     };
-    let (window_seconds, window) = candidates::analysis_window(params, sample_rate);
-    let grid = FrameGrid::new(audio.duration(), window_seconds, step);
+    let sample_rate = audio.sample_rate();
+    let Some(layout) = analysis::Layout::new(params, sample_rate) else {
+        return PitchTrack::new(Vec::new());
+    };
+    let grid = FrameGrid::new(audio.duration(), layout.window_seconds, step);
     if grid.is_empty() {
         return PitchTrack::new(Vec::new());
     }
 
     let mono = audio.mono_mix();
-    let mut plan = RealFftPlan::new();
-    let signal = acf::soft_lowpass(mono.as_ref(), sample_rate, &mut plan);
-    let global_peak = signal.iter().map(|sample| sample.abs()).fold(0.0, f64::max);
-    let context = candidates::CandidateContext {
-        signal: &signal,
-        sample_rate,
-        params,
-        physical_window_seconds: window_seconds,
-        window: &window,
-        global_peak,
-    };
-    let frame_candidates = grid
-        .centers()
-        .map(|time| context.candidates_for_frame(time, &mut plan))
-        .collect();
+    let signal: Vec<f64> = mono.iter().map(|&sample| f64::from(sample)).collect();
+    let mean = signal.iter().sum::<f64>() / signal.len() as f64;
+    let global_peak = signal
+        .iter()
+        .fold(0.0_f64, |peak, &sample| peak.max((sample - mean).abs()));
 
-    path::viterbi_track(frame_candidates, params)
+    let mut finder = candidates::CandidateFinder::new(layout, params, global_peak);
+    let frames: Vec<_> = grid
+        .centers()
+        .map(|time| finder.frame(&signal, time))
+        .collect();
+    path::viterbi_track(frames, params, finder.layout().ceiling_hz, step)
 }
 
 #[cfg(test)]
@@ -61,9 +64,8 @@ mod tests {
     use phx_audio::Audio;
 
     use super::*;
-    use crate::acf::window_autocorrelation;
-    use crate::candidates::{unvoiced_strength, voiced_strength};
-    use crate::path::transition_cost;
+    use crate::candidates::{FrameCandidates, unvoiced_strength, voiced_strength};
+    use crate::path::viterbi_track;
     use crate::types::hz_to_semitones;
 
     fn audio_from_signal(signal: Vec<f32>, sample_rate: f64) -> Audio {
@@ -164,7 +166,13 @@ mod tests {
             octave_jump_cost: 1.0,
             ..PitchParams::default()
         };
-        let track = analyse_signal(signal, sample_rate, params);
+        let track = analyse_signal(signal, sample_rate, params.clone());
+        // A frame's locally best candidate, scored as the path finder scores
+        // it (correlation less the octave cost against the ceiling).
+        let local_score = |candidate: &PitchCandidate| {
+            candidate.strength
+                - params.octave_cost * (params.ceiling_hz / candidate.frequency).log2()
+        };
         let wrong_raw_frames = track
             .frames()
             .iter()
@@ -173,7 +181,7 @@ mod tests {
                     .candidates
                     .iter()
                     .filter(|candidate| candidate.frequency > 0.0)
-                    .max_by(|a, b| a.strength.total_cmp(&b.strength))
+                    .max_by(|a, b| local_score(a).total_cmp(&local_score(b)))
                     .is_some_and(|candidate| (candidate.frequency - 2.0 * f0).abs() < 0.03 * f0)
             })
             .count();
@@ -197,42 +205,115 @@ mod tests {
     #[test]
     fn strength_formulas_match_equations() {
         let params = PitchParams::default();
-        let unvoiced = unvoiced_strength(&params, 0.03, 1.0);
+        let intensity = 0.03;
+        let unvoiced = unvoiced_strength(&params, intensity);
         let expected_unvoiced = params.voicing_threshold
-            + (2.0 - (0.03 / 1.0) / (params.silence_threshold / (1.0 + params.voicing_threshold)))
+            + (2.0 - intensity * (1.0 + params.voicing_threshold) / params.silence_threshold)
                 .max(0.0);
         assert!((unvoiced - expected_unvoiced).abs() < 1e-12);
+        // Silence is always a strong unvoiced candidate; a full-scale frame a
+        // weak one.
+        assert!(unvoiced_strength(&params, 0.0) > unvoiced_strength(&params, 1.0));
+        assert_eq!(unvoiced_strength(&params, 1.0), params.voicing_threshold);
 
-        let lag_seconds = 1.0 / 150.0;
-        let voiced = voiced_strength(&params, 0.9, lag_seconds);
-        let expected_voiced = 0.9 - params.octave_cost * (params.floor_hz * lag_seconds).log2();
+        let voiced = voiced_strength(&params, 0.9, 150.0);
+        let expected_voiced = 0.9 - params.octave_cost * (params.floor_hz / 150.0).log2();
         assert!((voiced - expected_voiced).abs() < 1e-12);
+        assert!(voiced_strength(&params, 0.9, 300.0) > voiced_strength(&params, 0.9, 150.0));
     }
 
     #[test]
-    fn transition_cost_matches_equation() {
-        let params = PitchParams::default();
-        assert_eq!(transition_cost(0.0, 0.0, &params), 0.0);
-        assert_eq!(
-            transition_cost(0.0, 150.0, &params),
-            params.voiced_unvoiced_cost
+    fn candidates_carry_raw_correlations() {
+        let sample_rate = 16_000.0;
+        let track = analyse_signal(
+            sine(200.0, sample_rate, 0.5),
+            sample_rate,
+            PitchParams::default(),
         );
-        assert_eq!(
-            transition_cost(150.0, 0.0, &params),
-            params.voiced_unvoiced_cost
+        let frame = &track.frames()[track.frames().len() / 2];
+        assert!(frame.f0.is_some());
+        assert!(
+            frame.strength > 0.99 && frame.strength <= 1.0,
+            "{}",
+            frame.strength
         );
-        let jump = transition_cost(100.0, 200.0, &params);
-        assert!((jump - params.octave_jump_cost).abs() < 1e-12);
+        assert_eq!(frame.candidates[0].frequency, 0.0);
+        for candidate in &frame.candidates[1..] {
+            assert!(candidate.strength <= 1.0);
+        }
     }
 
     #[test]
-    fn window_acf_closed_form_matches_reference_points() {
-        let t = 0.04;
-        assert!((window_autocorrelation(0.0, t) - 1.0).abs() < 1e-12);
-        assert!(window_autocorrelation(t, t).abs() < 1e-12);
-        let half = window_autocorrelation(0.5 * t, t);
-        let expected_half = 0.5 * (2.0 / 3.0 - 1.0 / 3.0);
-        assert!((half - expected_half).abs() < 1e-12);
+    fn transition_costs_scale_with_the_time_step() {
+        // Four frames; the middle two prefer 200 Hz by 0.4 each (0.8 in
+        // total). Two octave jumps cost 2 × 0.35 at a 10 ms step, so the
+        // path takes the excursion; at 5 ms the correction doubles the
+        // jump cost to 2 × 0.70 and the path stays at 100 Hz.
+        let params = PitchParams {
+            octave_cost: 0.0,
+            ..PitchParams::default()
+        };
+        let frame = |time: f64, low: f64, high: f64| FrameCandidates {
+            time,
+            candidates: vec![
+                PitchCandidate {
+                    frequency: 0.0,
+                    strength: 0.0,
+                },
+                PitchCandidate {
+                    frequency: 100.0,
+                    strength: low,
+                },
+                PitchCandidate {
+                    frequency: 200.0,
+                    strength: high,
+                },
+            ],
+        };
+        let frames = || {
+            vec![
+                frame(0.0, 1.0, 0.5),
+                frame(0.01, 0.6, 1.0),
+                frame(0.02, 0.6, 1.0),
+                frame(0.03, 1.0, 0.5),
+            ]
+        };
+        let f0s = |step: f64| -> Vec<f64> {
+            viterbi_track(frames(), &params, 600.0, step)
+                .frames()
+                .iter()
+                .map(|frame| frame.f0.unwrap())
+                .collect()
+        };
+        assert_eq!(f0s(0.01), vec![100.0, 200.0, 200.0, 100.0]);
+        assert_eq!(f0s(0.005), vec![100.0, 100.0, 100.0, 100.0]);
+    }
+
+    #[test]
+    fn equal_path_scores_choose_the_earlier_candidate() {
+        let params = PitchParams {
+            octave_cost: 0.0,
+            ..PitchParams::default()
+        };
+        let frame = |time: f64| FrameCandidates {
+            time,
+            candidates: vec![
+                PitchCandidate {
+                    frequency: 0.0,
+                    strength: 0.0,
+                },
+                PitchCandidate {
+                    frequency: 100.0,
+                    strength: 0.9,
+                },
+                PitchCandidate {
+                    frequency: 150.0,
+                    strength: 0.9,
+                },
+            ],
+        };
+        let track = viterbi_track(vec![frame(0.0), frame(0.01)], &params, 600.0, 0.01);
+        assert!(track.frames().iter().all(|f| f.f0 == Some(100.0)));
     }
 
     #[test]

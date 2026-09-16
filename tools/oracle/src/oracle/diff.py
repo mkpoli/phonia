@@ -88,6 +88,18 @@ def _require_same_measure(reference: dict, measured: dict) -> str:
     return r_measure
 
 
+def _require_same_params(reference: dict, measured: dict) -> None:
+    """Both sides declare the parameter set they ran; a mismatch means the
+    Rust bridge and `oracle.cases` have drifted apart, and the frame
+    comparison that follows would be meaningless."""
+    r_params = reference.get("params")
+    m_params = measured.get("params")
+    if r_params != m_params:
+        raise DiffError(
+            f"params mismatch: reference ran {r_params!r}, measured ran {m_params!r}"
+        )
+
+
 def _require_same_length(reference_frames: list, measured_frames: list) -> None:
     if len(reference_frames) != len(measured_frames):
         raise DiffError(
@@ -106,6 +118,7 @@ def diff_pitch(reference: dict, measured: dict) -> DiffReport:
     voicing_mismatches: list[dict] = []
     gross_errors: list[dict] = []
     fine_violations: list[dict] = []
+    strength_violations: list[dict] = []
     fine_checked = 0
     voiced_total = 0
     voicing_agree = 0
@@ -113,6 +126,17 @@ def diff_pitch(reference: dict, measured: dict) -> DiffReport:
     for i, (r, m) in enumerate(zip(ref_frames, meas_frames)):
         r_voiced, m_voiced = r["voiced"], m["voiced"]
         voiced_total += 1
+        r_strength, m_strength = r.get("strength") or 0.0, m.get("strength") or 0.0
+        if abs(m_strength - r_strength) > tol.STRENGTH_ABSOLUTE:
+            strength_violations.append(
+                {
+                    "frame": i,
+                    "time": r["time"],
+                    "reference_strength": r_strength,
+                    "measured_strength": m_strength,
+                    "tolerance": tol.STRENGTH_ABSOLUTE,
+                }
+            )
         if r_voiced == m_voiced:
             voicing_agree += 1
         else:
@@ -158,6 +182,7 @@ def diff_pitch(reference: dict, measured: dict) -> DiffReport:
         and voicing_agreement_rate >= tol.VOICING_MAJORITY_THRESHOLD
         and fine_violation_rate <= tol.F0_FINE_VIOLATION_RATE_MAX
         and max_fine_violation_relative <= tol.F0_FINE_VIOLATION_MAX_RELATIVE
+        and not strength_violations
     )
 
     return DiffReport(
@@ -178,8 +203,10 @@ def diff_pitch(reference: dict, measured: dict) -> DiffReport:
             "max_fine_violation_relative": max_fine_violation_relative,
             "fine_violation_max_relative": tol.F0_FINE_VIOLATION_MAX_RELATIVE,
             "tolerance_relative": tol.F0_FINE_RELATIVE,
+            "strength_violations": len(strength_violations),
+            "strength_tolerance_absolute": tol.STRENGTH_ABSOLUTE,
         },
-        violations=fine_violations,
+        violations=fine_violations + strength_violations,
         notes=[f"voicing mismatch at frame {v['frame']} (t={v['time']})" for v in voicing_mismatches]
         + [f"gross F0 error (octave/voicing class) at frame {g['frame']} (t={g['time']})" for g in gross_errors],
     )
@@ -483,4 +510,5 @@ def diff(reference: dict, measured: dict) -> DiffReport:
     differ = _DIFFERS.get(measure)
     if differ is None:
         raise DiffError(f"no comparator registered for measure {measure!r}")
+    _require_same_params(reference, measured)
     return differ(reference, measured)

@@ -63,6 +63,26 @@ CASES: dict[str, Case] = {
         default_audio=SPEECH_AND_VOWEL_CORPUS,
         description="Boersma raw-autocorrelation pitch, Praat's documented defaults.",
     ),
+    "pitch-accurate-speech": Case(
+        name="pitch-accurate-speech",
+        measure="pitch",
+        params=PitchParams(
+            time_step=0.02,
+            floor_hz=65.0,
+            ceiling_hz=500.0,
+            very_accurate=True,
+            voicing_threshold=0.5,
+        ),
+        default_audio=SPEECH_AND_VOWEL_CORPUS,
+        description=(
+            "Boersma autocorrelation pitch with the Gaussian very-accurate "
+            "window, a 20 ms step, a 65-500 Hz search range, and voicing "
+            "threshold 0.5: the setting a speech-comparison tool uses. Covers "
+            "the window-ACF normalisation, the path finder's time-step "
+            "correction, and a non-default floor, none of which "
+            "`pitch-defaults` exercises."
+        ),
+    ),
     "formant-defaults": Case(
         name="formant-defaults",
         measure="formant",

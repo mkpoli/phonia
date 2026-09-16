@@ -14,6 +14,15 @@ documentation only, oracles as black boxes, no GPL source consulted.
 
 ## Standing practices
 
+- **Pulse placement on running speech** (gates T4.6, addendum 2026-09-16).
+  With the pitch track at parselmouth parity, the voice report's remaining
+  running-speech residual (`shimmer.apq11` 43.5%, `apq5` 28% on
+  `arctic_bdl_a0001`) is the pulse finder's sub-sample placement. The
+  widened band in `oracle.tolerances` is a placeholder for this item, which
+  should settle the placement convention the way §1.2 of the algorithms
+  report settled the pitch ones and then tighten the band back to the
+  sustained-vowel 10%. First step: an oracle case that exports pulse times.
+
 - **Upstream Praat tracking** (CV §12). Praat releases every two to three
   weeks; a replacement needs a running diff, and a one-time snapshot goes
   stale. Practice: each month, review
