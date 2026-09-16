@@ -7,6 +7,10 @@ use phx_dsp::{RealFftPlan, next_pow2};
 
 use crate::params::PitchParams;
 
+/// Window autocorrelation values below this are treated as zero; with the
+/// window's own autocorrelation the kept lags never come close.
+const WINDOW_ACF_EPSILON: f64 = 1e-10;
+
 /// Sizes derived from the parameters and the sampling rate; everything the
 /// per-frame analysis needs to know about lags and buffers.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -212,7 +216,7 @@ impl FrameAnalyzer {
             .zip(&self.acf[1..])
             .zip(&self.window_acf[1..])
         {
-            *value = if zero > 0.0 && rw.abs() > 1e-10 {
+            *value = if zero > 0.0 && rw.abs() > WINDOW_ACF_EPSILON {
                 raw / (zero * rw)
             } else {
                 0.0

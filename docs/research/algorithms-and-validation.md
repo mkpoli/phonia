@@ -75,8 +75,7 @@ Per-frame procedure (Boersma 1993, §4), as `phx-pitch` runs it:
    30) there, reflected to `1/r` above one. When the candidate list is full,
    the new maximum replaces the weakest by eq. 24 or is dropped.
 5. Refine each retained candidate by maximising the sinc-interpolated
-   autocorrelation over `[lag − 1, lag + 1]` with Brent's method (depth 70 for
-   Hanning, 700 for the Gaussian, bounded by the lags available). Sinc
+   autocorrelation over `[lag − 1, lag + 1]` with Brent's method. Sinc
    interpolation, not mere parabolic interpolation, is what recovers accurate
    peak heights (needed for HNR); parabolic interpolation alone leaves ~0.1
    sample error.
@@ -92,9 +91,15 @@ hold them in place:
   the samples around `⌊t·fs − ½⌋` and the one after it, so the window is
   placed to the sample and never resampled.
 - The window length in samples is `2·(⌊T·fs/2⌋ − 1)`; lags `τ` are examined
-  for `2 ≤ τ < ⌊N/periods⌋ + 2`, a maximum being a sample with
-  `r[τ] > r[τ−1]` and `r[τ] ≥ r[τ+1]`; the corrected autocorrelation is kept
-  up to `N/2` (Hanning) or `N/4` (Gaussian) lags, which also sizes the FFT.
+  for `2 ≤ τ < ⌊N/periods⌋ + 2` (so the largest examined lag is one sample
+  past a pitch-floor period, and a candidate may sit slightly below the
+  floor), a maximum being a sample with `r[τ] > r[τ−1]` and `r[τ] ≥ r[τ+1]`;
+  the corrected autocorrelation is kept up to `N/2` (Hanning) or `N/4`
+  (Gaussian) lags, which also sizes the FFT.
+- Sinc interpolation depths: 30 samples per side for the strength read at a
+  freshly placed maximum, 70 (Hanning) or 700 (Gaussian) for the Brent
+  refinement, both bounded by the lags available. The paper gives no depth
+  for these two reads.
 - The local mean spans one pitch-floor period to either side of the frame
   centre; the local peak is read on the windowed frame over half a period
   (`⌊P/2⌋ + 1` samples) to either side.
@@ -103,8 +108,10 @@ hold them in place:
   parselmouth's `to_pitch_ac`), which the manual distinguishes from the
   filtered variant introduced in Praat 6.4. The paper's §4 mentions a soft
   near-Nyquist low-pass; the oracle output is reproduced without one, and the
-  earlier implementation's raised-cosine taper was removed. A filtered variant
-  would slot in ahead of step 1.
+  earlier implementation's raised-cosine taper was removed. This is verified
+  only where the ceiling sits far below Nyquist (every fixture: 16 kHz audio,
+  ceilings ≤ 600 Hz); a fixture with a ceiling near Nyquist would pin it. A
+  filtered variant would slot in ahead of step 1.
 - Maxima above the pitch ceiling are registered as candidates (there is no
   lower lag bound at `1/pitchCeiling`); the path finder treats a candidate at
   or above the ceiling as unvoiced.

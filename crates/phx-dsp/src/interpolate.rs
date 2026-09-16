@@ -167,6 +167,9 @@ fn brent_maximize<F: Fn(f64) -> f64>(f: F, mut a: f64, mut b: f64, tol: f64) -> 
             x - tol_here
         };
         let fu = f(u);
+        // On an exactly flat top a tie moves to the newer probe; peaks of a
+        // sinc-interpolated correlation are never flat, so this only decides
+        // which of two equal points is reported.
         if fu >= fx {
             if u >= x {
                 a = x;
@@ -234,6 +237,51 @@ mod tests {
             let got = sinc_interpolate(&y, x, depth);
             assert!((got - expected).abs() < 1e-12, "x={x}: {got} vs {expected}");
         }
+    }
+
+    #[test]
+    fn reduces_depth_near_the_edges() {
+        // Left of x = 1.3 only two samples exist, so both sides run at depth
+        // 2 and the taper spans φ + 2.
+        let y: Vec<f64> = (0..32).map(|i| (0.41 * i as f64).cos()).collect();
+        let x = 1.3_f64;
+        let depth = 2usize;
+        let nl = 1usize;
+        let phi_l = x - nl as f64;
+        let phi_r = 1.0 - phi_l;
+        let mut expected = 0.0;
+        for k in 1..=depth {
+            let d = phi_l + (k - 1) as f64;
+            expected += y[nl + 1 - k] * (PI * d).sin() / (PI * d)
+                * (0.5 + 0.5 * (PI * d / (phi_l + depth as f64)).cos());
+            let d = phi_r + (k - 1) as f64;
+            expected += y[nl + k] * (PI * d).sin() / (PI * d)
+                * (0.5 + 0.5 * (PI * d / (phi_r + depth as f64)).cos());
+        }
+        let got = sinc_interpolate(&y, x, 12);
+        assert!((got - expected).abs() < 1e-12, "{got} vs {expected}");
+    }
+
+    #[test]
+    fn recurrence_holds_at_large_depth() {
+        let n = 1024;
+        let y: Vec<f64> = (0..n).map(|i| (0.013 * i as f64).sin()).collect();
+        let x = 511.37_f64;
+        let depth = 300usize;
+        let nl = x.floor() as usize;
+        let phi_l = x - nl as f64;
+        let phi_r = 1.0 - phi_l;
+        let mut expected = 0.0;
+        for k in 1..=depth {
+            let d = phi_l + (k - 1) as f64;
+            expected += y[nl + 1 - k] * (PI * d).sin() / (PI * d)
+                * (0.5 + 0.5 * (PI * d / (phi_l + depth as f64)).cos());
+            let d = phi_r + (k - 1) as f64;
+            expected += y[nl + k] * (PI * d).sin() / (PI * d)
+                * (0.5 + 0.5 * (PI * d / (phi_r + depth as f64)).cos());
+        }
+        let got = sinc_interpolate(&y, x, depth);
+        assert!((got - expected).abs() < 1e-11, "{got} vs {expected}");
     }
 
     #[test]

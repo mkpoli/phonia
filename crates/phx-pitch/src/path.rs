@@ -10,9 +10,10 @@ use crate::types::{PitchCandidate, PitchFrame, PitchTrack};
 /// A voiced candidate's strength on the path is its correlation less the
 /// octave cost measured against the ceiling (the anchor shifts every voiced
 /// candidate by one constant relative to the unvoiced one, so it sets the
-/// voicing balance); a candidate at or above the ceiling counts as unvoiced. The two transition costs are defined for a 10 ms step and scale
-/// with `0.01 / step`, so the cost of a jump per second of signal is the same
-/// on any grid.
+/// voicing balance); a candidate at or above the ceiling counts as unvoiced.
+/// The two transition costs are defined for a 10 ms step and scale with
+/// `0.01 / step`, so the cost of a jump per second of signal is the same on
+/// any grid.
 pub(crate) fn viterbi_track(
     frames: Vec<FrameCandidates>,
     params: &PitchParams,
