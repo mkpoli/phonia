@@ -18,6 +18,8 @@ pub struct RealFftPlan {
     planner: RealFftPlanner<f64>,
     forward: HashMap<usize, Arc<dyn RealToComplex<f64>>>,
     inverse: HashMap<usize, Arc<dyn ComplexToReal<f64>>>,
+    /// Spectrum scratch per length for [`RealFftPlan::autocorrelate_into`].
+    power: HashMap<usize, Vec<Complex<f64>>>,
 }
 
 impl RealFftPlan {
@@ -28,6 +30,7 @@ impl RealFftPlan {
             planner: RealFftPlanner::new(),
             forward: HashMap::new(),
             inverse: HashMap::new(),
+            power: HashMap::new(),
         }
     }
 
@@ -78,6 +81,33 @@ impl RealFftPlan {
         plan.process(spectrum, &mut out)
             .expect("realfft inverse: buffer lengths and DC/Nyquist bins are valid");
         out
+    }
+
+    /// Unnormalised autocorrelation of `frame` through its power spectrum,
+    /// written to `acf` (`acf[τ] = Σ frame[k]·frame[k+τ]`, circular over the
+    /// frame length, scaled by the length).
+    ///
+    /// `frame` must already carry the zero padding that makes the circular
+    /// product linear over the lags the caller reads; it is used as scratch.
+    /// `acf` must be `frame.len()` long. Nothing is allocated, so a per-frame
+    /// loop can reuse both buffers.
+    pub fn autocorrelate_into(&mut self, frame: &mut [f64], acf: &mut [f64]) {
+        let n = frame.len();
+        let forward = self.forward(n);
+        let inverse = self.inverse(n);
+        let spectrum = self
+            .power
+            .entry(n)
+            .or_insert_with(|| forward.make_output_vec());
+        forward
+            .process(frame, spectrum)
+            .expect("realfft forward: buffer lengths match the plan");
+        for bin in spectrum.iter_mut() {
+            *bin = Complex::new(bin.norm_sqr(), 0.0);
+        }
+        inverse
+            .process(spectrum, acf)
+            .expect("realfft inverse: buffer lengths and DC/Nyquist bins are valid");
     }
 }
 
@@ -153,6 +183,27 @@ mod tests {
         let back = plan.irfft(&mut spec, n);
         for (a, b) in original.iter().zip(back.iter()) {
             assert!((a - b / n as f64).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn autocorrelation_matches_direct_sum() {
+        let n = 64;
+        let signal: Vec<f64> = (0..24).map(|j| (0.7 * j as f64).sin() + 0.1).collect();
+        let mut frame = vec![0.0; n];
+        frame[..signal.len()].copy_from_slice(&signal);
+        let mut acf = vec![0.0; n];
+        let mut plan = RealFftPlan::new();
+        plan.autocorrelate_into(&mut frame, &mut acf);
+        for lag in 0..signal.len() {
+            let direct: f64 = (0..signal.len() - lag)
+                .map(|k| signal[k] * signal[k + lag])
+                .sum();
+            assert!(
+                (acf[lag] / n as f64 - direct).abs() < 1e-9,
+                "lag {lag}: {} vs {direct}",
+                acf[lag] / n as f64
+            );
         }
     }
 
