@@ -71,8 +71,10 @@ impl StreamPyramid {
             let next = levels
                 .last()
                 .expect("levels is non-empty")
-                .chunks_exact(2)
-                .map(|pair| pair[0].combine(pair[1]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|[left, right]| left.combine(*right))
                 .collect();
             levels.push(next);
         }
