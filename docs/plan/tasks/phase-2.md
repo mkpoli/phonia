@@ -22,12 +22,13 @@ pub struct PitchTrack { /* frames on the FrameGrid; stats queries: mean/median/m
   over a TimeSpan, in Hz/semitones */ }
 pub fn pitch_track(audio: AudioView, params: &PitchParams) -> PitchTrack;
 ```
-**Requirements.** Window-corrected ACF (r_a/r_w, analytic r_w formula),
-Hanning at 3/floor (Gaussian at 6/floor when very_accurate), soft near-Nyquist
-lowpass, zero-pad 1.5×→pow2 FFT ACF, candidate lags in
-[1/ceiling, 1/floor] via sinc peak interpolation (phx-dsp), unvoiced
-candidate strength eq. 23, voiced strength eq. 24, transition costs eq. 27,
-DP over all frames. All equations are reproduced in the algorithms report
+**Requirements.** Window-corrected ACF (r_a/r_w, with r_w computed from the
+sampled window), Hanning at 3/floor (Gaussian at 6/floor when very_accurate),
+zero-padded pow2 FFT ACF, candidate maxima placed by parabolic then
+windowed-sinc peak interpolation (phx-dsp), unvoiced candidate strength eq. 23,
+voiced strength eq. 24, transition costs eq. 27 scaled by 0.01/step, DP over
+all frames. The discretisation conventions are listed in the algorithms report
+§1.2. All equations are reproduced in the algorithms report
 §1.2–1.4 with the Praat-documented defaults table.
 **Verification.** Synthetic ground truth first: pure tones, AM tones,
 tone+noise at known F0 (error < 0.1%); octave-error stress case (strong even

@@ -83,9 +83,10 @@ impl RealFftPlan {
         out
     }
 
-    /// Unnormalised autocorrelation of `frame` through its power spectrum,
-    /// written to `acf` (`acf[τ] = Σ frame[k]·frame[k+τ]`, circular over the
-    /// frame length, scaled by the length).
+    /// Autocorrelation of `frame` through its power spectrum, written to
+    /// `acf` as `acf[τ] = n · Σ frame[k]·frame[k+τ]` (circular over the frame
+    /// length `n`); a caller that takes ratios such as `acf[τ] / acf[0]`
+    /// never sees the factor.
     ///
     /// `frame` must already carry the zero padding that makes the circular
     /// product linear over the lags the caller reads; it is used as scratch.

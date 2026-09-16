@@ -3,8 +3,10 @@
 pub struct PitchCandidate {
     /// Candidate frequency in hertz; `0.0` marks the explicit unvoiced candidate.
     pub frequency: f64,
-    /// Candidate strength `R`: Boersma eq. 24 for voiced candidates and eq. 23
-    /// for the unvoiced candidate.
+    /// For a voiced candidate, its window-corrected autocorrelation at the
+    /// candidate lag (Boersma eq. 9), reflected below one; for the unvoiced
+    /// candidate, eq. 23. The octave cost (eq. 24) is applied only inside the
+    /// path finder.
     pub strength: f64,
 }
 
@@ -15,9 +17,12 @@ pub struct PitchFrame {
     pub time: f64,
     /// Selected fundamental frequency in hertz, or `None` when the path is unvoiced.
     pub f0: Option<f64>,
-    /// Strength stored on the selected candidate.
+    /// Correlation of the selected candidate (`0.0` when unvoiced): a
+    /// voicing-confidence value in `0..=1`.
     pub strength: f64,
-    /// All candidates generated for the frame, including the unvoiced candidate.
+    /// All candidates generated for the frame, the unvoiced candidate first.
+    /// A candidate at or above the pitch ceiling is kept in the list but is
+    /// scored as unvoiced on the path.
     pub candidates: Vec<PitchCandidate>,
 }
 

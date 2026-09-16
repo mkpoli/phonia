@@ -10,7 +10,9 @@ trace to the primary papers cited alongside them.
 Scope of "clean-room" here: read papers and Praat's public documentation freely;
 Praat's source may inform understanding but no code is ported. Where the manual
 under-specifies a step (noted inline), the implementer picks a defensible choice
-from the cited primary literature.
+from the cited primary literature, or settles it by black-box comparison against
+the oracle and records the resulting convention as such (§1.2 lists the pitch
+conventions settled that way).
 
 ## Contents
 
@@ -50,23 +52,69 @@ tapers the signal ACF toward zero at longer lags (Boersma 1993, eq. 9):
 
     r_x(τ) ≈ r_a(τ) / r_w(τ)
 
-Per-frame procedure (Boersma 1993, §4):
+Per-frame procedure (Boersma 1993, §4), as `phx-pitch` runs it:
 
-1. Soft-lowpass the signal near Nyquist to suppress Hanning-transform sidelobe
-   aliasing.
-2. Compute the global absolute peak of the signal (used later by the unvoiced
-   candidate's strength).
-3. For each frame: take a segment of length `3 / pitchFloor` (pitch) or
-   `6 / pitchFloor` (HNR); subtract the local mean; multiply by a Hanning window
-   `w(t) = 0.5 − 0.5 cos(2πt/T)` (eq. 6); zero-pad to ~1.5× then to a power of
-   two; FFT; square the magnitude spectrum; inverse FFT to obtain `r_a(τ)`;
-   divide by the analytic window ACF `r_w(τ)` (eq. 8) to obtain `r_x(τ)`.
-4. Find local maxima of `r_x(τ)` for lags between `1/pitchCeiling` and
-   `1/pitchFloor`, located to sub-sample precision by windowed-sinc interpolation
-   in the lag domain (eq. 22), refined with Brent maximisation. Sinc
+1. Compute the global absolute peak of the mean-removed signal (used later by
+   the unvoiced candidate's strength).
+2. Place frames on a grid whose window duration is `3 / pitchFloor` (Hanning)
+   or `6 / pitchFloor` (Gaussian, the paper's postscript), rounded down to an
+   even number of samples. Both windows are sampled so that their zeros fall
+   one sample outside either end; the Gaussian is shifted and rescaled to
+   reach zero there.
+3. For each frame: subtract the local mean over one pitch period to either
+   side of the centre; multiply by the window; zero-pad to a power of two
+   with room for the lags kept (half the window for Hanning, a quarter for
+   the Gaussian); FFT; square the magnitude spectrum; inverse FFT to obtain
+   `r_a(τ)`; divide by the window's own autocorrelation `r_w(τ)`, computed
+   the same way from the sampled window (eq. 8 gives the closed form for the
+   Hanning case), to obtain `r_x(τ)`.
+4. Register every local maximum of `r_x(τ)` above half the voicing threshold
+   at lags from two samples up to `⌊N/periods⌋ + 2` (two samples past one
+   pitch-floor period): its lag by parabolic
+   interpolation, its strength by one windowed-sinc evaluation (eq. 22, depth
+   30) there, reflected to `1/r` above one. When the candidate list is full,
+   the new maximum replaces the weakest by eq. 24 or is dropped.
+5. Refine each retained candidate by maximising the sinc-interpolated
+   autocorrelation over `[lag − 1, lag + 1]` with Brent's method (depth 70 for
+   Hanning, 700 for the Gaussian, bounded by the lags available). Sinc
    interpolation, not mere parabolic interpolation, is what recovers accurate
    peak heights (needed for HNR); parabolic interpolation alone leaves ~0.1
    sample error.
+
+Where the paper leaves a discretisation open, `phx-pitch` follows the
+conventions below. None of them is derivable from the paper or from the manual
+pages cited above; each was settled by comparing frame-for-frame against
+parselmouth through `tools/oracle` (`pitch-defaults` and
+`pitch-accurate-speech`), and the oracle bands in `docs/plan/validation.md`
+hold them in place:
+
+- Sample `k` sits at time `(k + ½)/fs`; a frame centred at `t` is read from
+  the samples around `⌊t·fs − ½⌋` and the one after it, so the window is
+  placed to the sample and never resampled.
+- The window length in samples is `2·(⌊T·fs/2⌋ − 1)`; lags `τ` are examined
+  for `2 ≤ τ < ⌊N/periods⌋ + 2`, a maximum being a sample with
+  `r[τ] > r[τ−1]` and `r[τ] ≥ r[τ+1]`; the corrected autocorrelation is kept
+  up to `N/2` (Hanning) or `N/4` (Gaussian) lags, which also sizes the FFT.
+- The local mean spans one pitch-floor period to either side of the frame
+  centre; the local peak is read on the windowed frame over half a period
+  (`⌊P/2⌋ + 1` samples) to either side.
+- No low-pass filtering precedes the analysis: `phx-pitch` implements the
+  *raw* autocorrelation variant ("Sound: To Pitch (raw autocorrelation)...",
+  parselmouth's `to_pitch_ac`), which the manual distinguishes from the
+  filtered variant introduced in Praat 6.4. The paper's §4 mentions a soft
+  near-Nyquist low-pass; the oracle output is reproduced without one, and the
+  earlier implementation's raised-cosine taper was removed. A filtered variant
+  would slot in ahead of step 1.
+- Maxima above the pitch ceiling are registered as candidates (there is no
+  lower lag bound at `1/pitchCeiling`); the path finder treats a candidate at
+  or above the ceiling as unvoiced.
+- A correlation above one, which the window correction produces on short
+  windows, is reflected to `1/r`.
+- The candidate list holds `max(maxCandidates, ⌊ceiling/floor⌋)` entries; a
+  new maximum replaces the weakest by eq. 24 (octave cost against the floor),
+  where the anchor cancels. On the path the octave cost is anchored at the
+  ceiling, which shifts every voiced candidate by the same constant relative to
+  the unvoiced one and so sets the voicing balance.
 
 The analytic window ACF (eq. 8):
 
@@ -85,9 +133,13 @@ explicit **unvoiced** candidate (frequency 0), with local strength (eq. 23):
     R_unvoiced = voicingThreshold
                + max(0, 2 − (localPeak/globalPeak) / (silenceThreshold/(1+voicingThreshold)))
 
-Each voiced candidate at lag `τ_max` has strength (eq. 24):
+Each voiced candidate at lag `τ_max` has a *local ranking* strength (eq. 24),
+used only to decide which maxima keep a place in the frame's list:
 
     R = r_x(τ_max) − octaveCost · log2(pitchFloor · τ_max)
+
+The candidate itself stores the raw `r_x(τ_max)`; the *path strength* that the
+path finder uses is anchored at the ceiling instead (§1.4).
 
 `octaveCost` biases the choice among equally strong peaks toward higher
 frequency, countering perceived-vs-acoustic F0 mismatches in amplitude-modulated
@@ -103,6 +155,14 @@ candidate strengths. The transition cost (eq. 27), with F=0 meaning unvoiced:
         0                                if F1 = 0 and F2 = 0
         voicedUnvoicedCost               if exactly one of F1, F2 is 0
         octaveJumpCost · |log2(F1/F2)|   if F1 ≠ 0 and F2 ≠ 0
+
+On the path the strength of a voiced candidate is its correlation less
+`octaveCost · log2(pitchCeiling / F)` (see the conventions in §1.2: the
+anchor sets the voicing balance, and either anchor favours the higher of two
+equally strong candidates), a candidate at or above the ceiling counts as
+unvoiced, and the unvoiced strength is eq. 23. The two transition
+costs are defined for a 10 ms time step and are multiplied by `0.01 / timeStep`
+so a coarser grid does not make jumps cheaper per second.
 
 Boersma cites the Viterbi algorithm as described for HMMs by Van Alphen & Van
 Bergem (1989). The globally cheapest path is found by dynamic programming; it
@@ -139,9 +199,13 @@ command-reference pages (0.45 / 0.03) are authoritative for the current version.
 - Voicing errors in noise: lower `voicingThreshold` (~0.25) and `silenceThreshold`
   (~0.01) for low SNR (per the FAQ). Fast pitch movement (tone languages) and
   irregular periods (pathological voice) cause spurious unvoiced frames.
-- Cost: one FFT per frame (size = next power of two above 1.5× window), plus a
-  fine sinc search per candidate maximum (up to N=500 interpolation samples per
-  side). Fine time steps with low pitch floors make the per-frame FFT dominate.
+- Cost: one FFT per frame (size = next power of two above 1.5× window for
+  Hanning, 1.25× for the Gaussian), plus one depth-30 sinc evaluation per
+  registered maximum and a Brent search (a dozen sinc evaluations at depth 70
+  or 700) per retained candidate. A clean periodic signal retains the full
+  candidate list; exact silence (a zero local peak) skips the correlation
+  and the search altogether, while near-silence pays the FFT and finds few
+  maxima above the voicing gate.
 
 ### 1.7 Alternative F0 algorithms
 

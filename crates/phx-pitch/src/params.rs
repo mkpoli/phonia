@@ -18,7 +18,8 @@ pub struct PitchParams {
     pub floor_hz: f64,
     /// Highest voiced frequency considered, in hertz.
     pub ceiling_hz: f64,
-    /// Maximum candidates retained per frame, including the unvoiced candidate.
+    /// Maximum candidates retained per frame, including the unvoiced
+    /// candidate. A value below the ceiling-to-floor ratio is raised to it.
     pub max_candidates: usize,
     /// Uses the longer Gaussian window when `true`; otherwise uses Hanning.
     pub very_accurate: bool,
@@ -55,14 +56,6 @@ impl PitchParams {
     pub(crate) fn resolved_step(&self) -> Option<f64> {
         let step = self.time_step.unwrap_or(0.75 / self.floor_hz);
         (step.is_finite() && step > 0.0).then_some(step)
-    }
-
-    pub(crate) fn window_seconds(&self) -> f64 {
-        if self.very_accurate {
-            6.0 / self.floor_hz
-        } else {
-            3.0 / self.floor_hz
-        }
     }
 
     pub(crate) fn is_valid_for_analysis(&self) -> bool {
