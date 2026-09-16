@@ -105,6 +105,21 @@ duration as n·(1/fs)).
   unchanged, the pitch rebuild alone moves them); the band for this fixture
   was widened to 45% and the sustained-vowel fixtures still pass 0/14.
   Tightening it back is the pulse-placement item in `horizon.md`.
+  *2026-09-16, harmonicity (cc):* `phx_voice::hnr_track_cc` on
+  `phx_pitch::pitch_track_cc` agrees with parselmouth on all eight
+  `harmonicity-cc-*` fixtures — voicing 100%, HNR equal to the reference
+  files' six decimals on every frame but two of `arctic_bdl_a0001` at the
+  defaults (t = 2.1675 s, 24.896 vs 24.565 dB; t = 2.4375 s, 7.916 vs
+  8.275 dB). Band 0.5 dB per frame. The cross-correlation *pitch*
+  (`pitch-cc-defaults`) agrees frame for frame on voicing and F0 on three
+  fixtures; on `arctic_bdl_a0001` eleven frames differ by up to 9·10⁻⁴
+  relative in F0 and one (t = 3.001 s) by 0.017 in strength, the same
+  fixture that carries the five 3·10⁻⁴ frames of `pitch-defaults`. Two
+  conventions came out of this case: the cross-correlation grid is laid on
+  the discrete duration `n·(1/rate)` (a `frames/rate` quotient lost the last
+  frame of `librispeech`), and a frame's first sample is `⌊(t − dx/2)/dx⌋`
+  evaluated in that form, which also removed the earlier 3·10⁻⁴ residual of
+  `pitch-accurate-speech` on `arctic_bdl_a0001`.
 
 ## T8.8 — phase 8 gate (library, navigation, interchange): CLOSED
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from oracle.params import FormantParams, IntensityParams, PitchParams
+from oracle.params import FormantParams, HarmonicityParams, IntensityParams, PitchParams
 
 
 def _clean(value: float) -> float | None:
@@ -32,7 +32,17 @@ def pitch_frames(sound: Any, params: PitchParams) -> list[dict]:
     winning candidate is the unvoiced one; that is reported as
     `f0: null, voiced: false` here.
     """
-    pitch = sound.to_pitch_ac(
+    return _pitch_frames(sound.to_pitch_ac, params)
+
+
+def pitch_cc_frames(sound: Any, params: PitchParams) -> list[dict]:
+    """Per-frame F0 (Hz) and candidate strength via `Sound.to_pitch_cc`, the
+    forward cross-correlation method; same frame shape as `pitch_frames`."""
+    return _pitch_frames(sound.to_pitch_cc, params)
+
+
+def _pitch_frames(method: Any, params: PitchParams) -> list[dict]:
+    pitch = method(
         time_step=params.time_step,
         pitch_floor=params.floor_hz,
         max_number_of_candidates=params.max_candidates,
@@ -85,6 +95,33 @@ def formant_frames(sound: Any, params: FormantParams) -> list[dict]:
                 continue
             points.append({"formant": slot, "frequency_hz": freq, "bandwidth_hz": bw})
         frames.append({"time": float(t), "formants": points})
+    return frames
+
+
+def harmonicity_cc_frames(sound: Any, params: HarmonicityParams) -> list[dict]:
+    """Per-frame HNR in dB via `Sound.to_harmonicity_cc`.
+
+    Praat stores -200 dB for a frame whose best candidate is the unvoiced
+    one; that is reported as `hnr_db: null, voiced: false` here.
+    """
+    harmonicity = sound.to_harmonicity_cc(
+        time_step=params.time_step,
+        minimum_pitch=params.floor_hz,
+        silence_threshold=params.silence_threshold,
+        periods_per_window=params.periods_per_window,
+    )
+    times = harmonicity.xs()
+    values = harmonicity.values[0]
+    frames = []
+    for t, db in zip(times, values):
+        voiced = db > -200.0
+        frames.append(
+            {
+                "time": float(t),
+                "voiced": bool(voiced),
+                "hnr_db": _clean(float(db)) if voiced else None,
+            }
+        )
     return frames
 
 

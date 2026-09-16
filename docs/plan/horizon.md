@@ -14,6 +14,13 @@ documentation only, oracles as black boxes, no GPL source consulted.
 
 ## Standing practices
 
+- **Autocorrelation harmonicity on the pitch machinery** (algorithms report
+  §5.1). `phx_voice::hnr_track` has its own Hanning-window ACF; parselmouth's
+  `to_harmonicity_ac` grid length says Praat's is the Gaussian-window
+  analysis of `phx_pitch`. Rebuild it as `hnr_track_cc` was built — the
+  pitch analysis with zero voicing threshold and zero path costs — add a
+  `harmonicity-ac` oracle case to confirm, and re-check the voice report's
+  HNR scalar against its 1 dB band. First step: the oracle case.
 - **Pulse placement on running speech** (gates T4.6, addendum 2026-09-16).
   With the pitch track at parselmouth parity, the voice report's remaining
   running-speech residual (`shimmer.apq11` 43.5%, `apq5` 28% on

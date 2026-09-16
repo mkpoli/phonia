@@ -54,3 +54,18 @@ class IntensityParams:
 
     def as_dict(self) -> dict:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class HarmonicityParams:
+    """The fields of `phx_voice::HarmonicityParams` that the cross-correlation
+    harmonicity (`Sound.to_harmonicity_cc`) reads; the Rust struct also
+    carries a ceiling, which only the autocorrelation variant uses."""
+
+    time_step: float = 0.01
+    floor_hz: float = 75.0
+    silence_threshold: float = 0.1
+    periods_per_window: float = 1.0
+
+    def as_dict(self) -> dict:
+        return asdict(self)

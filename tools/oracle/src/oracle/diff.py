@@ -5,7 +5,7 @@ side; the Rust side dumps the same shape from its own analysis run):
 
     {
       "case": "pitch-defaults",
-      "measure": "pitch" | "formant" | "intensity",
+      "measure": "pitch" | "pitch-cc" | "formant" | "intensity" | "harmonicity",
       "audio": "tests/fixtures/audio/....wav",
       "params": {...},
       "frames": [ ... ]
@@ -109,10 +109,26 @@ def _require_same_length(reference_frames: list, measured_frames: list) -> None:
         )
 
 
+# Frame centres are compared positionally, so the grids must coincide, not
+# merely have the same length: a grid shifted by a constant would keep the
+# count and could stay inside the value bands on slowly varying material.
+FRAME_TIME_TOLERANCE_S = 1e-6
+
+
+def _require_same_times(reference_frames: list, measured_frames: list) -> None:
+    for i, (r, m) in enumerate(zip(reference_frames, measured_frames)):
+        if abs(r["time"] - m["time"]) > FRAME_TIME_TOLERANCE_S:
+            raise DiffError(
+                f"frame time mismatch at frame {i}: reference {r['time']}, "
+                f"measured {m['time']} -- the two sides use different frame grids"
+            )
+
+
 def diff_pitch(reference: dict, measured: dict) -> DiffReport:
     ref_frames = reference["frames"]
     meas_frames = measured["frames"]
     _require_same_length(ref_frames, meas_frames)
+    _require_same_times(ref_frames, meas_frames)
 
     both_unvoiced = 0
     voicing_mismatches: list[dict] = []
@@ -275,6 +291,56 @@ def diff_formant(reference: dict, measured: dict) -> DiffReport:
             f"formant slot present on only one side at frame {v['frame']} (t={v['time']})"
             for v in missing
         ],
+    )
+
+
+def diff_harmonicity(reference: dict, measured: dict) -> DiffReport:
+    ref_frames = reference["frames"]
+    meas_frames = measured["frames"]
+    _require_same_length(ref_frames, meas_frames)
+    _require_same_times(ref_frames, meas_frames)
+
+    checked = 0
+    voicing_mismatches: list[dict] = []
+    violations: list[dict] = []
+    for i, (r, m) in enumerate(zip(ref_frames, meas_frames)):
+        if r["voiced"] != m["voiced"]:
+            voicing_mismatches.append({"frame": i, "time": r["time"]})
+            continue
+        if not r["voiced"]:
+            continue
+        checked += 1
+        diff_db = abs(m["hnr_db"] - r["hnr_db"])
+        if diff_db > tol.HNR_ABSOLUTE_DB:
+            violations.append(
+                {
+                    "frame": i,
+                    "time": r["time"],
+                    "reference_db": r["hnr_db"],
+                    "measured_db": m["hnr_db"],
+                    "diff_db": diff_db,
+                    "tolerance_db": tol.HNR_ABSOLUTE_DB,
+                }
+            )
+
+    total = len(ref_frames)
+    agreement = (total - len(voicing_mismatches)) / total if total else 1.0
+    passed = agreement >= tol.HNR_VOICING_AGREEMENT_MIN and not violations
+    return DiffReport(
+        measure="harmonicity",
+        passed=passed,
+        summary={
+            "total_frames": total,
+            "checked": checked,
+            "voicing_mismatches": len(voicing_mismatches),
+            "voicing_agreement_rate": agreement,
+            "voicing_agreement_min": tol.HNR_VOICING_AGREEMENT_MIN,
+            "violations": len(violations),
+            "max_violation_db": max((v["diff_db"] for v in violations), default=0.0),
+            "tolerance_db": tol.HNR_ABSOLUTE_DB,
+        },
+        violations=violations,
+        notes=[f"voicing mismatch at frame {v['frame']} (t={v['time']})" for v in voicing_mismatches],
     )
 
 
@@ -493,6 +559,8 @@ def diff_voice(reference: dict, measured: dict) -> DiffReport:
 
 
 _DIFFERS = {
+    "harmonicity": diff_harmonicity,
+    "pitch-cc": diff_pitch,
     "pitch": diff_pitch,
     "formant": diff_formant,
     "intensity": diff_intensity,

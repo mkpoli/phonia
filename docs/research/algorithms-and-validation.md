@@ -536,6 +536,58 @@ fraction. Defaults from "Sound: To Harmonicity (ac)..."
 time step 0.01 s, pitch floor 75 Hz, silence threshold 0.1, periods per window
 4.5. The cc variant uses cross-correlation instead of the window-corrected ACF.
 
+**Cross-correlation harmonicity** ("Sound: To Harmonicity (cc)...",
+<https://www.fon.hum.uva.nl/praat/manual/Sound__To_Harmonicity__cc____.html>;
+defaults time step 0.01 s, pitch floor 75 Hz, silence threshold 0.1, periods
+per window 1.0) is `phx_voice::hnr_track_cc`, built on
+`phx_pitch::pitch_track_cc`. Each frame is a cross-correlation pitch frame with
+the voicing threshold and every path cost at zero and the ceiling at Nyquist,
+so its best candidate is the strongest correlation `r` unless the frame is
+quiet relative to the silence threshold (eq. 23 with voicing threshold 0);
+`HNR = 10·log10(r/(1−r))`, capped at 150 dB for a correlation within 10⁻¹⁵ of
+one (this implementation's own finite cap; no fixture reaches it), and an
+unvoiced frame carries no value (Praat stores −200 dB). Conventions settled
+against the oracle (`harmonicity-cc-defaults`, `harmonicity-cc-speech`), in
+the sense of §1.2:
+
+- The frame is `periods_per_window` pitch-floor periods long (rounded as in
+  §1.2), unwindowed, with the local mean removed; the grid spans one further
+  period, and the frame starts `(1 + periods_per_window)/(2·floor)` before
+  the frame centre so that the lagged spans stay centred on it.
+- `r(τ)` is the product of the frame with the same-length span `τ` samples
+  later, divided by the square root of the two energies, for
+  `1 ≤ τ ≤ ⌊N/periods⌋ + 2`; a lag past the end of the signal is not
+  computed, and lags beyond that bound read as zero to the interpolator.
+  Two details here are unverified by the fixtures: the end-of-signal rule
+  (the last frames of every fixture are unvoiced) and the choice of the
+  frame centre's local mean over the whole span (the fixtures carry no DC
+  offset, where any choice agrees).
+- Candidates are placed, ranked and refined as in §1.2, over the even
+  extension of `r` (a convention for autocorrelation, a fiction for forward
+  cross-correlation, and what the oracle reproduces). The harmonicity uses
+  the accurate refinement depth of 700 (at 70 the HNR drifts by up to
+  0.13 dB from the oracle), while the cross-correlation *pitch* command at
+  its defaults uses 70: `pitch-cc-defaults` is exact at 70 on three fixtures
+  and off by up to 3·10⁻⁴ at 700.
+- The frame grid is laid on the discrete duration `n·(1/rate)`, and a
+  frame's first sample is `⌊(t − dx/2)/dx⌋` evaluated in that form; both
+  differ from `frames/rate` and `⌊t·rate − ½⌋` by an ulp, which is enough to
+  move a frame or lose the last one.
+- The lag range clamps at the window length: at one period per window the
+  lags run to `N − 1`, so the lowest reachable F0 sits slightly above the
+  floor (76.6 Hz at 16 kHz and 75 Hz). No fixture has F0 within 2 Hz of the
+  floor; the clamp is Praat's documented-by-oracle behaviour only insofar as
+  the defaults case passes with it.
+
+Note for the autocorrelation variant, inferred from a grid length and not yet
+confirmed by an oracle case: parselmouth's `to_harmonicity_ac` frame grid spans
+twice `periods_per_window / floor`, which is what the Gaussian-window analysis
+of §1.2 would produce, not the Hanning one that `phx_voice::hnr_track`
+currently uses. Rebuilding it on `pitch_track` with the Gaussian window, with a
+`harmonicity-ac` oracle case to confirm the inference, is the follow-up in
+`docs/plan/horizon.md` that would bring the voice report's HNR to the same
+parity.
+
 ### 5.2 Jitter (period perturbation)
 
 Praat manual "Voice 2. Jitter"
