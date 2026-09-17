@@ -895,7 +895,7 @@ impl WasmEngine {
         Self::default()
     }
 
-    /// Decodes a WAV, AIFF, or FLAC byte buffer and returns the id of the new
+    /// Decodes a WAV, AIFF, FLAC, or MP3 byte buffer and returns the id of the new
     /// store entry.
     ///
     /// The container is detected from `bytes`' leading signature; a caller

@@ -178,7 +178,7 @@ pub fn open_audio_streaming(state: State<AppState>, rel: String) -> Result<Audio
     })
 }
 
-/// Decodes a WAV, AIFF, or FLAC byte buffer into the engine, returning
+/// Decodes a WAV, AIFF, FLAC, or MP3 byte buffer into the engine, returning
 /// metadata and the BLAKE3 content hash the project manifest records. Bytes
 /// cross as a raw request body.
 #[tauri::command]
