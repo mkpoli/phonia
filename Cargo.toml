@@ -53,8 +53,8 @@ phonia-intensity = { path = "crates/phonia-intensity", version = "0.1.0" }
 phonia-voice = { path = "crates/phonia-voice", version = "0.1.0" }
 phonia-annot = { path = "crates/phonia-annot", version = "0.1.0" }
 phonia-textgrid = { path = "crates/phonia-textgrid", version = "0.1.0" }
-phonia-render = { path = "crates/phonia-render", version = "0.0.1" }
-phonia-figure = { path = "crates/phonia-figure", version = "0.0.1" }
+phonia-render = { path = "crates/phonia-render", version = "0.1.0" }
+phonia-figure = { path = "crates/phonia-figure", version = "0.1.0" }
 phonia-project = { path = "crates/phonia-project", version = "0.0.1" }
 phonia-playback = { path = "crates/phonia-playback", version = "0.0.1" }
 phonia-engine = { path = "crates/phonia-engine", version = "0.0.1" }
