@@ -44,7 +44,7 @@ const EFFECTIVE_LEN_FACTOR: f64 = 2.0;
 /// ASSP* 28(1), 1980): `A = 190` gives `β = 0.1102·181.3 ≈ 19.98`, i.e. the
 /// "Kaiser-20" label is the `β = 20` window. The value is documented, not
 /// tuned to the oracle.
-const INTENSITY_KAISER_BETA: f64 = 20.0;
+pub const INTENSITY_KAISER_BETA: f64 = 20.0;
 
 /// Parameters for [`intensity_track`].
 ///

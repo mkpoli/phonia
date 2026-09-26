@@ -22,7 +22,7 @@
 //!   - `intensity-defaults`     -> `phonia_intensity::intensity_track`
 //!   - `voice-report-defaults`  -> `phonia_voice::voice_report`
 //!
-//! Frames are emitted exactly as each crate's own [`phonia_dsp::FrameGrid`]
+//! Frames are emitted exactly as each crate's own `phonia_dsp::FrameGrid`
 //! places them; this bridge performs no resampling, trimming, or
 //! re-alignment of the Rust output to match Praat's frame times. A frame
 //! count mismatch against a reference is a real disagreement (per

@@ -2,7 +2,7 @@
 //!
 //! The SVG backend is the scene-graph source of truth and is always available,
 //! including on wasm. The PNG and PDF backends derive from the same SVG string
-//! rather than re-running layout: [`to_png`] rasterizes it, [`to_pdf`] converts
+//! rather than re-running layout: `to_png` rasterizes it, `to_pdf` converts
 //! it. Both pull a native font and raster stack, so they sit behind the
 //! `raster` and `pdf` features that the wasm build leaves off.
 

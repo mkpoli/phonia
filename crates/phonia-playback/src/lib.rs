@@ -3,7 +3,7 @@
 //! Playback runs from the Rust side over a `cpal` output stream so the cursor
 //! is sample-accurate and independent of the three divergent webview audio
 //! stacks. The position comes from an atomic sample counter incremented in the
-//! audio callback ([`clock`]), never from a wall clock, so it stays locked to
+//! audio callback (the `clock` module), never from a wall clock, so it stays locked to
 //! the audio the device actually played.
 //!
 //! # Shape
@@ -25,7 +25,7 @@
 //! lock-free: it reads and writes atomics on a shared [`clock::PlaybackClock`]
 //! and copies samples out of an immutable, pre-shared [`buffer::RenderBuffer`].
 //! Control threads flip the same atomics; only loading a new buffer crosses a
-//! channel to the audio thread. See [`clock`] for the ordering argument.
+//! channel to the audio thread. See the `clock` module for the ordering argument.
 
 #![warn(missing_docs)]
 

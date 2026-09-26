@@ -28,8 +28,7 @@ use std::f64::consts::PI;
 /// those depths. The switch was settled against the oracle (a resampled
 /// signal's first samples).
 ///
-/// Each side is summed by [`tapered_sinc_sum`], which generates both the sinc
-/// and the taper by recurrence.
+/// Each side's sum generates both the sinc and the taper by recurrence.
 #[must_use]
 pub fn sinc_interpolate(y: &[f64], x: f64, depth: usize) -> f64 {
     let n = y.len();
