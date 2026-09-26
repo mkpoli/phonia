@@ -4,12 +4,13 @@
 //! [`formant_track`] reproduces Praat's "Sound: To Formant (burg)..."
 //! pipeline — resampling, the Gaussian window, pre-emphasis, Burg LPC, and
 //! root-to-formant conversion — and is Praat-matching: the oracle corpus
-//! (`docs/plan/gates.md`, T2.6) agrees with parselmouth on all but 8 of 6717
-//! checked points (median residual 0.3 Hz): three frames keep a root near
-//! the 50–75 Hz gate edge that Praat drops, and one F2 differs by 72 Hz. Its output is
-//! the crate's raw, per-frame candidate list: each frame's frequency-gated
-//! LPC roots, sorted by frequency, with no correspondence enforced between a
-//! slot in one frame and the same slot in the next.
+//! (`docs/plan/gates.md`, T2.6) agrees with parselmouth on all but 8 of
+//! 6717 checked points (median residual 0.3 Hz): three frames keep a root
+//! near the 50–75 Hz gate edge that Praat drops, and one F2 differs by 72
+//! Hz. Its output is the crate's raw, per-frame candidate list: each
+//! frame's frequency-gated LPC roots, sorted by frequency, with no
+//! correspondence enforced between a slot in one frame and the same slot in
+//! the next.
 //!
 //! [`track_smoothed`] is the provisional tracking step: a Viterbi
 //! reassignment of those per-frame candidates to formant slots, after Xia &
