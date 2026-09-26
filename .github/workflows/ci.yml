@@ -44,6 +44,33 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
 
+  package:
+    name: package (publishable crates)
+    # Packages and builds every crate whose manifest allows publishing, each
+    # from its own tarball, so a path outside a crate or a missing file fails
+    # here instead of at `cargo publish`. Then checks those crates on the
+    # declared rust-version.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: List publishable crates
+        run: |
+          echo "PKGS=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.publish != []) | "-p " + .name' | tr '\n' ' ')" >> "$GITHUB_ENV"
+          missing=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.publish != [] and .rust_version == null) | .name')
+          if [ -n "$missing" ]; then
+            echo "::error::publishable crates without rust-version: $missing"
+            exit 1
+          fi
+          echo "MSRV=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '[.packages[] | select(.publish != []) | .rust_version] | unique | .[0]')" >> "$GITHUB_ENV"
+      - run: cargo package $PKGS
+      - run: rustup toolchain install "$MSRV" --profile minimal
+      - run: cargo +"$MSRV" check $PKGS
+
   wasm:
     name: wasm build
     runs-on: ubuntu-latest
