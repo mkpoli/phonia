@@ -9,10 +9,10 @@ use std::path::{Path, PathBuf};
 
 use phonia_figure::{
     Axis, Figure, FigureBuilder, LayerKind, LengthUnit, LineStyle, Panel, PitchUnit,
-    ProvenanceRecord, SizeSpec, TierStyle, pitch_layer, spectrogram_layer, tiers_layer,
+    ProvenanceRecord, SizeSpec, TierStyle, TimeSpan, pitch_layer, spectrogram_layer, tiers_layer,
     waveform_layer, waveform_minmax,
 };
-use phonia_pitch::{PitchParams, TimeSpan};
+use phonia_pitch::PitchParams;
 use phonia_render::{Colormap, DisplayMapping, Theme};
 use phonia_spectrogram::{SpectrogramParams, TileRequest};
 

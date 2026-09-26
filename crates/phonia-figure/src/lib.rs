@@ -10,10 +10,14 @@
 //! colorization to export time, so each backend re-colorizes per theme rather
 //! than replaying baked pixels.
 //!
-//! [`builder`] holds every conversion from a committed analysis type
-//! ([`phonia_spectrogram::Tile`], [`phonia_pitch::PitchTrack`],
-//! [`phonia_formant::FormantTrack`], [`phonia_intensity::IntensityTrack`],
-//! [`phonia_annot::TierSlot`]) into an embedded [`Layer`].
+//! [`builder`] holds the tier-embedding helper that is always available, plus
+//! (behind the default-off `analysis` feature) every conversion from a
+//! committed analysis type ([`phonia_spectrogram::Tile`],
+//! [`phonia_pitch::PitchTrack`], [`phonia_formant::FormantTrack`],
+//! [`phonia_intensity::IntensityTrack`]) into an embedded [`Layer`]. A build
+//! with no features pulls in only [`phonia_annot`] and [`phonia_render`] as
+//! analysis-adjacent dependencies; enable `analysis` to build figures from
+//! live analysis results.
 #![warn(missing_docs)]
 
 pub mod backends;
@@ -31,14 +35,16 @@ pub use backends::{PdfError, to_pdf};
 #[cfg(feature = "raster")]
 pub use backends::{PngError, to_png};
 pub use builder::{
-    FigureBuilder, formant_layer, harmonicity_layer, intensity_layer, pitch_layer,
-    spectral_slice_layer, spectrogram_layer, tier_data, tiers_layer, waveform_layer,
-    waveform_minmax,
+    FigureBuilder, harmonicity_layer, tier_data, tiers_layer, waveform_layer, waveform_minmax,
+};
+#[cfg(feature = "analysis")]
+pub use builder::{
+    formant_layer, intensity_layer, pitch_layer, spectral_slice_layer, spectrogram_layer,
 };
 pub use model::{
     Axis, AxisScale, CaptionMeta, Figure, FigureError, IntervalData, Layer, LayerKind, LengthUnit,
     MinMax, Panel, PitchUnit, PointData, ProvenanceRecord, SizeSpec, SpeckleFrame, SpecklePoint,
-    TierContent, TierData,
+    TierContent, TierData, TimeSpan,
 };
 pub use style::{DashStyle, LineStyle, RgbaColor, SpeckleStyle, TierStyle};
 
@@ -49,26 +55,7 @@ mod tests {
         Annotation, BoundaryId, Interval, IntervalId, IntervalTier, Tier, TierId, TierRelation,
         TierSlot,
     };
-    use phonia_audio::Audio;
-    use phonia_formant::{FormantParams, formant_track};
-    use phonia_intensity::{IntensityParams, intensity_track};
-    use phonia_pitch::{PitchParams, TimeSpan, pitch_track};
     use phonia_render::{Colormap, DisplayMapping, Theme};
-    use phonia_spectrogram::{SpectrogramParams, TileRequest, compute_tile};
-
-    // A short voiced test signal: a 220 Hz tone with a little harmonic content
-    // so pitch and formant analyses have something to track.
-    fn sine_audio(freq: f64, seconds: f64, sr: f64) -> Audio {
-        let n = (seconds * sr) as usize;
-        let samples: Vec<f32> = (0..n)
-            .map(|i| {
-                let t = i as f64 / sr;
-                let w = std::f64::consts::TAU * freq * t;
-                (0.6 * w.sin() + 0.2 * (2.0 * w).sin() + 0.1 * (3.0 * w).sin()) as f32
-            })
-            .collect();
-        Audio::new(vec![samples], sr).expect("valid audio")
-    }
 
     fn two_interval_annotation() -> Annotation {
         let tier = TierSlot {
@@ -157,6 +144,68 @@ mod tests {
             })
             .build();
         assert_eq!(fig.validate(), Err(FigureError::NonPositiveHeightShare));
+    }
+
+    #[test]
+    fn tiers_layer_embeds_interval_data() {
+        let annot = two_interval_annotation();
+        let layer = tiers_layer(annot.tiers(), TierStyle::default());
+        match layer {
+            Layer::Tiers { tiers, .. } => {
+                assert_eq!(tiers.len(), 1);
+                assert_eq!(tiers[0].name, "words");
+                match &tiers[0].content {
+                    TierContent::Intervals(intervals) => {
+                        assert_eq!(intervals.len(), 2);
+                        assert_eq!(intervals[0].label, "hello");
+                        assert_eq!(intervals[1].xmin, 0.5);
+                    }
+                    TierContent::Points(_) => panic!("expected intervals"),
+                }
+            }
+            _ => panic!("expected a tiers layer"),
+        }
+    }
+
+    #[test]
+    fn waveform_minmax_buckets_cover_all_samples() {
+        let samples: Vec<f32> = (0..1000).map(|i| (i as f32 / 1000.0) - 0.5).collect();
+        let env = waveform_minmax(&samples, 10);
+        assert_eq!(env.len(), 10);
+        // The global extremes appear in the first and last buckets.
+        assert_eq!(env[0].min, -0.5);
+        assert!(env[9].max > 0.49);
+        // Every bucket is well-formed.
+        assert!(env.iter().all(|m| m.min <= m.max));
+        assert!(waveform_minmax(&[], 10).is_empty());
+        assert!(waveform_minmax(&samples, 0).is_empty());
+    }
+}
+
+/// Unit tests exercising the `analysis` conversion helpers, which need the
+/// committed analysis crates that feature gates as optional dependencies.
+#[cfg(all(test, feature = "analysis"))]
+mod analysis_tests {
+    use super::*;
+    use phonia_audio::Audio;
+    use phonia_formant::{FormantParams, formant_track};
+    use phonia_intensity::{IntensityParams, intensity_track};
+    use phonia_pitch::{PitchParams, pitch_track};
+    use phonia_render::{Colormap, DisplayMapping, Theme};
+    use phonia_spectrogram::{SpectrogramParams, TileRequest, compute_tile};
+
+    // A short voiced test signal: a 220 Hz tone with a little harmonic content
+    // so pitch and formant analyses have something to track.
+    fn sine_audio(freq: f64, seconds: f64, sr: f64) -> Audio {
+        let n = (seconds * sr) as usize;
+        let samples: Vec<f32> = (0..n)
+            .map(|i| {
+                let t = i as f64 / sr;
+                let w = std::f64::consts::TAU * freq * t;
+                (0.6 * w.sin() + 0.2 * (2.0 * w).sin() + 0.1 * (3.0 * w).sin()) as f32
+            })
+            .collect();
+        Audio::new(vec![samples], sr).expect("valid audio")
     }
 
     #[test]
@@ -251,41 +300,6 @@ mod tests {
             }
             _ => panic!("expected a formant speckle layer"),
         }
-    }
-
-    #[test]
-    fn tiers_layer_embeds_interval_data() {
-        let annot = two_interval_annotation();
-        let layer = tiers_layer(annot.tiers(), TierStyle::default());
-        match layer {
-            Layer::Tiers { tiers, .. } => {
-                assert_eq!(tiers.len(), 1);
-                assert_eq!(tiers[0].name, "words");
-                match &tiers[0].content {
-                    TierContent::Intervals(intervals) => {
-                        assert_eq!(intervals.len(), 2);
-                        assert_eq!(intervals[0].label, "hello");
-                        assert_eq!(intervals[1].xmin, 0.5);
-                    }
-                    TierContent::Points(_) => panic!("expected intervals"),
-                }
-            }
-            _ => panic!("expected a tiers layer"),
-        }
-    }
-
-    #[test]
-    fn waveform_minmax_buckets_cover_all_samples() {
-        let samples: Vec<f32> = (0..1000).map(|i| (i as f32 / 1000.0) - 0.5).collect();
-        let env = waveform_minmax(&samples, 10);
-        assert_eq!(env.len(), 10);
-        // The global extremes appear in the first and last buckets.
-        assert_eq!(env[0].min, -0.5);
-        assert!(env[9].max > 0.49);
-        // Every bucket is well-formed.
-        assert!(env.iter().all(|m| m.min <= m.max));
-        assert!(waveform_minmax(&[], 10).is_empty());
-        assert!(waveform_minmax(&samples, 0).is_empty());
     }
 
     #[test]

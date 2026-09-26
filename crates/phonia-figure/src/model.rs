@@ -14,7 +14,6 @@
 
 use std::collections::BTreeMap;
 
-use phonia_pitch::TimeSpan;
 use phonia_render::{Colormap, DisplayMapping, Theme};
 use serde::{Deserialize, Serialize};
 
@@ -143,6 +142,35 @@ pub struct MinMax {
     pub max: f32,
 }
 
+/// A closed time interval `[start, end]` in seconds.
+///
+/// Crate-local so the model never reaches back into an analysis crate for a
+/// plain value type; a caller holding an analysis crate's own time-span type
+/// converts by reading its `start`/`end` fields.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct TimeSpan {
+    /// Start time in seconds.
+    pub start: f64,
+    /// End time in seconds.
+    pub end: f64,
+}
+
+impl TimeSpan {
+    /// Creates a closed interval `[start, end]` in seconds.
+    ///
+    /// # Panics
+    /// Panics if either bound is non-finite or if `start > end`.
+    #[must_use]
+    pub fn new(start: f64, end: f64) -> Self {
+        assert!(
+            start.is_finite() && end.is_finite(),
+            "TimeSpan bounds must be finite"
+        );
+        assert!(start <= end, "TimeSpan start must be <= end");
+        Self { start, end }
+    }
+}
+
 /// Unit a pitch line is expressed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PitchUnit {
@@ -222,7 +250,6 @@ pub enum Layer {
         /// One bucket per envelope column.
         minmax: Vec<MinMax>,
         /// Time span the envelope covers.
-        #[serde(with = "TimeSpanDef")]
         span: TimeSpan,
         /// Stroke style.
         style: LineStyle,
@@ -535,12 +562,4 @@ enum ColormapDef {
 struct DisplayMappingDef {
     dynamic_range_db: f64,
     max_db: Option<f64>,
-}
-
-/// serde mirror of [`phonia_pitch::TimeSpan`].
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "TimeSpan")]
-struct TimeSpanDef {
-    start: f64,
-    end: f64,
 }

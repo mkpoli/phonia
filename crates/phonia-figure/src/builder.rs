@@ -1,24 +1,36 @@
-//! Assembling figures out of the committed analysis types.
+//! Assembling figures, including from the committed analysis types.
 //!
-//! Every conversion from an analysis result to an embedded [`Layer`] lives
-//! here: a spectrogram [`Tile`] becomes a raw-decibel layer, a [`PitchTrack`]
-//! becomes a point series, a [`FormantTrack`] becomes a speckle, an
-//! [`IntensityTrack`] becomes a contour, and annotation [`TierSlot`]s become
-//! embedded tiers. The functions copy data out of the analysis types, so the
+//! [`tier_data`] and [`tiers_layer`] convert annotation [`TierSlot`]s into
+//! embedded tiers and are always available. Behind the default-off
+//! `analysis` feature, every conversion from a live analysis result to an
+//! embedded [`Layer`] lives here too: a spectrogram [`Tile`] becomes a
+//! raw-decibel layer, a [`PitchTrack`] becomes a point series, a
+//! [`FormantTrack`] becomes a speckle, and an [`IntensityTrack`] becomes a
+//! contour. The functions copy data out of the analysis types, so the
 //! resulting [`Figure`] holds no reference back to them.
 
 use phonia_annot::{Tier, TierSlot};
+#[cfg(feature = "analysis")]
 use phonia_formant::FormantTrack;
+#[cfg(feature = "analysis")]
 use phonia_intensity::IntensityTrack;
-use phonia_pitch::{PitchTrack, TimeSpan};
-use phonia_render::{Colormap, DisplayMapping, Theme};
+#[cfg(feature = "analysis")]
+use phonia_pitch::PitchTrack;
+use phonia_render::Theme;
+#[cfg(feature = "analysis")]
+use phonia_render::{Colormap, DisplayMapping};
+#[cfg(feature = "analysis")]
 use phonia_spectrogram::{Slice, Tile};
 
 use crate::model::{
-    CaptionMeta, Figure, IntervalData, Layer, MinMax, Panel, PitchUnit, PointData,
-    ProvenanceRecord, SizeSpec, SpeckleFrame, SpecklePoint, TierContent, TierData,
+    CaptionMeta, Figure, IntervalData, Layer, MinMax, Panel, PointData, ProvenanceRecord, SizeSpec,
+    TierContent, TierData, TimeSpan,
 };
-use crate::style::{LineStyle, SpeckleStyle, TierStyle};
+#[cfg(feature = "analysis")]
+use crate::model::{PitchUnit, SpeckleFrame, SpecklePoint};
+#[cfg(feature = "analysis")]
+use crate::style::SpeckleStyle;
+use crate::style::{LineStyle, TierStyle};
 
 /// Fluent assembler for a [`Figure`].
 ///
@@ -134,6 +146,7 @@ pub fn waveform_minmax(samples: &[f32], buckets: usize) -> Vec<MinMax> {
 /// The time and frequency ranges come from the tile's snapped axes; `display`
 /// and `colormap` are carried unevaluated so a backend calls
 /// [`phonia_render::colorize`] at export.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn spectrogram_layer(tile: &Tile, display: DisplayMapping, colormap: Colormap) -> Layer {
     let width = tile.t_axis.len() as u32;
@@ -157,6 +170,7 @@ pub fn spectrogram_layer(tile: &Tile, display: DisplayMapping, colormap: Colorma
 ///
 /// Only voiced frames contribute points; unvoiced frames are omitted, so the
 /// point series carries no non-finite values.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn pitch_layer(track: &PitchTrack, unit: PitchUnit, style: LineStyle) -> Layer {
     let points = track
@@ -184,6 +198,7 @@ pub fn pitch_layer(track: &PitchTrack, unit: PitchUnit, style: LineStyle) -> Lay
 ///
 /// `smoothed` records whether `track` carries Viterbi-smoothed slots or raw
 /// candidates, per the formant-tracking caveat.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn formant_layer(track: &FormantTrack, smoothed: bool, style: SpeckleStyle) -> Layer {
     let frames = track
@@ -209,6 +224,7 @@ pub fn formant_layer(track: &FormantTrack, smoothed: bool, style: SpeckleStyle) 
 }
 
 /// An intensity contour layer, one point per analysis frame.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn intensity_layer(track: &IntensityTrack, style: LineStyle) -> Layer {
     Layer::IntensityLine {
@@ -272,6 +288,7 @@ pub fn tiers_layer(slots: &[TierSlot], style: TierStyle) -> Layer {
 }
 
 /// A spectral-slice layer of `(frequency, dB)` bins built from a [`Slice`].
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn spectral_slice_layer(slice: &Slice, style: LineStyle) -> Layer {
     let bins = slice
