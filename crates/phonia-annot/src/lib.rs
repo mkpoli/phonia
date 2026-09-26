@@ -787,11 +787,12 @@ impl Annotation {
     }
 
     /// Searches interval and point labels and returns byte spans for every match.
-    pub fn search(&self, query: &LabelQuery) -> Vec<Hit> {
-        let matcher = match query.matcher() {
-            Some(matcher) => matcher,
-            None => return Vec::new(),
-        };
+    ///
+    /// # Errors
+    /// Returns [`AnnotationError::InvalidLabelPattern`] when `query` carries a
+    /// [`LabelPattern::Regex`] pattern that fails to compile.
+    pub fn search(&self, query: &LabelQuery) -> Result<Vec<Hit>, AnnotationError> {
+        let matcher = query.matcher()?;
         let tier_filter: Option<HashSet<TierId>> = query
             .tiers
             .as_ref()
@@ -835,7 +836,7 @@ impl Annotation {
                 }
             }
         }
-        hits
+        Ok(hits)
     }
 
     /// Applies a stored inverse mutation.
@@ -1838,7 +1839,8 @@ impl LabelQuery {
 
     /// Creates a regular expression query over all tiers.
     ///
-    /// Invalid regular expression syntax produces no hits when passed to `search`.
+    /// Invalid regular expression syntax is rejected by `search`, which
+    /// returns [`AnnotationError::InvalidLabelPattern`].
     pub fn regex(pattern: &str) -> Self {
         Self {
             pattern: LabelPattern::Regex(pattern.to_owned()),
@@ -1852,10 +1854,17 @@ impl LabelQuery {
         self
     }
 
-    fn matcher(&self) -> Option<Matcher> {
+    fn matcher(&self) -> Result<Matcher, AnnotationError> {
         match &self.pattern {
-            LabelPattern::Substring(text) => Some(Matcher::Substring(text.clone())),
-            LabelPattern::Regex(pattern) => Regex::new(pattern).ok().map(Matcher::Regex),
+            LabelPattern::Substring(text) => Ok(Matcher::Substring(text.clone())),
+            LabelPattern::Regex(pattern) => {
+                Regex::new(pattern).map(Matcher::Regex).map_err(|err| {
+                    AnnotationError::InvalidLabelPattern {
+                        pattern: pattern.clone(),
+                        message: err.to_string(),
+                    }
+                })
+            }
         }
     }
 }
@@ -2804,6 +2813,13 @@ pub enum AnnotationError {
         /// Kind of identifier whose generator would overflow.
         kind: IdKind,
     },
+    /// A [`LabelPattern::Regex`] search pattern failed to compile.
+    InvalidLabelPattern {
+        /// Pattern text that failed to compile.
+        pattern: String,
+        /// Underlying regex compiler error message.
+        message: String,
+    },
 }
 
 impl fmt::Display for AnnotationError {
@@ -2869,6 +2885,9 @@ impl fmt::Display for AnnotationError {
                 f,
                 "{kind} identifier u64::MAX leaves no room to allocate the next {kind} identifier"
             ),
+            Self::InvalidLabelPattern { pattern, message } => {
+                write!(f, "invalid label search pattern {pattern:?}: {message}")
+            }
         }
     }
 }
@@ -3840,13 +3859,25 @@ mod tests {
         let interval_target = first_interval_target(&doc, tier);
         doc.set_label(interval_target, "a\u{301} ɬa").unwrap();
 
-        let substring_hits = doc.search(&LabelQuery::substring("a\u{301}"));
+        let substring_hits = doc.search(&LabelQuery::substring("a\u{301}")).unwrap();
         assert_eq!(substring_hits.len(), 2);
         assert_eq!(substring_hits[0].span, MatchSpan { start: 0, end: 3 });
 
-        let regex_hits = doc.search(&LabelQuery::regex(r"\p{M}").in_tiers(vec![tier, point_tier]));
+        let regex_hits = doc
+            .search(&LabelQuery::regex(r"\p{M}").in_tiers(vec![tier, point_tier]))
+            .unwrap();
         assert_eq!(regex_hits.len(), 2);
         assert_eq!(regex_hits[0].span, MatchSpan { start: 1, end: 3 });
+    }
+
+    #[test]
+    fn search_reports_invalid_regex_pattern() {
+        let doc = Annotation::new(0.0, 1.0).unwrap();
+        let err = doc.search(&LabelQuery::regex(r"a(")).unwrap_err();
+        assert!(matches!(
+            err,
+            AnnotationError::InvalidLabelPattern { pattern, .. } if pattern == "a("
+        ));
     }
 
     #[test]

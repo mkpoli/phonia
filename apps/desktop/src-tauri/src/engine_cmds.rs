@@ -1091,7 +1091,7 @@ pub fn search_labels(
     };
     let engine = lock(&state)?;
     let mut out = Vec::new();
-    for hit in engine.search_labels(&query) {
+    for hit in engine.search_labels(&query).map_err(err)? {
         let (kind, target) = match hit.hit.target {
             LabelTarget::Interval { interval, .. } => ("interval", interval.get()),
             LabelTarget::Point { point, .. } => ("point", point.get()),
