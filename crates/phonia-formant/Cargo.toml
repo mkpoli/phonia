@@ -1,9 +1,15 @@
 [package]
 name = "phonia-formant"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Pre-emphasis, Burg recursion, polynomial roots to frequency/bandwidth, Xia-Espy-Wilson DP tracking"
+repository.workspace = true
+homepage.workspace = true
+description = "Praat-compatible formant analysis: Burg LPC, polynomial roots to frequency and bandwidth, optional Viterbi tracking"
+documentation = "https://docs.rs/phonia-formant"
+keywords = ["formant", "lpc", "praat", "phonetics", "speech"]
+categories = ["multimedia::audio", "science"]
 
 [dependencies]
 phonia-audio = { workspace = true }

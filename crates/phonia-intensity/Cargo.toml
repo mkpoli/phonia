@@ -1,9 +1,15 @@
 [package]
 name = "phonia-intensity"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Squared signal convolved with Gaussian window (3.2/pitchFloor), dB SPL re 2x10^-5 Pa"
+repository.workspace = true
+homepage.workspace = true
+description = "Praat-compatible intensity contours in dB from a Kaiser-windowed squared signal"
+documentation = "https://docs.rs/phonia-intensity"
+keywords = ["intensity", "praat", "phonetics", "speech", "audio"]
+categories = ["multimedia::audio", "science"]
 
 [dependencies]
 phonia-audio = { workspace = true }
