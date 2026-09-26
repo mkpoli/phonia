@@ -138,9 +138,9 @@ impl Entry {
 
 /// Store of imported audio buffers, keyed by [`AudioId`].
 ///
-/// Each eager entry keeps its decoded [`Audio`] alongside a [`Pyramid`] built
+/// Each eager entry keeps its decoded [`Audio`] alongside a `Pyramid` built
 /// once at insertion; each streamed entry keeps a [`StreamingWav`] and a
-/// bounded [`StreamPyramid`]. Repeated waveform reads against either never
+/// bounded `StreamPyramid`. Repeated waveform reads against either never
 /// recompute the pyramid.
 #[derive(Default)]
 pub struct AudioStore {
@@ -263,8 +263,8 @@ impl AudioStore {
 
     /// Returns `px` min/max waveform buckets covering `[t0, t1)` seconds of `id`.
     ///
-    /// Served from the entry's pyramid — the per-sample [`Pyramid`] for an eager
-    /// buffer, the bounded [`StreamPyramid`] for a streamed one — so no full
+    /// Served from the entry's pyramid — the per-sample `Pyramid` for an eager
+    /// buffer, the bounded `StreamPyramid` for a streamed one — so no full
     /// decode happens. Both agree bucket-for-bucket with a direct min/max scan.
     ///
     /// # Errors

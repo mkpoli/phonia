@@ -110,7 +110,7 @@ fn relative_luminance((r, g, b): Rgb) -> f64 {
 
 /// Renders `fig` to a deterministic, self-contained SVG document.
 ///
-/// The figure's physical size sets the SVG's width and height at [`SVG_DPI`];
+/// The figure's physical size sets the SVG's width and height at `SVG_DPI`;
 /// the `viewBox` matches, so the document scales without re-layout. The figure
 /// is not validated here — a caller wanting the model invariants checked calls
 /// [`Figure::validate`] first — but a spectrogram whose `db` length disagrees

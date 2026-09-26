@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::EngineError;
 use crate::store::AudioId;
 
-/// Opaque handle to an annotation document held by a [`DocumentStore`].
+/// Opaque handle to an annotation document held by a `DocumentStore`.
 ///
 /// Ids are assigned in attachment order starting from zero and are never
 /// reused within a store's lifetime. [`AnnotationId::as_u64`] and

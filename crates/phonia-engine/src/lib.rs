@@ -197,7 +197,7 @@ impl Engine {
     /// streaming pass; the decoded signal is never held whole, so metadata is
     /// ready at header speed and the waveform scrolls without the full-decode
     /// footprint. This is the path for recordings past the eager comfort
-    /// threshold ([`EAGER_MAX_FRAMES`]) — an hour-long take the desktop shell
+    /// threshold (`EAGER_MAX_FRAMES`) — an hour-long take the desktop shell
     /// backs with a file handle or the web worker with an OPFS access handle.
     /// Whole-signal analysis of a streamed source still materializes it on
     /// demand ([`Engine::pitch_track`] and the other whole-signal contours);
@@ -324,7 +324,7 @@ impl Engine {
     ///
     /// `t0`/`t1` may be given in either order and are clamped to the
     /// signal's duration; each bucket's min/max agrees exactly with a direct
-    /// scan of the same underlying sample range (see the [`pyramid`] module
+    /// scan of the same underlying sample range (see the `pyramid` module
     /// doc for why the pyramid combine is exact, not approximate).
     ///
     /// # Errors
