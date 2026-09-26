@@ -7,16 +7,16 @@ in each delegation and paste its text in; references are not carried over).
 
 **Formant caveat for this phase and later:** the Xia & Espy-Wilson excerpt in
 the algorithms report carries the DP cost *structure* but no numeric weights;
-`phx-formant` documents its α/β/γ constants as implementation choices. Any
+`phonia-formant` documents its α/β/γ constants as implementation choices. Any
 task that displays, exports, or aggregates *tracked* (smoothed) formants must
 treat those weights as provisional: the T2.6 gate compares tracked-vs-raw
 output against the oracle first, and until it closes, UI and export default
 to raw Burg candidates with tracking behind an explicit toggle.
 
-### T4.1 · phx-project
+### T4.1 · phonia-project
 **Objective.** Project persistence: one file, autosave, crash recovery.
-**Files.** `crates/phx-project/src/*`, engine integration points in
-`crates/phx-engine`.
+**Files.** `crates/phonia-project/src/*`, engine integration points in
+`crates/phonia-engine`.
 **Interfaces.**
 ```rust
 pub struct Project { /* referenced media (relative path + BLAKE3 content hash),
@@ -42,9 +42,9 @@ test: apply commands, snapshot, drop the engine without saving, reopen →
 recovered state hash equals pre-drop hash (roadmap phase-4 gate); a project
 saved on desktop opens in the web build (fixture-based integration test).
 
-### T4.2 · phx-voice
+### T4.2 · phonia-voice
 **Objective.** Pulse extraction and the voice-report measure family.
-**Files.** `crates/phx-voice/src/*`.
+**Files.** `crates/phonia-voice/src/*`.
 **Interfaces.**
 ```rust
 pub fn pulses(audio: AudioView, pitch: &PitchTrack, params: &PulseParams) -> PointProcess;
@@ -64,7 +64,7 @@ voiced spans (Praat manual "Voice" intro describes the observable behaviour;
 where under-specified, document the chosen procedure and validate against
 the oracle empirically).
 **Constraints.** Standing set. HNR from the window-corrected ACF peak per
-Boersma 1993 (`10·log10(r/(1−r))`), reusing phx-pitch's ACF machinery rather
+Boersma 1993 (`10·log10(r/(1−r))`), reusing phonia-pitch's ACF machinery rather
 than duplicating it. Every measure returns `Option`/typed absence for spans
 with too few periods — no NaN surprises.
 **Verification.** Synthetic ground truth first: pulse trains with injected

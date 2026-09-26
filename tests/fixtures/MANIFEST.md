@@ -100,7 +100,7 @@ material is present.
 
 ### `aiff_stereo_16_44100.aiff`
 
-- Source: copy of `crates/phx-audio/tests/fixtures/aiff_stereo_16_44100.aiff`;
+- Source: copy of `crates/phonia-audio/tests/fixtures/aiff_stereo_16_44100.aiff`;
   see that directory's own `MANIFEST.md` for generation (`generate.sh`, two
   sine tones — 440 Hz left, 660 Hz right — through `ffmpeg`). Synthetic, no
   external corpus.
@@ -109,7 +109,7 @@ material is present.
 
 ### `flac_level5.flac`
 
-- Source: copy of `crates/phx-audio/tests/fixtures/flac_level5.flac`; see
+- Source: copy of `crates/phonia-audio/tests/fixtures/flac_level5.flac`; see
   that directory's own `MANIFEST.md` for generation (`generate.sh`, the
   reference `flac` encoder at compression level 5 over the same two-tone PCM
   as the AIFF fixture above). Synthetic, no external corpus.
@@ -122,8 +122,8 @@ Genuine forced-alignment label files published by CMU ARCTIC alongside its
 audio, kept separate from the hand-authored `textgrids/` fixtures below
 because these carry real phonetic content and must never be edited by hand.
 `tests/fixtures/scripts/build_sample_project.ts` converts each into a
-two-tier TextGrid via `phx-textgrid`'s own writer
-(`crates/phx-textgrid/examples/lab_to_textgrid.rs`) for the web app's bundled
+two-tier TextGrid via `phonia-textgrid`'s own writer
+(`crates/phonia-textgrid/examples/lab_to_textgrid.rs`) for the web app's bundled
 sample project; the conversion preserves every boundary time verbatim and
 only extends the final interval to the audio's true duration (a forced
 aligner's last labeled frame commonly falls short of the file's sample count
@@ -301,18 +301,18 @@ phonetic ground truth.
   crosses into the script) and `TextGrid.save_as_binary_file()` re-serializes
   it as Praat's binary TextGrid format. Same annotation content as the
   source text fixture, in Praat's undocumented binary encoding
-  (`ooBinaryFile` magic header, confirmed via hexdump). `phx-textgrid`'s
+  (`ooBinaryFile` magic header, confirmed via hexdump). `phonia-textgrid`'s
   binary reader was derived entirely from hexdumps of these files and
   `synthetic_binary_complex.TextGrid` below, cross-checked against each
   file's already-understood text-form values; see
-  `crates/phx-textgrid/docs/binary-format.md`.
+  `crates/phonia-textgrid/docs/binary-format.md`.
 - License: original work (derived from the fixtures above), project license
   (MIT OR Apache-2.0).
 - Format: Praat binary TextGrid.
 - Round-trip verified by the generator script itself: the binary file is
   read back with `parselmouth.Data.read()` and its Praat long-text dump is
   diffed byte-for-byte against the source object's dump. Also exercised by
-  `crates/phx-textgrid/tests/fixtures.rs`, which checks that `phx-textgrid`'s
+  `crates/phonia-textgrid/tests/fixtures.rs`, which checks that `phonia-textgrid`'s
   own binary reader parses each file structurally equal to its text twin.
 
 ### `synthetic_complex_long_utf8.TextGrid`, `synthetic_binary_complex.TextGrid`
@@ -337,13 +337,13 @@ phonetic ground truth.
   tier that the other binarized fixtures above do not exercise.
 - Round-trip verified the same way as the fixtures above; the text and
   binary files are additionally checked structurally equal to each other by
-  `crates/phx-textgrid/tests/fixtures.rs`.
+  `crates/phonia-textgrid/tests/fixtures.rs`.
 
 ### `binary_truncated_mid_header.TextGrid`, `binary_truncated_mid_interval.TextGrid`, `binary_bad_tier_class.TextGrid`
 
 - Hand-derived from `adjacent_empty_intervals_binary.TextGrid` by truncating
   or corrupting specific byte offsets identified in
-  `crates/phx-textgrid/docs/binary-format.md`'s derivation of that same
+  `crates/phonia-textgrid/docs/binary-format.md`'s derivation of that same
   file: the first cuts off 4 bytes into the document `xmin` field, the
   second cuts off 4 bytes into an interval's `xmin` field, the third
   overwrites one byte of the first tier's class-name string so it matches
@@ -353,7 +353,7 @@ phonetic ground truth.
 - Format: Praat binary TextGrid, deliberately corrupted.
 - Location: `tests/fixtures/textgrids/malformed/`, alongside the malformed
   text fixtures below; exercises the binary reader's truncation and
-  tier-class error paths in `crates/phx-textgrid/tests/fixtures.rs`.
+  tier-class error paths in `crates/phonia-textgrid/tests/fixtures.rs`.
 
 ## Malformed TextGrids — `tests/fixtures/textgrids/malformed/`
 
@@ -427,7 +427,7 @@ regenerate their output deterministically.
   Rust crate). Excludes `zero_tiers_long_utf8.TextGrid`: parselmouth
   segfaults reading a zero-tier TextGrid in this environment, so no binary
   sample exists for the absent-tiers case (see
-  `crates/phx-textgrid/docs/binary-format.md`). Run with:
+  `crates/phonia-textgrid/docs/binary-format.md`). Run with:
 
   ```
   uv run --project tools/oracle --extra parselmouth \

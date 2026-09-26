@@ -1,0 +1,17 @@
+[package]
+name = "phonia-textgrid"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Praat TextGrid reader and writer: reads the long and short text formats (UTF-8, UTF-16, or Latin-1) and the binary format, and writes canonical long-format UTF-8"
+documentation = "https://docs.rs/phonia-textgrid"
+readme = "README.md"
+keywords = ["praat", "textgrid", "phonetics", "annotation", "linguistics"]
+categories = ["parser-implementations", "science"]
+exclude = ["tests/fixtures.rs"]
+
+[dependencies]
+phonia-annot = { workspace = true }

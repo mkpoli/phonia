@@ -1,0 +1,22 @@
+[package]
+name = "phonia-wasm"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+description = "wasm-bindgen bindings over phonia-engine"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+phonia-engine = { workspace = true }
+phonia-textgrid = { workspace = true }
+phonia-project = { workspace = true }
+wasm-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+js-sys = "0.3"
+blake3 = { workspace = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

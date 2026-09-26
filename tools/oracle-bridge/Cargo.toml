@@ -3,12 +3,12 @@ name = "oracle-bridge"
 version = "0.0.1"
 edition.workspace = true
 license.workspace = true
-description = "Rust-side counterpart to tools/oracle: runs phx-pitch/phx-formant/phx-intensity/phx-voice with each oracle case's parameters and dumps measured JSON in the shape `oracle diff` expects"
+description = "Rust-side counterpart to tools/oracle: runs phonia-pitch/phonia-formant/phonia-intensity/phonia-voice with each oracle case's parameters and dumps measured JSON in the shape `oracle diff` expects"
 publish = false
 
 [dependencies]
-phx-audio = { workspace = true }
-phx-pitch = { workspace = true }
-phx-formant = { workspace = true }
-phx-intensity = { workspace = true }
-phx-voice = { workspace = true }
+phonia-audio = { workspace = true }
+phonia-pitch = { workspace = true }
+phonia-formant = { workspace = true }
+phonia-intensity = { workspace = true }
+phonia-voice = { workspace = true }

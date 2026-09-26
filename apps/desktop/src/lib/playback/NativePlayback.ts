@@ -6,7 +6,7 @@ type PlaybackStatus = { position: number; playing: boolean; duration: number };
 
 /**
  * The desktop's native playback transport: each control is one Tauri command
- * into the `phx-playback` cpal engine, whose cursor comes from an atomic sample
+ * into the `phonia-playback` cpal engine, whose cursor comes from an atomic sample
  * counter in the audio callback. The synchronous {@link position} and
  * {@link playing} the cursor reads are a cache refreshed by a short poll of
  * `playback_status`, since the engine lives across the IPC boundary.

@@ -58,7 +58,7 @@ function appliedFrom(raw: AppliedRaw | null): AppliedChange | null {
 
 /**
  * The desktop transport of the shared {@link CoreClient} interface: every method
- * is one Tauri command into the native `phx-engine` behind a `Mutex<Engine>`,
+ * is one Tauri command into the native `phonia-engine` behind a `Mutex<Engine>`,
  * mirroring the web worker protocol so the shared UI runs unchanged. Ids cross
  * the boundary as `u64`; this client widens them to `bigint` on the way out and
  * narrows them on the way in. Bulk buffers (waveform, spectrogram) cross as raw

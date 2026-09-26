@@ -96,8 +96,8 @@ no label is anything but the corpus's own ARPABET phone symbol.
   utterance was obtained by reading the zip's central directory over HTTP
   range requests and fetching only that one entry (1117 compressed bytes),
   then verifying its CRC32 against the central-directory checksum. The
-  file was re-serialized through `phx-textgrid`'s reader and writer
-  (`crates/phx-textgrid/examples/reformat_textgrid.rs`) to normalize
+  file was re-serialized through `phonia-textgrid`'s reader and writer
+  (`crates/phonia-textgrid/examples/reformat_textgrid.rs`) to normalize
   formatting to this repo's canonical long-format output; every boundary
   time and label is unchanged from the Zenodo release. `words` (18
   intervals) and `phones` (70 intervals, MFA's ARPABET-with-stress-digit

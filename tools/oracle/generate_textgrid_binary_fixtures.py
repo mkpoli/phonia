@@ -10,7 +10,7 @@ Run via the tools/oracle uv project:
 Praat's manual page "TextGrid file formats" documents the long and short
 text formats but gives no grammar for the binary variant ("we can add it
 here on request" — it never was). This script is therefore the only
-permitted source for `phx-textgrid`'s binary reader to derive that format
+permitted source for `phonia-textgrid`'s binary reader to derive that format
 from (`docs/plan/tasks/phase-3.md` T3.2's clean-room constraint: oracle
 black-box output, not Praat/parselmouth source). It writes two kinds of
 fixture into `tests/fixtures/textgrids/`:
@@ -26,7 +26,7 @@ fixture into `tests/fixtures/textgrids/`:
   as both text and binary. It covers structure the re-saved fixtures do
   not: four tiers (two interval, two point) and non-round fractional
   boundary times, so the binary sample corpus is not just a re-encoding of
-  already-seen numbers; saving it as text too gives phx-textgrid's own
+  already-seen numbers; saving it as text too gives phonia-textgrid's own
   round-trip tests a text twin to compare the binary parse against, the
   same way the re-saved fixtures already have one in their source file.
 

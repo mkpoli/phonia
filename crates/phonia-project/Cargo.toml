@@ -1,0 +1,14 @@
+[package]
+name = "phonia-project"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+description = "Project file (versioned, self-describing), media references, analysis parameter profiles, autosave snapshots"
+
+[dependencies]
+phonia-audio = { workspace = true }
+phonia-annot = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+zip = { workspace = true }
+blake3 = { workspace = true }

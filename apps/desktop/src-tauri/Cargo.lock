@@ -2909,27 +2909,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "phonix-desktop"
-version = "0.2.0"
-dependencies = [
- "base64 0.22.1",
- "blake3",
- "phx-audio",
- "phx-engine",
- "phx-playback",
- "phx-project",
- "phx-textgrid",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
-]
-
-[[package]]
-name = "phx-annot"
+name = "phonia-annot"
 version = "0.1.0"
 dependencies = [
  "regex",
@@ -2937,52 +2917,52 @@ dependencies = [
 ]
 
 [[package]]
-name = "phx-audio"
+name = "phonia-audio"
 version = "0.0.1"
 dependencies = [
  "hound",
- "phx-dsp",
+ "phonia-dsp",
  "rubato",
  "symphonia",
 ]
 
 [[package]]
-name = "phx-dsp"
+name = "phonia-dsp"
 version = "0.0.1"
 dependencies = [
  "realfft",
 ]
 
 [[package]]
-name = "phx-engine"
+name = "phonia-engine"
 version = "0.0.1"
 dependencies = [
- "phx-annot",
- "phx-audio",
- "phx-dsp",
- "phx-figure",
- "phx-formant",
- "phx-intensity",
- "phx-pitch",
- "phx-render",
- "phx-spectrogram",
- "phx-voice",
+ "phonia-annot",
+ "phonia-audio",
+ "phonia-dsp",
+ "phonia-figure",
+ "phonia-formant",
+ "phonia-intensity",
+ "phonia-pitch",
+ "phonia-render",
+ "phonia-spectrogram",
+ "phonia-voice",
  "serde",
 ]
 
 [[package]]
-name = "phx-figure"
+name = "phonia-figure"
 version = "0.0.1"
 dependencies = [
  "base64 0.22.1",
- "phx-annot",
- "phx-audio",
- "phx-formant",
- "phx-intensity",
- "phx-pitch",
- "phx-render",
- "phx-spectrogram",
- "phx-textgrid",
+ "phonia-annot",
+ "phonia-audio",
+ "phonia-formant",
+ "phonia-intensity",
+ "phonia-pitch",
+ "phonia-render",
+ "phonia-spectrogram",
+ "phonia-textgrid",
  "png 0.17.16",
  "resvg",
  "serde",
@@ -2991,75 +2971,95 @@ dependencies = [
 ]
 
 [[package]]
-name = "phx-formant"
+name = "phonia-formant"
 version = "0.0.1"
 dependencies = [
- "phx-audio",
- "phx-dsp",
+ "phonia-audio",
+ "phonia-dsp",
 ]
 
 [[package]]
-name = "phx-intensity"
+name = "phonia-intensity"
 version = "0.0.1"
 dependencies = [
- "phx-audio",
- "phx-dsp",
+ "phonia-audio",
+ "phonia-dsp",
 ]
 
 [[package]]
-name = "phx-pitch"
+name = "phonia-pitch"
 version = "0.0.1"
 dependencies = [
- "phx-audio",
- "phx-dsp",
+ "phonia-audio",
+ "phonia-dsp",
 ]
 
 [[package]]
-name = "phx-playback"
+name = "phonia-playback"
 version = "0.0.1"
 dependencies = [
  "cpal",
- "phx-audio",
+ "phonia-audio",
 ]
 
 [[package]]
-name = "phx-project"
+name = "phonia-project"
 version = "0.0.1"
 dependencies = [
  "blake3",
- "phx-annot",
- "phx-audio",
+ "phonia-annot",
+ "phonia-audio",
  "serde",
  "serde_json",
  "zip",
 ]
 
 [[package]]
-name = "phx-render"
+name = "phonia-render"
 version = "0.0.1"
 
 [[package]]
-name = "phx-spectrogram"
+name = "phonia-spectrogram"
 version = "0.0.1"
 dependencies = [
- "phx-audio",
- "phx-dsp",
+ "phonia-audio",
+ "phonia-dsp",
 ]
 
 [[package]]
-name = "phx-textgrid"
+name = "phonia-textgrid"
 version = "0.1.0"
 dependencies = [
- "phx-annot",
+ "phonia-annot",
 ]
 
 [[package]]
-name = "phx-voice"
+name = "phonia-voice"
 version = "0.0.1"
 dependencies = [
- "phx-audio",
- "phx-dsp",
- "phx-pitch",
+ "phonia-audio",
+ "phonia-dsp",
+ "phonia-pitch",
+]
+
+[[package]]
+name = "phonix-desktop"
+version = "0.2.0"
+dependencies = [
+ "base64 0.22.1",
+ "blake3",
+ "phonia-audio",
+ "phonia-engine",
+ "phonia-playback",
+ "phonia-project",
+ "phonia-textgrid",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
 ]
 
 [[package]]
@@ -4082,6 +4082,7 @@ checksum = "1758d6c853020a7244de03cc3e0185eaea3f58715122422dd3cc7452e6d4c16a"
 dependencies = [
  "lazy_static",
  "symphonia-bundle-flac",
+ "symphonia-bundle-mp3",
  "symphonia-codec-pcm",
  "symphonia-core",
  "symphonia-format-riff",
@@ -4098,6 +4099,17 @@ dependencies = [
  "symphonia-common",
  "symphonia-core",
  "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-bundle-mp3"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "350f1f2f2e19ad4dd315db94304d1eb361b29af070681f94e51b8fdaad769546"
+dependencies = [
+ "lazy_static",
+ "log",
+ "symphonia-core",
 ]
 
 [[package]]

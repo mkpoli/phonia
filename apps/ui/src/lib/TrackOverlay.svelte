@@ -372,7 +372,7 @@
   // Rank identity can still slip even in the smoothed track: the engine's
   // Viterbi assignment is per-slot, but a frame where a low slot has no
   // candidate compacts the remaining ones down by one position before this
-  // array ever sees them (see phx-formant's `track_smoothed`), which can
+  // array ever sees them (see phonia-formant's `track_smoothed`), which can
   // shift a rank onto its neighboring formant for that one frame. A
   // same-formant transition stays within a bounded frequency ratio frame to
   // frame; a slot collision does not, since adjacent formants typically sit

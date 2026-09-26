@@ -55,7 +55,7 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --target wasm32-unknown-unknown -p phx-wasm
+      - run: cargo build --target wasm32-unknown-unknown -p phonia-wasm
 
   cargo-deny:
     name: cargo-deny (licenses, advisories)
@@ -124,9 +124,9 @@ jobs:
       - name: Check for committed figure exports
         if: steps.build.outcome == 'success'
         run: |
-          count=$(find crates/phx-figure -type f \( -name '*.typ' -o -name '*.tex' -o -name '*.vega.json' \) 2>/dev/null | wc -l)
+          count=$(find crates/phonia-figure -type f \( -name '*.typ' -o -name '*.tex' -o -name '*.vega.json' \) 2>/dev/null | wc -l)
           if [ "$count" -eq 0 ]; then
-            echo "::notice::no committed figure exports under crates/phx-figure -- figcheck ran the harness self-test only"
+            echo "::notice::no committed figure exports under crates/phonia-figure -- figcheck ran the harness self-test only"
           fi
 
   desktop:
@@ -188,7 +188,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: oven-sh/setup-bun@v2
       - run: cargo install wasm-pack --locked || cargo install wasm-pack
-      - run: RUSTFLAGS="-C target-feature=+simd128" wasm-pack build crates/phx-wasm --target web --out-dir ../../apps/web/src/lib/wasm/pkg
+      - run: RUSTFLAGS="-C target-feature=+simd128" wasm-pack build crates/phonia-wasm --target web --out-dir ../../apps/web/src/lib/wasm/pkg
       - run: bun install --frozen-lockfile
       - run: bun run build
         working-directory: apps/web

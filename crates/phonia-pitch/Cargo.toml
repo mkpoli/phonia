@@ -1,0 +1,10 @@
+[package]
+name = "phonia-pitch"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+description = "Window-corrected autocorrelation candidates + Viterbi path finder (Boersma 1993); full parameter surface with Praat-documented defaults"
+
+[dependencies]
+phonia-audio = { workspace = true }
+phonia-dsp = { workspace = true }

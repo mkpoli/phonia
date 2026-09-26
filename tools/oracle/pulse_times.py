@@ -5,14 +5,14 @@ a fixture WAV and prints the pulse times inside a chosen span as JSON. This is
 the pulse-placement counterpart to the aggregate `voice-report-defaults` case:
 the voice report diffs span-level jitter/shimmer scalars, while this dumps the
 individual pulse times so a placement gap can be localized (onset drift,
-mid-span phase noise, missed or extra pulses) against `phx_voice::pulses`.
+mid-span phase noise, missed or extra pulses) against `phonia_voice::pulses`.
 
     uv run --extra parselmouth python pulse_times.py \
         --audio tests/fixtures/audio/arctic_bdl_a0001.wav \
         --start 0.723 --end 0.943
 
 Pitch floor/ceiling default to Praat's documented pitch defaults (75 / 600 Hz),
-the same contour `phx_voice::voice_report` seeds its pulses from. Output is
+the same contour `phonia_voice::voice_report` seeds its pulses from. Output is
 program text for ad-hoc comparison, not a committed fixture (the clean-room
 caution in `docs/research/algorithms-and-validation.md` §7.1 applies to
 Praat numeric fixtures, not to a script that regenerates them on demand).

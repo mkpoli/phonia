@@ -33,10 +33,10 @@ presented them as the recordings' annotation. Those two fixtures are
 documented, honestly, in `tests/fixtures/MANIFEST.md`: "Interval and point
 boundaries are placed by hand (or synthesized) for format-testing purposes;
 they are not the output of acoustic alignment and should not be treated as
-phonetic ground truth." They exist to exercise `phx-textgrid`'s parser
+phonetic ground truth." They exist to exercise `phonia-textgrid`'s parser
 (long vs. short format, UTF-8/UTF-16/Latin-1, IPA diacritics) and are
-depended on verbatim by `crates/phx-textgrid/tests/fixtures.rs` and
-`crates/phx-figure/src/builder.rs` (`include_bytes!`), so they were not
+depended on verbatim by `crates/phonia-textgrid/tests/fixtures.rs` and
+`crates/phonia-figure/src/builder.rs` (`include_bytes!`), so they were not
 touched. The bug was solely that the sample-assembly script repurposed a
 format-testing fixture as if it were verified phonetic content, and the
 disclaimer did not travel with it into the shipped file.
@@ -86,7 +86,7 @@ spans against claimed-voiced spans and against the file's genuine silence.
 **The fix.** The shipped `apps/web/static/sample/arctic_bdl_a0001.TextGrid`
 and `arctic_slt_a0001.TextGrid` now carry a single `phones` interval tier
 converted directly from CMU ARCTIC's own `.lab` alignment via
-`phx-textgrid`'s canonical writer (`crates/phx-textgrid/examples/lab_to_textgrid.rs`),
+`phonia-textgrid`'s canonical writer (`crates/phonia-textgrid/examples/lab_to_textgrid.rs`),
 boundary times preserved exactly as published except for extending the
 final interval to the audio's true duration (documented in
 `tests/fixtures/MANIFEST.md`'s new "Alignments" section). The invented
@@ -165,8 +165,8 @@ Doing exactly that pulled `dev-clean/2277/149896/2277-149896-0005.TextGrid`
 (1117 compressed bytes) without downloading anything close to the full
 archive; its CRC32 was checked against the central directory's own
 checksum to confirm a byte-perfect extraction. The file was reformatted
-through `phx-textgrid`'s own reader and writer
-(`crates/phx-textgrid/examples/reformat_textgrid.rs`) to normalize it to
+through `phonia-textgrid`'s own reader and writer
+(`crates/phonia-textgrid/examples/reformat_textgrid.rs`) to normalize it to
 this repo's canonical output — boundaries and labels unchanged — and now
 carries genuine `words` (18 intervals) and `phones` (70 intervals, ARPABET
 with MFA's stress digits) tiers, spot-checked against the waveform and

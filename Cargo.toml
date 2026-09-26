@@ -1,21 +1,21 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/phx-audio",
-    "crates/phx-dsp",
-    "crates/phx-spectrogram",
-    "crates/phx-pitch",
-    "crates/phx-formant",
-    "crates/phx-intensity",
-    "crates/phx-voice",
-    "crates/phx-annot",
-    "crates/phx-textgrid",
-    "crates/phx-render",
-    "crates/phx-figure",
-    "crates/phx-project",
-    "crates/phx-playback",
-    "crates/phx-engine",
-    "crates/phx-wasm",
+    "crates/phonia-audio",
+    "crates/phonia-dsp",
+    "crates/phonia-spectrogram",
+    "crates/phonia-pitch",
+    "crates/phonia-formant",
+    "crates/phonia-intensity",
+    "crates/phonia-voice",
+    "crates/phonia-annot",
+    "crates/phonia-textgrid",
+    "crates/phonia-render",
+    "crates/phonia-figure",
+    "crates/phonia-project",
+    "crates/phonia-playback",
+    "crates/phonia-engine",
+    "crates/phonia-wasm",
     "crates/phonia",
     "tools/oracle-bridge",
 ]
@@ -44,18 +44,18 @@ base64 = "0.22"
 png = "0.17"
 resvg = "0.45"
 svg2pdf = "0.13"
-phx-audio = { path = "crates/phx-audio", version = "0.0.1" }
-phx-dsp = { path = "crates/phx-dsp", version = "0.0.1" }
-phx-spectrogram = { path = "crates/phx-spectrogram", version = "0.0.1" }
-phx-pitch = { path = "crates/phx-pitch", version = "0.0.1" }
-phx-formant = { path = "crates/phx-formant", version = "0.0.1" }
-phx-intensity = { path = "crates/phx-intensity", version = "0.0.1" }
-phx-voice = { path = "crates/phx-voice", version = "0.0.1" }
-phx-annot = { path = "crates/phx-annot", version = "0.1.0" }
-phx-textgrid = { path = "crates/phx-textgrid", version = "0.1.0" }
-phx-render = { path = "crates/phx-render", version = "0.0.1" }
-phx-figure = { path = "crates/phx-figure", version = "0.0.1" }
-phx-project = { path = "crates/phx-project", version = "0.0.1" }
-phx-playback = { path = "crates/phx-playback", version = "0.0.1" }
-phx-engine = { path = "crates/phx-engine", version = "0.0.1" }
-phx-wasm = { path = "crates/phx-wasm", version = "0.0.1" }
+phonia-audio = { path = "crates/phonia-audio", version = "0.0.1" }
+phonia-dsp = { path = "crates/phonia-dsp", version = "0.0.1" }
+phonia-spectrogram = { path = "crates/phonia-spectrogram", version = "0.0.1" }
+phonia-pitch = { path = "crates/phonia-pitch", version = "0.0.1" }
+phonia-formant = { path = "crates/phonia-formant", version = "0.0.1" }
+phonia-intensity = { path = "crates/phonia-intensity", version = "0.0.1" }
+phonia-voice = { path = "crates/phonia-voice", version = "0.0.1" }
+phonia-annot = { path = "crates/phonia-annot", version = "0.1.0" }
+phonia-textgrid = { path = "crates/phonia-textgrid", version = "0.1.0" }
+phonia-render = { path = "crates/phonia-render", version = "0.0.1" }
+phonia-figure = { path = "crates/phonia-figure", version = "0.0.1" }
+phonia-project = { path = "crates/phonia-project", version = "0.0.1" }
+phonia-playback = { path = "crates/phonia-playback", version = "0.0.1" }
+phonia-engine = { path = "crates/phonia-engine", version = "0.0.1" }
+phonia-wasm = { path = "crates/phonia-wasm", version = "0.0.1" }

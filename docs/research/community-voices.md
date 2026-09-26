@@ -83,7 +83,7 @@ from the December 2024 thread's stated intent.
   show the request is long-standing and, as of the LINGUIST List post, still
   unanswered a decade ago.
 
-**Phonia status.** `phx-wasm` compiles the analysis core to WebAssembly for a
+**Phonia status.** `phonia-wasm` compiles the analysis core to WebAssembly for a
 browser app (`README.md`), which runs in a mobile browser without a native
 port, but no touch-first mobile UI or native mobile app is in v0.1 scope —
 gap beyond browser accessibility.
@@ -101,7 +101,7 @@ gap beyond browser accessibility.
 - No additional Praat-specific video/format complaint threads surfaced in a
   general web search; this theme rests on the tweet evidence.
 
-**Phonia status.** Phase 1 of the roadmap scopes `phx-audio` to WAV decode
+**Phonia status.** Phase 1 of the roadmap scopes `phonia-audio` to WAV decode
 only; broader container/codec support (including video containers) is not in
 v0.1 — open gap matching the complaint directly.
 
@@ -128,7 +128,7 @@ v0.1 — open gap matching the complaint directly.
   padding) indicates the fault sits below Praat's own playback logic, in how
   it talks to each platform's audio stack.
 
-**Phonia status.** `crates/phx-playback/src/clock.rs` implements a
+**Phonia status.** `crates/phonia-playback/src/clock.rs` implements a
 sample-counter clock explicitly designed so playback position is locked to
 the audio stream by construction rather than tracked against wall-clock time,
 which is the structural fix for drift/delay-class bugs like the one reported
@@ -232,8 +232,8 @@ tooling is a gap.
   averaged-down copy), which explains why the tweet's question has no
   one-step documented answer.
 
-**Phonia status.** `phx-audio` stores audio as planar per-channel buffers
-internally (`crates/phx-audio/src/lib.rs`), which is the right internal shape
+**Phonia status.** `phonia-audio` stores audio as planar per-channel buffers
+internally (`crates/phonia-audio/src/lib.rs`), which is the right internal shape
 for channel-level operations, but no extract/delete/mute-channel command
 exists yet in any crate or the desktop app — gap.
 
@@ -262,7 +262,7 @@ exists yet in any crate or the desktop app — gap.
   named engineering concern for ELAN's own authors, not only a user
   complaint.
 
-**Phonia status.** `phx-annot` adopts ELAN's hierarchical parent/child tier
+**Phonia status.** `phonia-annot` adopts ELAN's hierarchical parent/child tier
 model rather than Praat's flat TextGrid tiers (`docs/plan/architecture.md`),
 but no direct ELAN file (`.eaf`) import/export exists in the roadmap — the
 tiering *model* is borrowed, file-level interoperability with ELAN itself is
@@ -352,9 +352,9 @@ Howell's work as the reference.
   proposed extension of a real, citable pedagogy tool, not as a feature
   Howell has published.
 
-**Phonia status.** `phx-figure`'s planned exporters (Phase 5) do not include
+**Phonia status.** `phonia-figure`'s planned exporters (Phase 5) do not include
 a vowel-space (F1×F2 scatter with IPA targets) chart type, and no
-formant-delta auto-segmentation exists in `phx-formant` or `phx-annot` — open
+formant-delta auto-segmentation exists in `phonia-formant` or `phonia-annot` — open
 gap on both the charting and the auto-segmentation half of this request.
 
 ## 12. Tracking Praat's own upstream development
@@ -484,7 +484,7 @@ a negligible amount of actual Praat-script code
 code-reuse path — Flask/JS versus a Rust core with Tauri/WASM shells share no
 runtime — so this is a feature/architecture reference only. Worth borrowing
 as design ideas: heartbeat-based file locking for collaborative annotation, a
-concrete pattern Phonia's `phx-project` (Phase 4) does not currently address
+concrete pattern Phonia's `phonia-project` (Phase 4) does not currently address
 since Phonia's model is single-user, local-first; synchronized video-timeline
 playback alongside acoustic tracks, directly relevant to both the format-
 support gap (theme 2) and the ELAN/fieldwork theme (theme 8); and AI

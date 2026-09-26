@@ -9,21 +9,21 @@ dependencies, not a standalone script environment):
 With no WAV argument, the script analyzes a deterministic 80 ms synthetic
 signal. A WAV path can be supplied to analyze external audio with the same
 parameters. Output is CSV so the Rust test can include it as text
-(`crates/phx-spectrogram/src/lib.rs::scipy_oracle_fixture_matches_relative_tolerance`).
+(`crates/phonia-spectrogram/src/lib.rs::scipy_oracle_fixture_matches_relative_tolerance`).
 
 Independence from the Rust implementation: only two things are shared with
-`crates/phx-dsp` and `crates/phx-spectrogram` by design, and both are grid
+`crates/phonia-dsp` and `crates/phonia-spectrogram` by design, and both are grid
 *selection* formulas, not measurement code —
 
 - `gaussian_window` is the window shape itself, defined in Praat's manual
   ("Sound: To Spectrogram...") and restated in
   `docs/research/algorithms-and-validation.md` §3.2 (−3 dB bandwidth
-  `1.2982804 / windowLength`) and in `crates/phx-dsp/src/window.rs`. The
+  `1.2982804 / windowLength`) and in `crates/phonia-dsp/src/window.rs`. The
   window is the spec being validated against, not an implementation detail;
   reusing its formula here is the same thing an independent Praat-manual
   reader would do.
-- `frame_centers` / `frequency_grid` reproduce `phx_dsp::FrameGrid` and
-  `phx-spectrogram`'s frequency-bin selection *only* to know which (t, f)
+- `frame_centers` / `frequency_grid` reproduce `phonia_dsp::FrameGrid` and
+  `phonia-spectrogram`'s frequency-bin selection *only* to know which (t, f)
   coordinates to report — the coordinates a caller of `compute_tile` would
   also land on. They never touch how a PSD value is computed at those
   coordinates.
@@ -31,13 +31,13 @@ Independence from the Rust implementation: only two things are shared with
 Everything else — extracting the windowed frame from the signal, running the
 FFT, and scaling the result to a one-sided power spectral density — is done
 by `scipy.signal.ShortTimeFFT` (`scale_to="psd"`, `fft_mode="onesided2X"`),
-independently of the hand-rolled arithmetic in `phx-spectrogram`. A shared
+independently of the hand-rolled arithmetic in `phonia-spectrogram`. A shared
 conceptual bug in that arithmetic (rounding, normalisation constant, one-sided
 factor) would no longer be invisible to this comparison.
 
 Frame alignment. `ShortTimeFFT` places its p-th frame at continuous time
 `t[p] = p * hop / fs`, window centred at `t[p]` using its own centering
-convention `m_num_mid = m_num // 2`. `phx-spectrogram::Analysis::frame_db`
+convention `m_num_mid = m_num // 2`. `phonia-spectrogram::Analysis::frame_db`
 places a window sample `i` at `round(center * fs + i - (window_len - 1) / 2)`,
 i.e. the same centred convention when `window_len` is odd (`m_num // 2 ==
 (m_num - 1) / 2` for odd `m_num`); it differs by half a sample when
@@ -47,7 +47,7 @@ single nearest native frame, `p = round(c * fs)` — by construction the
 closest scipy can get on a 1-sample grid, so no cross-frame interpolation is
 needed. For the committed fixture below, `window_len` is 321 (odd; see
 `stft_db`), so nearest-frame selection lands exactly on the same sample
-positions `phx-spectrogram` would extract and the two computations agree to
+positions `phonia-spectrogram` would extract and the two computations agree to
 floating-point noise (see the module-level comment in the Rust test for
 measured numbers). Callers who pass parameters that make `window_len` even
 should expect up to half a sample of extra alignment error, undocumented
@@ -80,7 +80,7 @@ def next_pow2(n: int) -> int:
 
 
 def frame_centers(duration: float, window: float, step: float) -> list[float]:
-    """Reproduces `phx_dsp::FrameGrid` — the reporting grid, not the measurement."""
+    """Reproduces `phonia_dsp::FrameGrid` — the reporting grid, not the measurement."""
     if duration < window:
         return []
     count = int(np.floor((duration - window) / step)) + 1
@@ -90,7 +90,7 @@ def frame_centers(duration: float, window: float, step: float) -> list[float]:
 
 def gaussian_window(n: int, effective_len_factor: float = 2.0) -> np.ndarray:
     """Praat's Gaussian analysis window (Praat manual "Sound: To Spectrogram...";
-    docs/research/algorithms-and-validation.md §3.2; crates/phx-dsp/src/window.rs)."""
+    docs/research/algorithms-and-validation.md §3.2; crates/phonia-dsp/src/window.rs)."""
     if n == 0:
         return np.array([], dtype=np.float64)
     if n == 1:
@@ -124,7 +124,7 @@ def mono_wav(path: Path) -> tuple[np.ndarray, float]:
 def frequency_grid(
     sample_rate: float, fft_len: int, max_frequency: float, frequency_step: float
 ) -> tuple[list[int], list[float]]:
-    """Reproduces phx-spectrogram's bin selection — again a reporting grid."""
+    """Reproduces phonia-spectrogram's bin selection — again a reporting grid."""
     nyquist = sample_rate / 2.0
     max_frequency = min(max_frequency, nyquist)
     fft_bin_hz = sample_rate / fft_len

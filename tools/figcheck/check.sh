@@ -7,7 +7,7 @@
 #
 # BACKEND is one of: typst tikz matplotlib ggplot2 makie vega
 #
-# Intended for both interactive use against real crates/phx-figure exports
+# Intended for both interactive use against real crates/phonia-figure exports
 # once T5.3 lands, and as the primitive selftest.sh drives against the
 # fixtures/ good/bad pairs.
 set -euo pipefail

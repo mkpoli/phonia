@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:wasm": "RUSTFLAGS=\"-C target-feature=+simd128\" wasm-pack build ../../crates/phx-wasm --target web --out-dir ../../apps/web/src/lib/wasm/pkg",
+    "build:wasm": "RUSTFLAGS=\"-C target-feature=+simd128\" wasm-pack build ../../crates/phonia-wasm --target web --out-dir ../../apps/web/src/lib/wasm/pkg",
     "predev": "bun run build:wasm",
     "prebuild": "bun run build:wasm",
     "dev": "vite --host 127.0.0.1",

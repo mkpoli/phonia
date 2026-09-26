@@ -25,7 +25,7 @@ handed out for implementation must copy them in.
 ### T0.1 · repo reset
 Delete the 2025 Tauri/SvelteKit scaffold (src/, src-tauri/, static/, node
 config files), keep `docs/` and git history, commit as
-`chore: remove prototype scaffold`. Register `phx-core` on crates.io as a
+`chore: remove prototype scaffold`. Register `phonia-core` on crates.io as a
 0.0.1 placeholder. Requires destructive git surgery plus a publish
 credential.
 
@@ -33,7 +33,7 @@ credential.
 **Objective.** Compilable skeleton of the full workspace.
 **Files.** Root `Cargo.toml` (workspace members = the 14 crates in
 `../architecture.md`, `[workspace.package]` + `[workspace.dependencies]`
-inheritance, resolver 3); each `crates/phx-*/` with `Cargo.toml`, `src/lib.rs`
+inheritance, resolver 3); each `crates/phonia-*/` with `Cargo.toml`, `src/lib.rs`
 (crate-level doc comment stating the one-line responsibility from
 architecture.md, `#![warn(missing_docs)]`), one placeholder unit test;
 `rust-toolchain.toml` (stable); `deny.toml` (allow MIT, Apache-2.0,
@@ -52,7 +52,7 @@ green; report command output.
 **Files.** `.github/workflows/ci.yml`.
 **Interfaces.** Jobs: fmt-check, clippy (`-D warnings`), test on
 ubuntu/macos/windows, `cargo build --target wasm32-unknown-unknown -p
-phx-wasm` (with `RUSTFLAGS="-C target-feature=+simd128"`), cargo-deny. Cache
+phonia-wasm` (with `RUSTFLAGS="-C target-feature=+simd128"`), cargo-deny. Cache
 via Swatinem/rust-cache.
 **Constraints.** Standing set; no third-party actions beyond checkout,
 rust-toolchain, rust-cache, cargo-deny action.
@@ -75,9 +75,9 @@ size reported.
 
 ## Phase 1
 
-### T1.1 · phx-audio
+### T1.1 · phonia-audio
 **Objective.** Audio container + WAV I/O + resampling.
-**Files.** `crates/phx-audio/src/*`.
+**Files.** `crates/phonia-audio/src/*`.
 **Interfaces.**
 ```rust
 pub struct Audio { /* planar f32 channels, sample_rate: f64, name: Option<String> */ }
@@ -100,9 +100,9 @@ a typed error.
 440 Hz tone 44.1k→16k and assert peak frequency within 0.1 Hz via FFT; all
 tests pass under `--target wasm32-unknown-unknown` compile check.
 
-### T1.2 · phx-dsp
+### T1.2 · phonia-dsp
 **Objective.** Shared DSP primitives with an absolute-time frame grid.
-**Files.** `crates/phx-dsp/src/*`.
+**Files.** `crates/phonia-dsp/src/*`.
 **Interfaces.**
 ```rust
 pub enum Window { Hanning, Gaussian { effective_len_factor: f64 }, Kaiser { beta: f64 } }
@@ -128,9 +128,9 @@ per Boersma 1993 eq. 22 (citation in
 recovers the peak of a sampled sinusoid to < 0.01 sample; FFT of known
 signals matches analytic magnitudes to 1e-9.
 
-### T1.3 · phx-spectrogram
+### T1.3 · phonia-spectrogram
 **Objective.** Gaussian-window STFT power spectrogram with tile API.
-**Files.** `crates/phx-spectrogram/src/*`.
+**Files.** `crates/phonia-spectrogram/src/*`.
 **Interfaces.**
 ```rust
 pub struct SpectrogramParams { pub window_length: f64 /* 0.005 */, pub max_frequency: f64 /* 5000 */,
@@ -152,9 +152,9 @@ object-level FrameGrid so adjacent tiles share columns exactly.
 shared columns; magnitude comparison against a scipy STFT reference script
 (tools/oracle can host it) within 1e-6 relative.
 
-### T1.4 · phx-render
+### T1.4 · phonia-render
 **Objective.** dB→RGBA tile colorization.
-**Files.** `crates/phx-render/src/*`.
+**Files.** `crates/phonia-render/src/*`.
 **Interfaces.** `pub enum Colormap { Viridis, Magma, Grayscale }`,
 `pub struct DisplayMapping { pub dynamic_range_db: f64 /* 50 */, pub max_db: Option<f64> /* autoscale */ }`,
 `pub fn colorize(tile_db: &[f32], w: u32, h: u32, map: &DisplayMapping, cm: Colormap, theme: Theme) -> Vec<u8>`.
@@ -166,10 +166,10 @@ licensed — cite); grayscale runs white→black on light theme and is re-tuned
 **Verification.** Golden-image tests for each (colormap × theme); monotonic
 luminance property test for viridis/magma.
 
-### T1.5 · phx-engine + phx-wasm (walking-skeleton surface)
+### T1.5 · phonia-engine + phonia-wasm (walking-skeleton surface)
 **Objective.** Minimal engine and WASM bindings: import, waveform pyramid,
 tiles.
-**Files.** `crates/phx-engine/src/*`, `crates/phx-wasm/src/*`.
+**Files.** `crates/phonia-engine/src/*`, `crates/phonia-wasm/src/*`.
 **Interfaces.** Engine: `import_wav_bytes(bytes) -> AudioId`,
 `waveform_slice(id, t0, t1, px) -> Vec<MinMax>` (from a cached mip pyramid),
 `spectrogram_tile_rgba(id, req, display, colormap, theme) -> Vec<u8>`,

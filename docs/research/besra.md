@@ -243,7 +243,7 @@ Described concretely from the screen-share portion of the talk
   scoped narrower — read/write `.eaf` round-trips — but the same
   fieldworker pain point (losing a decade of existing annotation files to a
   format switch) is the evidence base for both. Nothing here changes the
-  approach already planned (`phx-eaf`, fixtures against ELAN's published
+  approach already planned (`phonia-eaf`, fixtures against ELAN's published
   schema); it is independent confirmation the gap is real and current.
 - **Broad decode: formats and containers (H1 §4)**: Besra solved this by
   wrapping ffmpeg rather than a Rust decoder crate. Phonia's plan (symphonia,
@@ -322,7 +322,7 @@ Rust-core-with-bindings. Besra is written in Python end to end — UI included
 — explicitly so that "if they do know any coding, they'll know maybe Python
 or R," and so that any PyPI package (Hugging Face, Allosaurus, LingPy) is a
 plugin away with no FFI. Phonia's plan is the inverse: a Rust core
-(`phx-*` crates) for correctness and performance, with horizon item 15
+(`phonia-*` crates) for correctness and performance, with horizon item 15
 proposing a `phonia` Python package as bindings over that core, parselmouth-
 shaped — Python as a client of a compiled engine, not the engine itself.
 
