@@ -472,7 +472,7 @@ impl Engine {
         // then computed bounded (whole-buffer for eager, ranged read for
         // streamed) and cached, never materializing the whole signal.
         let info = self.store.info(id)?;
-        let axes = analysis_axes_dims(info.sample_rate, info.duration, &req.params);
+        let axes = analysis_axes_dims(info.sample_rate, info.duration, &req.params)?;
         let freq_len = axes.frequencies.len();
 
         let time_indices = select_axis_indices(
@@ -810,8 +810,8 @@ impl Engine {
         };
         // Match the tile resolution to the analysis grid so every snapped
         // frame and frequency bin inside the box contributes about once.
-        let time_step = phonia_spectrogram::effective_time_step(&params);
-        let frequency_step = phonia_spectrogram::effective_frequency_step(&params);
+        let time_step = phonia_spectrogram::effective_time_step(&params)?;
+        let frequency_step = phonia_spectrogram::effective_frequency_step(&params)?;
         let width = (((hi - lo) / time_step).ceil() as u32).clamp(1, 4096);
         let height = (((fhi - flo) / frequency_step).ceil() as u32).clamp(1, 4096);
         let req = TileRequest {
@@ -824,7 +824,7 @@ impl Engine {
             params,
         };
         let view = audio.slice_samples(0..audio.frames());
-        let tile = phonia_spectrogram::compute_tile(view, &req);
+        let tile = phonia_spectrogram::compute_tile(view, &req)?;
         if tile.db.is_empty() {
             return Ok(f64::NEG_INFINITY);
         }
@@ -2955,11 +2955,14 @@ fn sd_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Optio
 
 /// Validates a [`TileRequest`] before it reaches `phonia_spectrogram`.
 ///
-/// `phonia_spectrogram::compute_tile` asserts these same properties and panics
-/// on violation, which is the right contract for a pure math crate calling
-/// itself internally with already-validated data. The engine is the
-/// boundary that untrusted callers reach, so it re-checks the same
-/// properties here and turns a would-be panic into a typed error.
+/// `phonia_spectrogram::compute_tile` validates these same properties itself
+/// and returns a typed [`phonia_spectrogram::SpectrogramError`] on violation
+/// (converted to [`EngineError::InvalidRequest`] via `?`). This pre-check
+/// exists for callers on the block-cache path (e.g.
+/// [`Engine::spectrogram_tile_rgba`]) that reach
+/// [`phonia_spectrogram::analysis_axes_dims`] without going through
+/// `compute_tile`, and so would otherwise skip the `t0`/`t1`/`f0`/`f1`
+/// finiteness and zero-size checks `TileRequest` itself needs.
 fn validate_tile_request(req: &TileRequest) -> Result<(), EngineError> {
     let invalid = |reason: &str| {
         Err(EngineError::InvalidRequest {
@@ -2977,8 +2980,8 @@ fn validate_tile_request(req: &TileRequest) -> Result<(), EngineError> {
     if !(params.window_length.is_finite() && params.window_length > 0.0) {
         return invalid("params.window_length must be finite and positive");
     }
-    if !(params.max_frequency.is_finite() && params.max_frequency >= 0.0) {
-        return invalid("params.max_frequency must be finite and non-negative");
+    if !(params.max_frequency.is_finite() && params.max_frequency > 0.0) {
+        return invalid("params.max_frequency must be finite and positive");
     }
     if !(params.time_step.is_finite() && params.time_step > 0.0) {
         return invalid("params.time_step must be finite and positive");
@@ -2992,6 +2995,9 @@ fn validate_tile_request(req: &TileRequest) -> Result<(), EngineError> {
         && !(effective_len_factor.is_finite() && effective_len_factor > 0.0)
     {
         return invalid("params.window Gaussian effective_len_factor must be finite and positive");
+    }
+    if req.width_px == 0 || req.height_px == 0 {
+        return invalid("width_px and height_px must both be positive");
     }
     Ok(())
 }

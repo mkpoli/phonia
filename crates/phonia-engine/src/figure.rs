@@ -359,7 +359,7 @@ impl Engine {
                 };
                 crate::validate_tile_request(&tile_req)?;
                 let view = audio.slice_samples(0..frames);
-                let tile = compute_tile(view, &tile_req);
+                let tile = compute_tile(view, &tile_req)?;
                 let expected =
                     req.spectrogram_width_px as usize * req.spectrogram_height_px as usize;
                 if tile.db.len() != expected {

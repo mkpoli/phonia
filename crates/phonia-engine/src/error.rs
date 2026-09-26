@@ -14,6 +14,7 @@ use phonia_audio::AudioError;
 use phonia_formant::FormantError;
 use phonia_intensity::IntensityError;
 use phonia_pitch::PitchError;
+use phonia_spectrogram::SpectrogramError;
 
 use crate::document::AnnotationId;
 use crate::recording::RecordingId;
@@ -45,6 +46,8 @@ pub enum EngineError {
     /// overran `phonia_audio`'s allocation limit. The wrapped
     /// [`FormantError`] names the field or failure.
     Formant(FormantError),
+    /// A spectrogram request was rejected by [`phonia_spectrogram`].
+    Spectrogram(SpectrogramError),
     /// A tile or waveform request carried a value the underlying analysis
     /// cannot use (non-finite time/frequency bounds, a non-positive
     /// parameter, or pixel dimensions that produced no analysis columns).
@@ -63,6 +66,7 @@ impl fmt::Display for EngineError {
             Self::Audio(err) => write!(f, "audio import failed: {err}"),
             Self::Annotation(err) => write!(f, "annotation mutation failed: {err}"),
             Self::Intensity(err) => write!(f, "invalid intensity parameter: {err}"),
+            Self::Spectrogram(err) => write!(f, "spectrogram request rejected: {err}"),
             Self::InvalidAnnotation(issues) => {
                 write!(
                     f,
@@ -85,6 +89,7 @@ impl Error for EngineError {
             Self::Intensity(err) => Some(err),
             Self::Pitch(err) => Some(err),
             Self::Formant(err) => Some(err),
+            Self::Spectrogram(err) => Some(err),
             Self::UnknownAudioId(_)
             | Self::UnknownAnnotationId(_)
             | Self::UnknownRecordingId(_)
@@ -121,5 +126,11 @@ impl From<PitchError> for EngineError {
 impl From<FormantError> for EngineError {
     fn from(err: FormantError) -> Self {
         Self::Formant(err)
+    }
+}
+
+impl From<SpectrogramError> for EngineError {
+    fn from(err: SpectrogramError) -> Self {
+        Self::Spectrogram(err)
     }
 }
