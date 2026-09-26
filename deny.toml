@@ -13,6 +13,12 @@ allow = [
     "MPL-2.0",
 ]
 confidence-threshold = 0.8
+# phonia-figure bundles the DejaVu Sans font (assets/fonts/), which is under
+# the Bitstream Vera licence. Allowed for that crate alone, so no dependency
+# can bring the licence in unnoticed.
+exceptions = [
+    { allow = ["Bitstream-Vera"], crate = "phonia-figure" },
+]
 
 [bans]
 multiple-versions = "allow"
