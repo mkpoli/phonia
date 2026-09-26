@@ -1,9 +1,15 @@
 [package]
 name = "phonia-voice"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Pulse extraction from pitch + waveform, jitter/shimmer families, HNR, CPP/CPPS, spectral moments, aggregate voice report"
+repository.workspace = true
+homepage.workspace = true
+description = "Voice-quality measures for phonetics: glottal pulses, jitter, shimmer, HNR, CPP and CPPS, spectral moments"
+documentation = "https://docs.rs/phonia-voice"
+keywords = ["jitter", "shimmer", "hnr", "phonetics", "praat"]
+categories = ["multimedia::audio", "science"]
 
 [dependencies]
 phonia-audio = { workspace = true }

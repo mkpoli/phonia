@@ -1,9 +1,15 @@
 [package]
 name = "phonia-spectrogram"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Gaussian-window STFT power spectral density; viewport-independent tile computation in dB"
+repository.workspace = true
+homepage.workspace = true
+description = "Gaussian-window spectrograms as power spectral density in dB, computed in viewport-independent tiles"
+documentation = "https://docs.rs/phonia-spectrogram"
+keywords = ["spectrogram", "stft", "audio", "phonetics", "praat"]
+categories = ["multimedia::audio", "science"]
 
 [dependencies]
 phonia-audio = { workspace = true }

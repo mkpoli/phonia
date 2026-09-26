@@ -1,9 +1,15 @@
 [package]
 name = "phonia-pitch"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Window-corrected autocorrelation candidates + Viterbi path finder (Boersma 1993); full parameter surface with Praat-documented defaults"
+repository.workspace = true
+homepage.workspace = true
+description = "Praat-compatible pitch tracking: autocorrelation and cross-correlation candidates with a Viterbi path finder"
+documentation = "https://docs.rs/phonia-pitch"
+keywords = ["pitch", "f0", "praat", "phonetics", "speech"]
+categories = ["multimedia::audio", "science"]
 
 [dependencies]
 phonia-audio = { workspace = true }

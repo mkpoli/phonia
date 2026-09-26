@@ -44,13 +44,13 @@ base64 = "0.22"
 png = "0.17"
 resvg = "0.45"
 svg2pdf = "0.13"
-phonia-audio = { path = "crates/phonia-audio", version = "0.0.1" }
-phonia-dsp = { path = "crates/phonia-dsp", version = "0.0.1" }
-phonia-spectrogram = { path = "crates/phonia-spectrogram", version = "0.0.1" }
-phonia-pitch = { path = "crates/phonia-pitch", version = "0.0.1" }
-phonia-formant = { path = "crates/phonia-formant", version = "0.0.1" }
-phonia-intensity = { path = "crates/phonia-intensity", version = "0.0.1" }
-phonia-voice = { path = "crates/phonia-voice", version = "0.0.1" }
+phonia-audio = { path = "crates/phonia-audio", version = "0.1.0" }
+phonia-dsp = { path = "crates/phonia-dsp", version = "0.1.0" }
+phonia-spectrogram = { path = "crates/phonia-spectrogram", version = "0.1.0" }
+phonia-pitch = { path = "crates/phonia-pitch", version = "0.1.0" }
+phonia-formant = { path = "crates/phonia-formant", version = "0.1.0" }
+phonia-intensity = { path = "crates/phonia-intensity", version = "0.1.0" }
+phonia-voice = { path = "crates/phonia-voice", version = "0.1.0" }
 phonia-annot = { path = "crates/phonia-annot", version = "0.1.0" }
 phonia-textgrid = { path = "crates/phonia-textgrid", version = "0.1.0" }
 phonia-render = { path = "crates/phonia-render", version = "0.0.1" }

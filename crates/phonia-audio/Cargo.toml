@@ -1,9 +1,15 @@
 [package]
 name = "phonia-audio"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Audio (planar f32 samples + f64 sample rate), WAV via hound, AIFF/FLAC via symphonia, resampling via rubato or Praat's band-limited sinc"
+repository.workspace = true
+homepage.workspace = true
+description = "Planar f32 audio buffers with WAV, AIFF, FLAC and MP3 decoding and Praat-compatible resampling"
+documentation = "https://docs.rs/phonia-audio"
+keywords = ["audio", "wav", "flac", "resampling", "phonetics"]
+categories = ["multimedia::audio", "science"]
 
 [dependencies]
 hound = { workspace = true }

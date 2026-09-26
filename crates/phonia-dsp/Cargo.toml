@@ -1,9 +1,15 @@
 [package]
 name = "phonia-dsp"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Hanning/Gaussian/Kaiser windows, real FFT wrappers, absolute-time frame grid, windowed-sinc interpolation, pre-emphasis"
+repository.workspace = true
+homepage.workspace = true
+description = "Analysis windows, cached FFT plans, absolute-time frame grids and sinc interpolation for speech analysis"
+documentation = "https://docs.rs/phonia-dsp"
+keywords = ["dsp", "fft", "window", "interpolation", "phonetics"]
+categories = ["multimedia::audio", "science"]
 
 [dependencies]
 realfft = { workspace = true }

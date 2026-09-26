@@ -953,7 +953,7 @@ dependencies = [
 
 [[package]]
 name = "phonia-audio"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "hound",
  "phonia-dsp",
@@ -963,7 +963,7 @@ dependencies = [
 
 [[package]]
 name = "phonia-dsp"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "realfft",
 ]
@@ -1008,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "phonia-formant"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "phonia-audio",
  "phonia-dsp",
@@ -1016,7 +1016,7 @@ dependencies = [
 
 [[package]]
 name = "phonia-intensity"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "phonia-audio",
  "phonia-dsp",
@@ -1024,7 +1024,7 @@ dependencies = [
 
 [[package]]
 name = "phonia-pitch"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "phonia-audio",
  "phonia-dsp",
@@ -1056,7 +1056,7 @@ version = "0.0.1"
 
 [[package]]
 name = "phonia-spectrogram"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "phonia-audio",
  "phonia-dsp",
@@ -1071,7 +1071,7 @@ dependencies = [
 
 [[package]]
 name = "phonia-voice"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "phonia-audio",
  "phonia-dsp",
