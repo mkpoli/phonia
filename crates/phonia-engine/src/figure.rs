@@ -14,11 +14,10 @@ use std::collections::BTreeMap;
 use phonia_figure::{
     Axis, CodeExport, CodeLang, Figure, FigureBuilder, LayerKind, LengthUnit, LineStyle, Panel,
     PitchUnit, ProvenanceRecord, RgbaColor, SizeSpec, SpeckleStyle, TextExport, TierStyle,
-    formant_layer, harmonicity_layer, intensity_layer, pitch_layer, spectral_slice_layer,
+    TimeSpan, formant_layer, harmonicity_layer, intensity_layer, pitch_layer, spectral_slice_layer,
     spectrogram_layer, tiers_layer, to_code, to_graphml, to_svg, to_tikz, to_typst, to_vega,
     waveform_layer, waveform_minmax,
 };
-use phonia_pitch::TimeSpan;
 use phonia_render::{Colormap, DisplayMapping, Theme};
 use phonia_spectrogram::{Slice, SpectrogramParams, TileRequest, compute_tile};
 use serde::Deserialize;
@@ -288,9 +287,10 @@ impl Engine {
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `audio` names no live buffer,
     /// [`EngineError::UnknownAnnotationId`] when the tier layer names no live
-    /// document, and [`EngineError::InvalidRequest`] when the window or an
-    /// analysis parameter is unusable (a non-finite bound, a window too short for
-    /// one spectrogram frame).
+    /// document, [`EngineError::InvalidRequest`] when the window is unusable (a
+    /// non-finite bound, a window too short for one spectrogram frame), and the
+    /// analysis's own variant, such as [`EngineError::Pitch`], when a layer's
+    /// parameters are rejected.
     pub fn build_figure(&self, req: &FigureRequest) -> Result<Figure, EngineError> {
         if !(req.t0.is_finite() && req.t1.is_finite()) {
             return Err(EngineError::InvalidRequest {
@@ -356,9 +356,9 @@ impl Engine {
                     height_px: req.spectrogram_height_px,
                     params: spec_params,
                 };
-                crate::validate_tile_request(&tile_req)?;
+                tile_req.validate()?;
                 let view = audio.slice_samples(0..frames);
-                let tile = compute_tile(view, &tile_req);
+                let tile = compute_tile(view, &tile_req)?;
                 let expected =
                     req.spectrogram_width_px as usize * req.spectrogram_height_px as usize;
                 if tile.db.len() != expected {

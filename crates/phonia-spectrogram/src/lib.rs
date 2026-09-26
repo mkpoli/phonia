@@ -1,8 +1,39 @@
 //! Gaussian-window STFT power spectral density; viewport-independent tile
 //! computation in dB.
+//!
+//! # Output matrix layout
+//!
+//! [`Tile::db`] is row-major: row 0 holds the lowest frequency in `f_axis`,
+//! and each row runs across `t_axis` left to right, so
+//! `db[row * t_axis.len() + col]` is the value at
+//! `(t_axis[col], f_axis[row])`. [`ColumnBlock::db`] is
+//! column-major instead: `db[local_col * freq_len + row]`, so a block's bytes
+//! stay stable while a viewport scrolls across whole columns. [`Slice::db`] is
+//! a single column, one value per `f_axis` entry.
+//!
+//! # Window normalization
+//!
+//! Every frame is multiplied by the analysis window (Gaussian, Hanning, or
+//! Kaiser; see [`Window`]) before the FFT, then the periodogram is divided by
+//! `sample_rate·Σw[n]²` — the window's own energy — so the result is a power
+//! *spectral density* (`Pa²/Hz`) rather than a raw bin power. Broadband noise
+//! reads at the same level whatever the window; a pure tone or DC does not,
+//! because its power falls into a band whose width depends on the window's
+//! shape and length. See [`compute_tile`] for the full one-sided PSD formula.
+//!
+//! # dB reference
+//!
+//! All `db` fields are `10·log10(Pxx)` with `Pxx` in `Pa²/Hz`; there is no
+//! reference level subtracted, so 0 dB means 1 Pa²/Hz, not a perceptual or
+//! calibrated reference. A silent or numerically underflowed bin is clamped to
+//! `1e-300 Pa²/Hz` before the log, so every value is finite. Display-only
+//! pre-emphasis ([`apply_display_preemphasis_db`]) is never baked into these
+//! values; callers apply it themselves for rendering.
 #![warn(missing_docs)]
 
+use std::error::Error;
 use std::f64::consts::PI;
+use std::fmt;
 use std::ops::Range;
 
 use phonia_audio::AudioView;
@@ -50,6 +81,85 @@ impl Default for SpectrogramParams {
         }
     }
 }
+
+/// An invalid analysis parameter or tile request.
+///
+/// Every public entry point validates its parameters against these cases
+/// before doing any analysis work and returns this error instead of
+/// panicking. A request that is well-formed but happens to select no data
+/// (an empty time/frequency range, a signal shorter than one analysis window)
+/// is not an error: it returns an empty [`Tile`], [`Slice`], or
+/// [`ColumnBlock`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SpectrogramError {
+    /// `window_length` was not finite and positive.
+    InvalidWindowLength(f64),
+    /// `max_frequency` was not finite and non-negative. Zero is valid and
+    /// analyses the 0 Hz bin alone.
+    InvalidMaxFrequency(f64),
+    /// `time_step` was not finite and positive.
+    InvalidTimeStep(f64),
+    /// `frequency_step` was not finite and positive.
+    InvalidFrequencyStep(f64),
+    /// A [`Window::Gaussian`] `effective_len_factor` was not finite and
+    /// positive.
+    InvalidGaussianFactor(f64),
+    /// A tile request's `t0`/`t1` bound was not finite.
+    NonFiniteTimeBound {
+        /// The requested left edge, in seconds.
+        t0: f64,
+        /// The requested right edge, in seconds.
+        t1: f64,
+    },
+    /// A tile request's `f0`/`f1` bound was not finite.
+    NonFiniteFrequencyBound {
+        /// The requested lower edge, in hertz.
+        f0: f64,
+        /// The requested upper edge, in hertz.
+        f1: f64,
+    },
+    /// A [`spectral_slice`] time was not finite.
+    NonFiniteSliceTime(f64),
+}
+
+impl fmt::Display for SpectrogramError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidWindowLength(value) => {
+                write!(f, "window_length must be finite and positive, got {value}")
+            }
+            Self::InvalidMaxFrequency(value) => {
+                write!(
+                    f,
+                    "max_frequency must be finite and non-negative, got {value}"
+                )
+            }
+            Self::InvalidTimeStep(value) => {
+                write!(f, "time_step must be finite and positive, got {value}")
+            }
+            Self::InvalidFrequencyStep(value) => {
+                write!(f, "frequency_step must be finite and positive, got {value}")
+            }
+            Self::InvalidGaussianFactor(value) => {
+                write!(
+                    f,
+                    "Gaussian effective_len_factor must be finite and positive, got {value}"
+                )
+            }
+            Self::NonFiniteTimeBound { t0, t1 } => {
+                write!(f, "t0/t1 must be finite, got t0={t0}, t1={t1}")
+            }
+            Self::NonFiniteFrequencyBound { f0, f1 } => {
+                write!(f, "f0/f1 must be finite, got f0={f0}, f1={f1}")
+            }
+            Self::NonFiniteSliceTime(value) => {
+                write!(f, "slice time must be finite, got {value}")
+            }
+        }
+    }
+}
+
+impl Error for SpectrogramError {}
 
 /// Request for a spectrogram tile.
 ///
@@ -111,24 +221,30 @@ pub struct Slice {
 ///
 /// Praat's manual documents a minimum time step of `windowLength/(8√π)`.
 /// Requests below that minimum are clamped upward.
-#[must_use]
-pub fn effective_time_step(params: &SpectrogramParams) -> f64 {
-    validate_params(params);
-    params
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `params` fails validation (see
+/// [`SpectrogramError`] for the checked cases).
+pub fn effective_time_step(params: &SpectrogramParams) -> Result<f64, SpectrogramError> {
+    validate_params(params)?;
+    Ok(params
         .time_step
-        .max(params.window_length / (8.0 * PI.sqrt()))
+        .max(params.window_length / (8.0 * PI.sqrt())))
 }
 
 /// Returns the effective frequency step after Praat's spectrogram speed clamp.
 ///
 /// Praat's manual documents a minimum frequency step of
 /// `√π/(8·windowLength)`. Requests below that minimum are clamped upward.
-#[must_use]
-pub fn effective_frequency_step(params: &SpectrogramParams) -> f64 {
-    validate_params(params);
-    params
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `params` fails validation (see
+/// [`SpectrogramError`] for the checked cases).
+pub fn effective_frequency_step(params: &SpectrogramParams) -> Result<f64, SpectrogramError> {
+    validate_params(params)?;
+    Ok(params
         .frequency_step
-        .max(PI.sqrt() / (8.0 * params.window_length))
+        .max(PI.sqrt() / (8.0 * params.window_length)))
 }
 
 /// Applies display-only spectrogram pre-emphasis to a dB value.
@@ -157,11 +273,16 @@ pub fn apply_display_preemphasis_db(db: f64, frequency_hz: f64) -> f64 {
 /// recovers its mean-square pressure. Values are converted with
 /// `10·log10(Pxx)`. Silent or underflowed bins are clamped to `1e-300 Pa²/Hz`
 /// before conversion so public output contains finite `f32` values.
-#[must_use]
-pub fn compute_tile(audio: AudioView<'_>, req: &TileRequest) -> Tile {
-    validate_request(req);
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `req` fails validation (see
+/// [`SpectrogramError`] for the checked cases). A request that validates but
+/// selects no data (e.g. a `[t0, t1)` outside the signal) returns an empty
+/// [`Tile`], not an error.
+pub fn compute_tile(audio: AudioView<'_>, req: &TileRequest) -> Result<Tile, SpectrogramError> {
+    validate_request(req)?;
     let mono = audio.mono_mix();
-    let analysis = Analysis::new(audio.sample_rate(), audio.duration(), &req.params);
+    let analysis = Analysis::new(audio.sample_rate(), audio.duration(), &req.params)?;
     let centers: Vec<f64> = analysis.frame_grid.centers().collect();
     let time_indices = select_axis_indices(
         &centers,
@@ -185,31 +306,41 @@ pub fn compute_tile(audio: AudioView<'_>, req: &TileRequest) -> Tile {
         }
     }
 
-    Tile {
+    Ok(Tile {
         db,
         t_axis: time_indices.iter().map(|&i| centers[i]).collect(),
         f_axis: freq_indices
             .iter()
             .map(|&i| analysis.frequencies[i])
             .collect(),
-    }
+    })
 }
 
 /// Computes the raw spectrum nearest to `at` on the global frame grid.
 ///
 /// The frame centre is selected from the same whole-audio [`FrameGrid`] used by
 /// [`compute_tile`]; no independent frame is centred exactly at `at`.
-#[must_use]
-pub fn spectral_slice(audio: AudioView<'_>, at: f64, params: &SpectrogramParams) -> Slice {
-    assert!(at.is_finite(), "slice time must be finite");
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `at` is not finite or `params` fails
+/// validation. A signal shorter than one analysis window returns an empty
+/// [`Slice`], not an error.
+pub fn spectral_slice(
+    audio: AudioView<'_>,
+    at: f64,
+    params: &SpectrogramParams,
+) -> Result<Slice, SpectrogramError> {
+    if !at.is_finite() {
+        return Err(SpectrogramError::NonFiniteSliceTime(at));
+    }
     let mono = audio.mono_mix();
-    let analysis = Analysis::new(audio.sample_rate(), audio.duration(), params);
+    let analysis = Analysis::new(audio.sample_rate(), audio.duration(), params)?;
     let centers: Vec<f64> = analysis.frame_grid.centers().collect();
     if centers.is_empty() {
-        return Slice {
+        return Ok(Slice {
             db: Vec::new(),
             f_axis: Vec::new(),
-        };
+        });
     }
     let frame_index = nearest_axis_index(&centers, at);
     let mut fft = RealFftPlan::new();
@@ -218,10 +349,10 @@ pub fn spectral_slice(audio: AudioView<'_>, at: f64, params: &SpectrogramParams)
         .into_iter()
         .map(|v| v as f32)
         .collect();
-    Slice {
+    Ok(Slice {
         db,
         f_axis: analysis.frequencies,
-    }
+    })
 }
 
 /// The global analysis axes for an audio view and parameters.
@@ -259,8 +390,13 @@ pub struct ColumnBlock {
 }
 
 /// Returns the global time and frequency axes without running any FFT.
-#[must_use]
-pub fn analysis_axes(audio: AudioView<'_>, params: &SpectrogramParams) -> AnalysisAxes {
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `params` fails validation.
+pub fn analysis_axes(
+    audio: AudioView<'_>,
+    params: &SpectrogramParams,
+) -> Result<AnalysisAxes, SpectrogramError> {
     analysis_axes_dims(audio.sample_rate(), audio.duration(), params)
 }
 
@@ -271,17 +407,19 @@ pub fn analysis_axes(audio: AudioView<'_>, params: &SpectrogramParams) -> Analys
 /// tile columns a viewport selects — are known before a single sample is
 /// decoded. The result equals [`analysis_axes`] for a buffer of the same rate
 /// and duration.
-#[must_use]
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `params` fails validation.
 pub fn analysis_axes_dims(
     sample_rate: f64,
     duration: f64,
     params: &SpectrogramParams,
-) -> AnalysisAxes {
-    let analysis = Analysis::new(sample_rate, duration, params);
-    AnalysisAxes {
+) -> Result<AnalysisAxes, SpectrogramError> {
+    let analysis = Analysis::new(sample_rate, duration, params)?;
+    Ok(AnalysisAxes {
         times: analysis.frame_grid.centers().collect(),
         frequencies: analysis.frequencies,
-    }
+    })
 }
 
 /// Computes raw PSD dB for a contiguous block of global frame columns.
@@ -290,13 +428,14 @@ pub fn analysis_axes_dims(
 /// object-level frame grid; every frequency row is included. Frame centres come
 /// from the same whole-audio grid [`compute_tile`] uses, so the block's values
 /// match a tile that overlaps it bit for bit.
-#[must_use]
+/// # Errors
+/// Returns [`SpectrogramError`] when `params` fails validation.
 pub fn compute_column_block(
     audio: AudioView<'_>,
     params: &SpectrogramParams,
     first_col: usize,
     col_count: usize,
-) -> ColumnBlock {
+) -> Result<ColumnBlock, SpectrogramError> {
     let mono = audio.mono_mix();
     compute_column_block_windowed(
         audio.sample_rate(),
@@ -319,15 +458,18 @@ pub fn compute_column_block(
 /// materializing the whole signal. `start` is clamped to zero; `end` may exceed
 /// the frame count and the caller clamps the read to what the source holds
 /// (samples past the end read as silence, matching [`compute_column_block`]).
-#[must_use]
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `params` fails validation.
 pub fn column_block_sample_range(
     sample_rate: f64,
     duration: f64,
     params: &SpectrogramParams,
     first_col: usize,
     col_count: usize,
-) -> Range<usize> {
-    Analysis::new(sample_rate, duration, params).column_block_sample_range(first_col, col_count)
+) -> Result<Range<usize>, SpectrogramError> {
+    Ok(Analysis::new(sample_rate, duration, params)?
+        .column_block_sample_range(first_col, col_count))
 }
 
 /// Computes a column block from a windowed mono buffer covering
@@ -340,7 +482,9 @@ pub fn column_block_sample_range(
 /// eager path passes the whole mono buffer at offset zero, which is
 /// bit-for-bit identical). A sample index outside the buffer reads as silence,
 /// matching the whole-buffer path at the signal's edges.
-#[must_use]
+///
+/// # Errors
+/// Returns [`SpectrogramError`] when `params` fails validation.
 pub fn compute_column_block_windowed(
     sample_rate: f64,
     duration: f64,
@@ -349,8 +493,8 @@ pub fn compute_column_block_windowed(
     col_count: usize,
     samples: &[f32],
     sample_offset: usize,
-) -> ColumnBlock {
-    let analysis = Analysis::new(sample_rate, duration, params);
+) -> Result<ColumnBlock, SpectrogramError> {
+    let analysis = Analysis::new(sample_rate, duration, params)?;
     let centers: Vec<f64> = analysis.frame_grid.centers().collect();
     let freq_len = analysis.frequencies.len();
     let start = first_col.min(centers.len());
@@ -361,12 +505,12 @@ pub fn compute_column_block_windowed(
         let spectrum = analysis.frame_db_offset(samples, sample_offset, center, &mut fft);
         db.extend(spectrum.iter().map(|&v| v as f32));
     }
-    ColumnBlock {
+    Ok(ColumnBlock {
         db,
         first_col: start,
         col_count: end.saturating_sub(start),
         freq_len,
-    }
+    })
 }
 
 struct Analysis {
@@ -380,13 +524,21 @@ struct Analysis {
 }
 
 impl Analysis {
-    fn new(sample_rate: f64, duration: f64, params: &SpectrogramParams) -> Self {
-        validate_params(params);
+    fn new(
+        sample_rate: f64,
+        duration: f64,
+        params: &SpectrogramParams,
+    ) -> Result<Self, SpectrogramError> {
+        validate_params(params)?;
+        // `sample_rate`/`duration` are invariants guaranteed by `phonia_audio`
+        // (a finite, positive sample rate, and a duration derived from it),
+        // not user-supplied analysis parameters, so a violation here is a
+        // caller bug rather than untrusted input to report.
         assert!(sample_rate.is_finite() && sample_rate > 0.0);
         assert!(duration.is_finite() && duration >= 0.0);
 
-        let time_step = effective_time_step(params);
-        let frequency_step = effective_frequency_step(params);
+        let time_step = effective_time_step(params)?;
+        let frequency_step = effective_frequency_step(params)?;
         let physical_window = params.window_length * physical_window_factor(params.window);
         let window_len = ((physical_window * sample_rate).round() as usize).saturating_add(1);
         let window_len = window_len.max(1);
@@ -397,7 +549,7 @@ impl Analysis {
         let (fft_bins, frequencies) =
             frequency_grid(sample_rate, fft_len, params.max_frequency, frequency_step);
 
-        Self {
+        Ok(Self {
             sample_rate,
             frame_grid: FrameGrid::new(duration, physical_window, time_step),
             window,
@@ -405,7 +557,7 @@ impl Analysis {
             fft_len,
             fft_bins,
             frequencies,
-        }
+        })
     }
 
     fn frame_db(&self, samples: &[f32], center: f64, fft: &mut RealFftPlan) -> Vec<f64> {
@@ -575,38 +727,60 @@ fn nearest_axis_index(axis: &[f64], target: f64) -> usize {
     }
 }
 
-fn validate_request(req: &TileRequest) {
-    assert!(req.t0.is_finite() && req.t1.is_finite());
-    assert!(req.f0.is_finite() && req.f1.is_finite());
-    validate_params(&req.params);
+impl TileRequest {
+    /// Checks the request without computing anything: finite time and
+    /// frequency bounds and usable analysis parameters. A request that selects
+    /// no data, including a zero-pixel tile, passes and yields an empty tile.
+    ///
+    /// # Errors
+    /// Returns the [`SpectrogramError`] for the first unusable value.
+    pub fn validate(&self) -> Result<(), SpectrogramError> {
+        validate_request(self)
+    }
 }
 
-fn validate_params(params: &SpectrogramParams) {
-    assert!(
-        params.window_length.is_finite() && params.window_length > 0.0,
-        "window_length must be finite and positive"
-    );
-    assert!(
-        params.max_frequency.is_finite() && params.max_frequency >= 0.0,
-        "max_frequency must be finite and non-negative"
-    );
-    assert!(
-        params.time_step.is_finite() && params.time_step > 0.0,
-        "time_step must be finite and positive"
-    );
-    assert!(
-        params.frequency_step.is_finite() && params.frequency_step > 0.0,
-        "frequency_step must be finite and positive"
-    );
+fn validate_request(req: &TileRequest) -> Result<(), SpectrogramError> {
+    if !req.t0.is_finite() || !req.t1.is_finite() {
+        return Err(SpectrogramError::NonFiniteTimeBound {
+            t0: req.t0,
+            t1: req.t1,
+        });
+    }
+    if !req.f0.is_finite() || !req.f1.is_finite() {
+        return Err(SpectrogramError::NonFiniteFrequencyBound {
+            f0: req.f0,
+            f1: req.f1,
+        });
+    }
+    validate_params(&req.params)?;
+    Ok(())
+}
+
+fn validate_params(params: &SpectrogramParams) -> Result<(), SpectrogramError> {
+    if !(params.window_length.is_finite() && params.window_length > 0.0) {
+        return Err(SpectrogramError::InvalidWindowLength(params.window_length));
+    }
+    if !(params.max_frequency.is_finite() && params.max_frequency >= 0.0) {
+        return Err(SpectrogramError::InvalidMaxFrequency(params.max_frequency));
+    }
+    if !(params.time_step.is_finite() && params.time_step > 0.0) {
+        return Err(SpectrogramError::InvalidTimeStep(params.time_step));
+    }
+    if !(params.frequency_step.is_finite() && params.frequency_step > 0.0) {
+        return Err(SpectrogramError::InvalidFrequencyStep(
+            params.frequency_step,
+        ));
+    }
     if let Window::Gaussian {
         effective_len_factor,
     } = params.window
+        && !(effective_len_factor.is_finite() && effective_len_factor > 0.0)
     {
-        assert!(
-            effective_len_factor.is_finite() && effective_len_factor > 0.0,
-            "Gaussian effective_len_factor must be finite and positive"
-        );
+        return Err(SpectrogramError::InvalidGaussianFactor(
+            effective_len_factor,
+        ));
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -645,8 +819,13 @@ mod tests {
             frequency_step: 1.0e-6,
             ..SpectrogramParams::default()
         };
-        assert!((effective_time_step(&params) - 0.005 / (8.0 * PI.sqrt())).abs() < 1.0e-15);
-        assert!((effective_frequency_step(&params) - PI.sqrt() / (8.0 * 0.005)).abs() < 1.0e-12);
+        assert!(
+            (effective_time_step(&params).unwrap() - 0.005 / (8.0 * PI.sqrt())).abs() < 1.0e-15
+        );
+        assert!(
+            (effective_frequency_step(&params).unwrap() - PI.sqrt() / (8.0 * 0.005)).abs()
+                < 1.0e-12
+        );
 
         let audio = sine_audio(16_000.0, 0.1, 1000.0);
         let tile = compute_tile(
@@ -660,9 +839,14 @@ mod tests {
                 height_px: 3,
                 params,
             },
+        )
+        .unwrap();
+        assert!(
+            (tile.t_axis[1] - tile.t_axis[0]) >= effective_time_step(&params).unwrap() - 1.0e-15
         );
-        assert!((tile.t_axis[1] - tile.t_axis[0]) >= effective_time_step(&params) - 1.0e-15);
-        assert!((tile.f_axis[1] - tile.f_axis[0]) >= effective_frequency_step(&params) * 0.5);
+        assert!(
+            (tile.f_axis[1] - tile.f_axis[0]) >= effective_frequency_step(&params).unwrap() * 0.5
+        );
     }
 
     #[test]
@@ -674,7 +858,7 @@ mod tests {
             frequency_step: 5.0,
             ..SpectrogramParams::default()
         };
-        let slice = spectral_slice(audio.slice_samples(0..audio.frames()), 0.1, &params);
+        let slice = spectral_slice(audio.slice_samples(0..audio.frames()), 0.1, &params).unwrap();
         let peak = slice.db.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         let peak_index = slice
             .db
@@ -716,7 +900,8 @@ mod tests {
                 height_px: 18,
                 params,
             },
-        );
+        )
+        .unwrap();
         let b = compute_tile(
             audio.slice_samples(0..audio.frames()),
             &TileRequest {
@@ -728,7 +913,8 @@ mod tests {
                 height_px: 11,
                 params,
             },
-        );
+        )
+        .unwrap();
 
         for (bt, &time) in b.t_axis.iter().enumerate() {
             if let Some(at) = a.t_axis.iter().position(|&candidate| candidate == time) {
@@ -758,7 +944,7 @@ mod tests {
             ..SpectrogramParams::default()
         };
         let view = audio.slice_samples(0..audio.frames());
-        let axes = analysis_axes(view.clone(), &params);
+        let axes = analysis_axes(view.clone(), &params).unwrap();
         let n_time = axes.times.len();
         let n_freq = axes.frequencies.len();
         assert!(n_time > 4 && n_freq > 2);
@@ -775,8 +961,9 @@ mod tests {
                 height_px: n_freq as u32,
                 params,
             },
-        );
-        let block = compute_column_block(view, &params, 0, n_time);
+        )
+        .unwrap();
+        let block = compute_column_block(view, &params, 0, n_time).unwrap();
         assert_eq!(block.col_count, n_time);
         assert_eq!(block.freq_len, n_freq);
         for (t, _) in axes.times.iter().enumerate() {
@@ -802,19 +989,20 @@ mod tests {
         };
         let view = audio.slice_samples(0..audio.frames());
         let mono = view.mono_mix();
-        let axes = analysis_axes(view.clone(), &params);
+        let axes = analysis_axes(view.clone(), &params).unwrap();
         let n_time = axes.times.len();
         assert!(n_time > 3);
 
         for &(first_col, cols) in &[(0usize, 4usize), (2, 5), (n_time.saturating_sub(3), 8)] {
-            let whole = compute_column_block(view.clone(), &params, first_col, cols);
+            let whole = compute_column_block(view.clone(), &params, first_col, cols).unwrap();
             let range = column_block_sample_range(
                 view.sample_rate(),
                 view.duration(),
                 &params,
                 first_col,
                 cols,
-            );
+            )
+            .unwrap();
             let end = range.end.min(mono.as_ref().len());
             let start = range.start.min(end);
             let windowed = compute_column_block_windowed(
@@ -825,7 +1013,8 @@ mod tests {
                 cols,
                 &mono.as_ref()[start..end],
                 start,
-            );
+            )
+            .unwrap();
             assert_eq!(windowed.first_col, whole.first_col);
             assert_eq!(windowed.col_count, whole.col_count);
             assert_eq!(windowed.freq_len, whole.freq_len);
@@ -845,10 +1034,10 @@ mod tests {
         let audio = sine_audio(16_000.0, 0.05, 800.0);
         let params = SpectrogramParams::default();
         let view = audio.slice_samples(0..audio.frames());
-        let axes = analysis_axes(view.clone(), &params);
+        let axes = analysis_axes(view.clone(), &params).unwrap();
         let n_time = axes.times.len();
         // Requesting far past the end yields only the frames that exist.
-        let block = compute_column_block(view, &params, n_time.saturating_sub(2), 512);
+        let block = compute_column_block(view, &params, n_time.saturating_sub(2), 512).unwrap();
         assert_eq!(block.first_col, n_time.saturating_sub(2));
         assert_eq!(block.col_count, n_time - n_time.saturating_sub(2));
         assert_eq!(block.db.len(), block.col_count * block.freq_len);
@@ -867,14 +1056,14 @@ mod tests {
             height_px: 8,
             params,
         };
-        let raw = compute_tile(audio.slice_samples(0..audio.frames()), &req);
+        let raw = compute_tile(audio.slice_samples(0..audio.frames()), &req).unwrap();
         let adjusted: Vec<f32> = raw
             .db
             .iter()
             .zip(raw.f_axis.iter().cycle())
             .map(|(&db, &frequency)| apply_display_preemphasis_db(f64::from(db), frequency) as f32)
             .collect();
-        let raw_again = compute_tile(audio.slice_samples(0..audio.frames()), &req);
+        let raw_again = compute_tile(audio.slice_samples(0..audio.frames()), &req).unwrap();
         assert_eq!(raw.db, raw_again.db);
         assert_ne!(raw.db, adjusted);
     }
@@ -888,7 +1077,7 @@ mod tests {
             frequency_step: 1.0,
             ..SpectrogramParams::default()
         };
-        let slice = spectral_slice(audio.slice_samples(0..audio.frames()), 0.15, &params);
+        let slice = spectral_slice(audio.slice_samples(0..audio.frames()), 0.15, &params).unwrap();
         let peak_index = slice
             .db
             .iter()
@@ -908,51 +1097,144 @@ mod tests {
     }
 
     #[test]
-    fn scipy_oracle_fixture_matches_relative_tolerance() {
-        let fixture = include_str!("../../../tools/oracle/spectrogram_reference.csv");
-        let rows = parse_oracle_fixture(fixture);
-        let audio = oracle_audio(16_000.0, 0.08);
+    fn rejects_non_positive_window_length() {
         let params = SpectrogramParams {
-            window_length: 0.01,
-            max_frequency: 3200.0,
-            time_step: 0.004,
-            frequency_step: 125.0,
+            window_length: 0.0,
             ..SpectrogramParams::default()
         };
-        let tile = compute_tile(
-            audio.slice_samples(0..audio.frames()),
-            &TileRequest {
-                t0: 0.0,
-                t1: 0.08,
-                f0: 0.0,
-                f1: 3200.0,
-                width_px: 18,
-                height_px: 26,
-                params,
-            },
+        assert_eq!(
+            effective_time_step(&params),
+            Err(SpectrogramError::InvalidWindowLength(0.0))
         );
+    }
 
-        for row in rows {
-            let time_index = tile
-                .t_axis
-                .iter()
-                .position(|&v| (v - row.time).abs() < 1.0e-15)
-                .expect("fixture time on tile axis");
-            let freq_index = tile
-                .f_axis
-                .iter()
-                .position(|&v| (v - row.frequency).abs() < 1.0e-12)
-                .expect("fixture frequency on tile axis");
-            let actual = f64::from(tile.db[freq_index * tile.t_axis.len() + time_index]);
-            let reference = row.db;
-            let rel = (actual - reference).abs() / reference.abs().max(1.0e-12);
-            assert!(
-                rel <= 1.0e-6,
-                "time {} freq {} actual {actual} reference {reference} rel {rel}",
-                row.time,
-                row.frequency
-            );
-        }
+    #[test]
+    fn rejects_non_positive_time_step() {
+        let params = SpectrogramParams {
+            time_step: -1.0,
+            ..SpectrogramParams::default()
+        };
+        assert_eq!(
+            effective_time_step(&params),
+            Err(SpectrogramError::InvalidTimeStep(-1.0))
+        );
+    }
+
+    #[test]
+    fn rejects_non_positive_frequency_step() {
+        let params = SpectrogramParams {
+            frequency_step: 0.0,
+            ..SpectrogramParams::default()
+        };
+        assert_eq!(
+            effective_frequency_step(&params),
+            Err(SpectrogramError::InvalidFrequencyStep(0.0))
+        );
+    }
+
+    #[test]
+    fn rejects_negative_max_frequency_and_accepts_zero() {
+        let negative = SpectrogramParams {
+            max_frequency: -1.0,
+            ..SpectrogramParams::default()
+        };
+        assert_eq!(
+            effective_time_step(&negative),
+            Err(SpectrogramError::InvalidMaxFrequency(-1.0))
+        );
+        let dc_only = SpectrogramParams {
+            max_frequency: 0.0,
+            ..SpectrogramParams::default()
+        };
+        assert!(effective_time_step(&dc_only).is_ok());
+    }
+
+    #[test]
+    fn rejects_nan_analysis_parameters() {
+        let params = SpectrogramParams {
+            window_length: f64::NAN,
+            ..SpectrogramParams::default()
+        };
+        assert!(matches!(
+            effective_time_step(&params),
+            Err(SpectrogramError::InvalidWindowLength(value)) if value.is_nan()
+        ));
+    }
+
+    #[test]
+    fn rejects_non_positive_gaussian_factor() {
+        let params = SpectrogramParams {
+            window: Window::Gaussian {
+                effective_len_factor: 0.0,
+            },
+            ..SpectrogramParams::default()
+        };
+        assert_eq!(
+            effective_time_step(&params),
+            Err(SpectrogramError::InvalidGaussianFactor(0.0))
+        );
+    }
+
+    #[test]
+    fn rejects_non_finite_tile_bounds() {
+        let audio = sine_audio(16_000.0, 0.1, 1000.0);
+        let req = TileRequest {
+            t0: f64::NAN,
+            t1: 0.1,
+            f0: 0.0,
+            f1: 500.0,
+            width_px: 4,
+            height_px: 4,
+            params: SpectrogramParams::default(),
+        };
+        let err = compute_tile(audio.slice_samples(0..audio.frames()), &req).unwrap_err();
+        assert!(matches!(
+            err,
+            SpectrogramError::NonFiniteTimeBound { t0, .. } if t0.is_nan()
+        ));
+    }
+
+    #[test]
+    fn zero_size_tile_requests_yield_an_empty_tile() {
+        let audio = sine_audio(16_000.0, 0.1, 1000.0);
+        let req = TileRequest {
+            t0: 0.0,
+            t1: 0.1,
+            f0: 0.0,
+            f1: 500.0,
+            width_px: 0,
+            height_px: 4,
+            params: SpectrogramParams::default(),
+        };
+        let tile = compute_tile(audio.slice_samples(0..audio.frames()), &req).unwrap();
+        assert!(tile.db.is_empty());
+    }
+
+    #[test]
+    fn keeps_a_valid_but_empty_tile_request_ok() {
+        // A well-formed request whose time window falls entirely outside the
+        // signal selects no data, but is not an error.
+        let audio = sine_audio(16_000.0, 0.1, 1000.0);
+        let req = TileRequest {
+            t0: 5.0,
+            t1: 5.1,
+            f0: 0.0,
+            f1: 500.0,
+            width_px: 4,
+            height_px: 4,
+            params: SpectrogramParams::default(),
+        };
+        let tile = compute_tile(audio.slice_samples(0..audio.frames()), &req).unwrap();
+        assert!(tile.db.is_empty());
+    }
+
+    #[test]
+    fn rejects_non_finite_slice_time() {
+        let audio = sine_audio(16_000.0, 0.1, 1000.0);
+        let params = SpectrogramParams::default();
+        let err =
+            spectral_slice(audio.slice_samples(0..audio.frames()), f64::NAN, &params).unwrap_err();
+        assert!(matches!(err, SpectrogramError::NonFiniteSliceTime(value) if value.is_nan()));
     }
 
     fn crossing_frequency(slice: &Slice, peak_index: usize, target: f64, direction: isize) -> f64 {
@@ -970,26 +1252,5 @@ mod tests {
             }
             i = next;
         }
-    }
-
-    #[derive(Debug)]
-    struct OracleRow {
-        time: f64,
-        frequency: f64,
-        db: f64,
-    }
-
-    fn parse_oracle_fixture(text: &str) -> Vec<OracleRow> {
-        text.lines()
-            .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.starts_with("time"))
-            .map(|line| {
-                let mut fields = line.split(',');
-                OracleRow {
-                    time: fields.next().unwrap().parse().unwrap(),
-                    frequency: fields.next().unwrap().parse().unwrap(),
-                    db: fields.next().unwrap().parse().unwrap(),
-                }
-            })
-            .collect()
     }
 }

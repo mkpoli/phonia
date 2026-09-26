@@ -375,7 +375,7 @@ impl Engine {
         invert: bool,
         preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
-        validate_tile_request(req)?;
+        req.validate()?;
         let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
@@ -425,7 +425,7 @@ impl Engine {
         invert: bool,
         preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
-        validate_tile_request(req)?;
+        req.validate()?;
         let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
@@ -472,7 +472,7 @@ impl Engine {
         // then computed bounded (whole-buffer for eager, ranged read for
         // streamed) and cached, never materializing the whole signal.
         let info = self.store.info(id)?;
-        let axes = analysis_axes_dims(info.sample_rate, info.duration, &req.params);
+        let axes = analysis_axes_dims(info.sample_rate, info.duration, &req.params)?;
         let freq_len = axes.frequencies.len();
 
         let time_indices = select_axis_indices(
@@ -558,13 +558,12 @@ impl Engine {
     ///
     /// The track sits on a frame grid derived from the audio duration alone,
     /// so a value queried at time *t* is the same at any zoom or scroll
-    /// (rule 2, `docs/plan/architecture.md`). `phonia_pitch::pitch_track` returns
-    /// an empty track for parameters it cannot analyse rather than panicking,
-    /// so this method never surfaces a parameter error of its own.
+    /// (rule 2, `docs/plan/architecture.md`).
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry.
+    /// store entry, and [`EngineError::Pitch`] when `params` cannot be
+    /// analysed.
     pub fn pitch_track(
         &self,
         id: AudioId,
@@ -573,7 +572,7 @@ impl Engine {
         let access = self.store.whole(id)?;
         let audio = access.audio();
         let view = audio.slice_samples(0..audio.frames());
-        Ok(phonia_pitch::pitch_track(view, params))
+        Ok(phonia_pitch::pitch_track(view, params)?)
     }
 
     /// Computes pitch over just the samples spanning `[t0, t1)` seconds,
@@ -592,8 +591,8 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when `t0`/`t1` are not
-    /// finite.
+    /// store entry, [`EngineError::InvalidRequest`] when `t0`/`t1` are not
+    /// finite, and [`EngineError::Pitch`] when `params` cannot be analysed.
     pub fn pitch_track_span(
         &self,
         id: AudioId,
@@ -616,7 +615,7 @@ impl Engine {
         // The span is a viewport window; decode only its samples so a streamed
         // source never materializes the whole signal for a preview.
         let window = self.store.range_owned(id, start, end)?;
-        let track = phonia_pitch::pitch_track(window.slice_samples(0..window.frames()), params);
+        let track = phonia_pitch::pitch_track(window.slice_samples(0..window.frames()), params)?;
         Ok((track, start as f64 / sample_rate))
     }
 
@@ -708,19 +707,18 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant
-    /// parameter is outside the range `phonia_formant` accepts (its analysis
-    /// entry point asserts these, so the engine boundary checks them first).
+    /// store entry, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range `phonia_formant` accepts, or its internal resample
+    /// overruns `phonia_audio`'s allocation limit.
     pub fn formant_track(
         &self,
         id: AudioId,
         params: &FormantParams,
     ) -> Result<FormantTrack, EngineError> {
-        validate_formant_params(params)?;
         let access = self.store.whole(id)?;
         let audio = access.audio();
         let view = audio.slice_samples(0..audio.frames());
-        Ok(phonia_formant::formant_track(view, params))
+        Ok(phonia_formant::formant_track(view, params)?)
     }
 
     /// Computes Xia–Espy-Wilson smoothed formants of `id` over its whole
@@ -732,8 +730,8 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant
-    /// parameter is outside the range `phonia_formant` accepts.
+    /// store entry, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range `phonia_formant` accepts.
     pub fn formant_track_smoothed(
         &self,
         id: AudioId,
@@ -743,7 +741,7 @@ impl Engine {
         Ok(phonia_formant::track_smoothed(
             &raw,
             &phonia_formant::TrackingRefs::default(),
-        ))
+        )?)
     }
 
     /// Computes the intensity contour of `id` over its whole signal.
@@ -812,8 +810,8 @@ impl Engine {
         };
         // Match the tile resolution to the analysis grid so every snapped
         // frame and frequency bin inside the box contributes about once.
-        let time_step = phonia_spectrogram::effective_time_step(&params);
-        let frequency_step = phonia_spectrogram::effective_frequency_step(&params);
+        let time_step = phonia_spectrogram::effective_time_step(&params)?;
+        let frequency_step = phonia_spectrogram::effective_frequency_step(&params)?;
         let width = (((hi - lo) / time_step).ceil() as u32).clamp(1, 4096);
         let height = (((fhi - flo) / frequency_step).ceil() as u32).clamp(1, 4096);
         let req = TileRequest {
@@ -826,7 +824,7 @@ impl Engine {
             params,
         };
         let view = audio.slice_samples(0..audio.frames());
-        let tile = phonia_spectrogram::compute_tile(view, &req);
+        let tile = phonia_spectrogram::compute_tile(view, &req)?;
         if tile.db.is_empty() {
             return Ok(f64::NEG_INFINITY);
         }
@@ -850,7 +848,8 @@ impl Engine {
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
     /// store entry, [`EngineError::InvalidRequest`] when a bound is not
-    /// finite, and [`EngineError::Intensity`] when `intensity_floor_hz` is
+    /// finite, [`EngineError::Pitch`] when the pitch floor/ceiling cannot be
+    /// analysed, and [`EngineError::Intensity`] when `intensity_floor_hz` is
     /// not finite and positive.
     #[allow(clippy::too_many_arguments)]
     pub fn selection_readout(
@@ -903,7 +902,7 @@ impl Engine {
             ceiling_hz: pitch_ceiling_hz,
             ..PitchParams::default()
         };
-        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params);
+        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params)?;
 
         let intensity_params = IntensityParams {
             pitch_floor_hz: intensity_floor_hz,
@@ -956,8 +955,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant parameter
-    /// is outside the range the analysis accepts, or a bound is not finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range the analysis accepts.
     pub fn formant_span_means(
         &self,
         id: AudioId,
@@ -1002,8 +1002,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant parameter
-    /// is outside the range the analysis accepts, or a bound is not finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range the analysis accepts.
     pub fn formant_span_bandwidth_means(
         &self,
         id: AudioId,
@@ -1364,7 +1365,8 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
-    /// entry, and [`EngineError::InvalidRequest`] when a parameter is not finite.
+    /// entry, [`EngineError::InvalidRequest`] when a parameter is not finite, and
+    /// [`EngineError::Pitch`] when the pitch floor and ceiling are rejected.
     pub fn voicing_intervals(
         &self,
         id: AudioId,
@@ -1442,8 +1444,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
-    /// finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Pitch`] when the pitch floor/ceiling cannot
+    /// be analysed.
     pub fn voice_report(
         &self,
         id: AudioId,
@@ -1471,7 +1474,7 @@ impl Engine {
             view,
             TimeSpan::new(lo, hi),
             &pitch_params,
-        ))
+        )?)
     }
 
     /// Glottal pulse instants across the whole signal, in seconds — the same
@@ -1480,8 +1483,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
-    /// finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Pitch`] when the pitch floor/ceiling cannot
+    /// be analysed.
     pub fn pulse_times(
         &self,
         id: AudioId,
@@ -1501,7 +1505,7 @@ impl Engine {
             ceiling_hz: pitch_ceiling_hz,
             ..PitchParams::default()
         };
-        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params);
+        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params)?;
         let pulses = phonia_voice::pulses(view, &pitch, &PulseParams::default());
         Ok(pulses.times().to_vec())
     }
@@ -2949,80 +2953,6 @@ fn sd_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Optio
     Some(variance.sqrt())
 }
 
-/// Validates a [`FormantParams`] before it reaches `phonia_formant`.
-///
-/// `phonia_formant::formant_track` asserts these same properties and panics on
-/// violation. The engine is the boundary untrusted callers reach, so it
-/// re-checks them here and turns a would-be panic into a typed error.
-fn validate_formant_params(params: &FormantParams) -> Result<(), EngineError> {
-    let invalid = |reason: &str| {
-        Err(EngineError::InvalidRequest {
-            reason: reason.to_string(),
-        })
-    };
-    if !(params.ceiling_hz.is_finite() && params.ceiling_hz > 100.0) {
-        return invalid("params.ceiling_hz must be finite and greater than 100 Hz");
-    }
-    if params.max_formants == 0 {
-        return invalid("params.max_formants must be positive");
-    }
-    if !(params.window_length.is_finite() && params.window_length > 0.0) {
-        return invalid("params.window_length must be finite and positive");
-    }
-    if let Some(step) = params.time_step
-        && !(step.is_finite() && step > 0.0)
-    {
-        return invalid("params.time_step must be finite and positive when set");
-    }
-    if !params.preemphasis_from_hz.is_finite() {
-        return invalid("params.preemphasis_from_hz must be finite");
-    }
-    Ok(())
-}
-
-/// Validates a [`TileRequest`] before it reaches `phonia_spectrogram`.
-///
-/// `phonia_spectrogram::compute_tile` asserts these same properties and panics
-/// on violation, which is the right contract for a pure math crate calling
-/// itself internally with already-validated data. The engine is the
-/// boundary that untrusted callers reach, so it re-checks the same
-/// properties here and turns a would-be panic into a typed error.
-fn validate_tile_request(req: &TileRequest) -> Result<(), EngineError> {
-    let invalid = |reason: &str| {
-        Err(EngineError::InvalidRequest {
-            reason: reason.to_string(),
-        })
-    };
-
-    if !req.t0.is_finite() || !req.t1.is_finite() {
-        return invalid("t0/t1 must be finite");
-    }
-    if !req.f0.is_finite() || !req.f1.is_finite() {
-        return invalid("f0/f1 must be finite");
-    }
-    let params = &req.params;
-    if !(params.window_length.is_finite() && params.window_length > 0.0) {
-        return invalid("params.window_length must be finite and positive");
-    }
-    if !(params.max_frequency.is_finite() && params.max_frequency >= 0.0) {
-        return invalid("params.max_frequency must be finite and non-negative");
-    }
-    if !(params.time_step.is_finite() && params.time_step > 0.0) {
-        return invalid("params.time_step must be finite and positive");
-    }
-    if !(params.frequency_step.is_finite() && params.frequency_step > 0.0) {
-        return invalid("params.frequency_step must be finite and positive");
-    }
-    if let Window::Gaussian {
-        effective_len_factor,
-    } = params.window
-        && !(effective_len_factor.is_finite() && effective_len_factor > 0.0)
-    {
-        return invalid("params.window Gaussian effective_len_factor must be finite and positive");
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3539,7 +3469,9 @@ mod tests {
                 false,
                 false,
             ),
-            Err(EngineError::InvalidRequest { .. })
+            Err(EngineError::Spectrogram(
+                phonia_spectrogram::SpectrogramError::NonFiniteTimeBound { .. }
+            ))
         ));
     }
 
@@ -3794,7 +3726,7 @@ mod tests {
         };
         assert!(matches!(
             engine.formant_track(id, &params),
-            Err(EngineError::InvalidRequest { .. })
+            Err(EngineError::Formant(_))
         ));
     }
 

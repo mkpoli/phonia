@@ -1,11 +1,13 @@
 //! Backend export tests over the shared `reference_figure()` gate input.
 
+mod common;
+
+use common::reference_figure;
 use phonia_figure::{
-    Axis, DashStyle, Figure, FigureBuilder, IntervalData, Layer, LengthUnit, LineStyle, MinMax,
-    Panel, PitchUnit, PointData, RgbaColor, SizeSpec, SpeckleFrame, SpecklePoint, SpeckleStyle,
-    TierContent, TierData, TierStyle, reference_figure, to_svg,
+    Axis, DashStyle, Figure, FigureBuilder, IntervalData, Layer, LayerKind, LengthUnit, LineStyle,
+    MinMax, Panel, PitchUnit, PointData, RgbaColor, SizeSpec, SpeckleFrame, SpecklePoint,
+    SpeckleStyle, TierContent, TierData, TierStyle, TimeSpan, to_svg,
 };
-use phonia_pitch::TimeSpan;
 use phonia_render::{Colormap, DisplayMapping, Theme};
 
 /// Reads the width and height fields of a PNG's IHDR chunk.
@@ -279,4 +281,45 @@ fn pdf_is_a_nontrivial_pdf_document() {
         pdf.len()
     );
     // svg2pdf parsing the SVG is itself proof the scene graph is valid.
+}
+
+#[test]
+fn validate_accepts_the_reference_figure() {
+    reference_figure().validate().expect("reference is valid");
+}
+
+#[test]
+fn reference_figure_has_the_gate_layers() {
+    let fig = reference_figure();
+    let kinds: Vec<LayerKind> = fig
+        .panels
+        .iter()
+        .flat_map(|p| p.layers.iter().map(Layer::kind))
+        .collect();
+    assert!(kinds.contains(&LayerKind::Waveform));
+    assert!(kinds.contains(&LayerKind::Spectrogram));
+    assert!(kinds.contains(&LayerKind::Pitch));
+    assert!(kinds.contains(&LayerKind::Tiers));
+    // Provenance records the spectrogram and pitch analyses.
+    assert_eq!(fig.caption_meta.sources.len(), 2);
+}
+
+#[test]
+fn two_reference_builds_serialize_byte_identically() {
+    // Building the gate figure twice must produce byte-identical JSON: the
+    // model carries no HashMap iteration order, timestamp, or other
+    // run-to-run nondeterminism, so exports and wire traffic are stable.
+    let first = reference_figure().to_json().expect("serialize first");
+    let second = reference_figure().to_json().expect("serialize second");
+    assert_eq!(first, second);
+}
+
+#[test]
+fn json_round_trip_is_byte_identical() {
+    let fig = reference_figure();
+    let first = fig.to_json().expect("serialize");
+    let decoded = Figure::from_json(&first).expect("deserialize");
+    let second = decoded.to_json().expect("reserialize");
+    assert_eq!(first, second);
+    assert_eq!(fig, decoded);
 }

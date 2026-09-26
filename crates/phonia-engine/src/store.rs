@@ -299,8 +299,9 @@ impl AudioStore {
     /// rate and duration alone.
     ///
     /// # Errors
-    /// Returns [`EngineError::UnknownAudioId`] for an unknown id and
-    /// [`EngineError::Audio`] when a streamed range cannot be decoded.
+    /// Returns [`EngineError::UnknownAudioId`] for an unknown id,
+    /// [`EngineError::Audio`] when a streamed range cannot be decoded, and
+    /// [`EngineError::Spectrogram`] when `params` fails validation.
     pub(crate) fn column_block(
         &self,
         id: AudioId,
@@ -311,7 +312,7 @@ impl AudioStore {
         match self.entries.get(&id) {
             Some(Entry::Eager { audio, .. }) => {
                 let view = audio.slice_samples(0..audio.frames());
-                Ok(compute_column_block(view, params, first_col, col_count))
+                Ok(compute_column_block(view, params, first_col, col_count)?)
             }
             Some(Entry::Streamed { source, .. }) => {
                 let range = column_block_sample_range(
@@ -320,7 +321,7 @@ impl AudioStore {
                     params,
                     first_col,
                     col_count,
-                );
+                )?;
                 let end = range.end.min(source.frames());
                 let start = range.start.min(end);
                 let mono = source.read_mono(start..end)?;
@@ -332,7 +333,7 @@ impl AudioStore {
                     col_count,
                     &mono,
                     start,
-                ))
+                )?)
             }
             None => Err(EngineError::UnknownAudioId(id)),
         }

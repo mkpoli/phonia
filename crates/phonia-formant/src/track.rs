@@ -2,9 +2,9 @@ use phonia_audio::{Audio, AudioView, ResampleQuality, band_limited_grid};
 use phonia_dsp::{FrameGrid, Window, preemphasis_in_place, window_samples};
 
 use crate::burg::burg_lpc;
-use crate::params::{frame_grid, validate_params};
+use crate::params::{frame_grid_unchecked, validate_params};
 use crate::roots::lpc_roots_to_formants;
-use crate::{FormantFrame, FormantParams, FormantPoint, FormantTrack};
+use crate::{FormantError, FormantFrame, FormantParams, FormantPoint, FormantTrack};
 
 const DEFAULT_BANDWIDTH_WEIGHT: f64 = 1.0e-6;
 const DEFAULT_FREQUENCY_WEIGHT: f64 = 1.0;
@@ -66,9 +66,20 @@ impl TrackingRefs {
 /// LPC roots to frequency-bandwidth candidates. Each frame retains the
 /// candidates surviving the 50 Hz and `ceiling_hz - 50 Hz` gate, sorted by
 /// frequency and capped at `params.max_formants`.
-#[must_use]
-pub fn formant_track(audio: AudioView<'_>, params: &FormantParams) -> FormantTrack {
-    validate_params(params);
+///
+/// # Errors
+/// Returns [`FormantError`] when `params` carries a non-finite or
+/// out-of-range value, and [`FormantError::Resample`] when the resample to
+/// twice the formant ceiling overruns `phonia_audio`'s allocation limit
+/// (about 67 M source samples; see `docs/plan/horizon.md`). A signal too
+/// short to yield a sample at the analysis rate is not an error: it returns
+/// `Ok` with an empty track, the same as any signal shorter than the
+/// analysis window.
+pub fn formant_track(
+    audio: AudioView<'_>,
+    params: &FormantParams,
+) -> Result<FormantTrack, FormantError> {
+    validate_params(params)?;
 
     let mono = audio.mono_mix();
     let owned = Audio::new(vec![mono.iter().copied().collect()], audio.sample_rate())
@@ -81,16 +92,16 @@ pub fn formant_track(audio: AudioView<'_>, params: &FormantParams) -> FormantTra
     // which must not pass as silence.
     let (count, first_time) = band_limited_grid(owned.frames(), owned.sample_rate(), target_hz);
     if count == 0 {
-        return FormantTrack {
+        return Ok(FormantTrack {
             frames: Vec::new(),
             params: *params,
             duration: audio.duration(),
-            frame_grid: frame_grid(0.0, params),
-        };
+            frame_grid: frame_grid_unchecked(0.0, params),
+        });
     }
     let resampled = owned
         .resampled(target_hz, ResampleQuality::PRAAT)
-        .expect("the resampler's whole-signal workspace fits the allocation limit");
+        .map_err(FormantError::Resample)?;
     let mut samples = resampled
         .mono_mix()
         .iter()
@@ -120,12 +131,12 @@ pub fn formant_track(audio: AudioView<'_>, params: &FormantParams) -> FormantTra
         })
         .collect();
 
-    FormantTrack {
+    Ok(FormantTrack {
         frames,
         params: *params,
         duration: audio.duration(),
         frame_grid: analysis.grid.shifted(offset),
-    }
+    })
 }
 
 /// Smooths raw formant candidates with Xia & Espy-Wilson-style Viterbi costs.
@@ -135,12 +146,19 @@ pub fn formant_track(audio: AudioView<'_>, params: &FormantParams) -> FormantTra
 /// Local costs combine bandwidth and neutral-reference deviation; transition
 /// costs penalize squared frequency changes for slots present in consecutive
 /// frames.
-#[must_use]
-pub fn track_smoothed(raw: &FormantTrack, refs: &TrackingRefs) -> FormantTrack {
-    validate_tracking_refs(refs);
+///
+/// # Errors
+/// Returns [`FormantError`] when `refs` carries a non-finite or
+/// out-of-range value; see [`FormantError`]'s `Invalid*` variants for
+/// [`TrackingRefs`].
+pub fn track_smoothed(
+    raw: &FormantTrack,
+    refs: &TrackingRefs,
+) -> Result<FormantTrack, FormantError> {
+    validate_tracking_refs(refs)?;
     let slots = raw.params.max_formants;
     if raw.frames.is_empty() || slots == 0 {
-        return raw.clone();
+        return Ok(raw.clone());
     }
 
     let states_by_frame = raw
@@ -150,7 +168,7 @@ pub fn track_smoothed(raw: &FormantTrack, refs: &TrackingRefs) -> FormantTrack {
         .collect::<Vec<_>>();
 
     if states_by_frame.iter().any(Vec::is_empty) {
-        return FormantTrack {
+        return Ok(FormantTrack {
             frames: raw
                 .frames
                 .iter()
@@ -162,7 +180,7 @@ pub fn track_smoothed(raw: &FormantTrack, refs: &TrackingRefs) -> FormantTrack {
             params: raw.params,
             duration: raw.duration,
             frame_grid: raw.frame_grid,
-        };
+        });
     }
 
     let mut costs = Vec::with_capacity(states_by_frame.len());
@@ -227,12 +245,12 @@ pub fn track_smoothed(raw: &FormantTrack, refs: &TrackingRefs) -> FormantTrack {
         })
         .collect();
 
-    FormantTrack {
+    Ok(FormantTrack {
         frames,
         params: raw.params,
         duration: raw.duration,
         frame_grid: raw.frame_grid,
-    }
+    })
 }
 
 struct Analysis {
@@ -249,7 +267,7 @@ impl Analysis {
         Self {
             sample_rate,
             params: *params,
-            grid: frame_grid(duration, params),
+            grid: frame_grid_unchecked(duration, params),
             window: window_samples(
                 Window::Gaussian {
                     effective_len_factor: 2.0,
@@ -355,31 +373,32 @@ fn transition_cost(current: &TrackState, previous: &TrackState, refs: &TrackingR
         .sum()
 }
 
-fn validate_tracking_refs(refs: &TrackingRefs) {
-    assert!(
-        refs.neutral_hz
-            .iter()
-            .all(|value| value.is_finite() && *value > 0.0),
-        "neutral_hz values must be finite and positive"
-    );
-    assert!(
-        refs.bandwidth_weight.is_finite() && refs.bandwidth_weight >= 0.0,
-        "bandwidth_weight must be finite and non-negative"
-    );
-    assert!(
-        refs.frequency_weight.is_finite() && refs.frequency_weight >= 0.0,
-        "frequency_weight must be finite and non-negative"
-    );
-    assert!(
-        refs.transition_weight.is_finite() && refs.transition_weight >= 0.0,
-        "transition_weight must be finite and non-negative"
-    );
+fn validate_tracking_refs(refs: &TrackingRefs) -> Result<(), FormantError> {
+    if let Some(&bad) = refs
+        .neutral_hz
+        .iter()
+        .find(|value| !(value.is_finite() && **value > 0.0))
+    {
+        return Err(FormantError::InvalidNeutralFrequency(bad));
+    }
+    if !(refs.bandwidth_weight.is_finite() && refs.bandwidth_weight >= 0.0) {
+        return Err(FormantError::InvalidBandwidthWeight(refs.bandwidth_weight));
+    }
+    if !(refs.frequency_weight.is_finite() && refs.frequency_weight >= 0.0) {
+        return Err(FormantError::InvalidFrequencyWeight(refs.frequency_weight));
+    }
+    if !(refs.transition_weight.is_finite() && refs.transition_weight >= 0.0) {
+        return Err(FormantError::InvalidTransitionWeight(
+            refs.transition_weight,
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 #[must_use]
 pub(crate) fn grid_for_params(duration: f64, params: &FormantParams) -> FrameGrid {
-    frame_grid(duration, params)
+    frame_grid_unchecked(duration, params)
 }
 
 #[cfg(test)]
@@ -391,7 +410,7 @@ mod offset_tests {
     #[test]
     fn short_audio_yields_an_empty_track() {
         let audio = Audio::new(vec![vec![0.0; 2]], 44_100.0).unwrap();
-        let track = formant_track(audio.slice_samples(0..2), &FormantParams::default());
+        let track = formant_track(audio.slice_samples(0..2), &FormantParams::default()).unwrap();
         assert!(track.frames.is_empty());
         assert!(track.frame_grid.is_empty());
     }
@@ -405,7 +424,8 @@ mod offset_tests {
         for (n, expected_first) in [(16_001usize, 0.025_031_25), (16_002, 0.025_062_5)] {
             let signal: Vec<f32> = (0..n).map(|i| (i as f32 * 0.05).sin()).collect();
             let audio = Audio::new(vec![signal], 16_000.0).unwrap();
-            let track = formant_track(audio.slice_samples(0..n), &FormantParams::default());
+            let track =
+                formant_track(audio.slice_samples(0..n), &FormantParams::default()).unwrap();
             let first = track.frames[0].time;
             assert!(
                 (first - expected_first).abs() < 1e-9,
@@ -445,7 +465,107 @@ mod tests {
             duration: 0.025,
             frame_grid: grid_for_params(0.025, &FormantParams::default()),
         };
-        let smoothed = track_smoothed(&raw, &TrackingRefs::default());
+        let smoothed = track_smoothed(&raw, &TrackingRefs::default()).unwrap();
         assert_eq!(smoothed.frames[0].formants[0].frequency, 1500.0);
+    }
+
+    #[test]
+    fn formant_track_rejects_invalid_params() {
+        let audio = Audio::new(vec![vec![0.0; 4]], 44_100.0).unwrap();
+        let params = FormantParams {
+            ceiling_hz: 0.0,
+            ..FormantParams::default()
+        };
+        assert_eq!(
+            formant_track(audio.slice_samples(0..4), &params),
+            Err(FormantError::InvalidCeiling(0.0))
+        );
+    }
+
+    #[test]
+    fn track_smoothed_rejects_non_positive_neutral_frequency() {
+        let raw = FormantTrack {
+            frames: Vec::new(),
+            params: FormantParams::default(),
+            duration: 0.0,
+            frame_grid: grid_for_params(0.0, &FormantParams::default()),
+        };
+        let refs = TrackingRefs {
+            neutral_hz: vec![500.0, 0.0],
+            ..TrackingRefs::default()
+        };
+        assert_eq!(
+            track_smoothed(&raw, &refs),
+            Err(FormantError::InvalidNeutralFrequency(0.0))
+        );
+    }
+
+    #[test]
+    fn track_smoothed_rejects_negative_bandwidth_weight() {
+        let raw = FormantTrack {
+            frames: Vec::new(),
+            params: FormantParams::default(),
+            duration: 0.0,
+            frame_grid: grid_for_params(0.0, &FormantParams::default()),
+        };
+        let refs = TrackingRefs {
+            bandwidth_weight: -1.0,
+            ..TrackingRefs::default()
+        };
+        assert_eq!(
+            track_smoothed(&raw, &refs),
+            Err(FormantError::InvalidBandwidthWeight(-1.0))
+        );
+    }
+
+    #[test]
+    fn track_smoothed_rejects_negative_frequency_weight() {
+        let raw = FormantTrack {
+            frames: Vec::new(),
+            params: FormantParams::default(),
+            duration: 0.0,
+            frame_grid: grid_for_params(0.0, &FormantParams::default()),
+        };
+        let refs = TrackingRefs {
+            frequency_weight: -1.0,
+            ..TrackingRefs::default()
+        };
+        assert_eq!(
+            track_smoothed(&raw, &refs),
+            Err(FormantError::InvalidFrequencyWeight(-1.0))
+        );
+    }
+
+    #[test]
+    fn track_smoothed_rejects_negative_transition_weight() {
+        let raw = FormantTrack {
+            frames: Vec::new(),
+            params: FormantParams::default(),
+            duration: 0.0,
+            frame_grid: grid_for_params(0.0, &FormantParams::default()),
+        };
+        let refs = TrackingRefs {
+            transition_weight: -1.0,
+            ..TrackingRefs::default()
+        };
+        assert_eq!(
+            track_smoothed(&raw, &refs),
+            Err(FormantError::InvalidTransitionWeight(-1.0))
+        );
+    }
+
+    #[test]
+    fn track_smoothed_accepts_empty_track_before_validating_shape() {
+        // An empty raw track is valid but empty input: it must return Ok,
+        // even though it takes the empty-frames early return before the
+        // per-frame slot-shape check ever runs.
+        let raw = FormantTrack {
+            frames: Vec::new(),
+            params: FormantParams::default(),
+            duration: 0.0,
+            frame_grid: grid_for_params(0.0, &FormantParams::default()),
+        };
+        let smoothed = track_smoothed(&raw, &TrackingRefs::default()).unwrap();
+        assert!(smoothed.frames.is_empty());
     }
 }

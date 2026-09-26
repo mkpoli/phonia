@@ -55,7 +55,7 @@ fn time_track(label: &str, signal: Vec<f32>, params: &PitchParams) {
     // warm any lazy state
     let _ = crate::pitch_track(view.clone(), params);
     let start = Instant::now();
-    let track = crate::pitch_track(view, params);
+    let track = crate::pitch_track(view, params).expect("bench params are valid");
     let elapsed = start.elapsed();
     let voiced = track.frames().iter().filter(|f| f.f0.is_some()).count();
     println!(
@@ -161,7 +161,7 @@ fn perf_cross_correlation_hnr() {
         ..PitchParams::default()
     };
     let start = Instant::now();
-    let track = crate::pitch_track_cc(view.clone(), &params, 4.5);
+    let track = crate::pitch_track_cc(view.clone(), &params, 4.5).expect("bench params are valid");
     let ms = start.elapsed().as_secs_f64() * 1e3;
     // Correlation alone, on the same grid.
     let layout = Layout::new(

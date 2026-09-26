@@ -1,26 +1,36 @@
-//! Assembling figures out of the committed analysis types.
+//! Assembling figures, including from the committed analysis types.
 //!
-//! Every conversion from an analysis result to an embedded [`Layer`] lives
-//! here: a spectrogram [`Tile`] becomes a raw-decibel layer, a [`PitchTrack`]
-//! becomes a point series, a [`FormantTrack`] becomes a speckle, an
-//! [`IntensityTrack`] becomes a contour, and annotation [`TierSlot`]s become
-//! embedded tiers. The functions copy data out of the analysis types, so the
+//! [`tier_data`] and [`tiers_layer`] convert annotation [`TierSlot`]s into
+//! embedded tiers and are always available. Behind the default-off
+//! `analysis` feature, every conversion from a live analysis result to an
+//! embedded [`Layer`] lives here too: a spectrogram [`Tile`] becomes a
+//! raw-decibel layer, a [`PitchTrack`] becomes a point series, a
+//! [`FormantTrack`] becomes a speckle, and an [`IntensityTrack`] becomes a
+//! contour. The functions copy data out of the analysis types, so the
 //! resulting [`Figure`] holds no reference back to them.
 
-use std::collections::BTreeMap;
-
 use phonia_annot::{Tier, TierSlot};
+#[cfg(feature = "analysis")]
 use phonia_formant::FormantTrack;
+#[cfg(feature = "analysis")]
 use phonia_intensity::IntensityTrack;
-use phonia_pitch::{PitchParams, PitchTrack, TimeSpan};
-use phonia_render::{Colormap, DisplayMapping, Theme};
-use phonia_spectrogram::{Slice, SpectrogramParams, Tile, TileRequest};
+#[cfg(feature = "analysis")]
+use phonia_pitch::PitchTrack;
+use phonia_render::Theme;
+#[cfg(feature = "analysis")]
+use phonia_render::{Colormap, DisplayMapping};
+#[cfg(feature = "analysis")]
+use phonia_spectrogram::{Slice, Tile};
 
 use crate::model::{
-    Axis, CaptionMeta, Figure, IntervalData, Layer, LayerKind, MinMax, Panel, PitchUnit, PointData,
-    ProvenanceRecord, SizeSpec, SpeckleFrame, SpecklePoint, TierContent, TierData,
+    CaptionMeta, Figure, IntervalData, Layer, MinMax, Panel, PointData, ProvenanceRecord, SizeSpec,
+    TierContent, TierData, TimeSpan,
 };
-use crate::style::{LineStyle, SpeckleStyle, TierStyle};
+#[cfg(feature = "analysis")]
+use crate::model::{PitchUnit, SpeckleFrame, SpecklePoint};
+#[cfg(feature = "analysis")]
+use crate::style::SpeckleStyle;
+use crate::style::{LineStyle, TierStyle};
 
 /// Fluent assembler for a [`Figure`].
 ///
@@ -136,6 +146,7 @@ pub fn waveform_minmax(samples: &[f32], buckets: usize) -> Vec<MinMax> {
 /// The time and frequency ranges come from the tile's snapped axes; `display`
 /// and `colormap` are carried unevaluated so a backend calls
 /// [`phonia_render::colorize`] at export.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn spectrogram_layer(tile: &Tile, display: DisplayMapping, colormap: Colormap) -> Layer {
     let width = tile.t_axis.len() as u32;
@@ -159,6 +170,7 @@ pub fn spectrogram_layer(tile: &Tile, display: DisplayMapping, colormap: Colorma
 ///
 /// Only voiced frames contribute points; unvoiced frames are omitted, so the
 /// point series carries no non-finite values.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn pitch_layer(track: &PitchTrack, unit: PitchUnit, style: LineStyle) -> Layer {
     let points = track
@@ -186,6 +198,7 @@ pub fn pitch_layer(track: &PitchTrack, unit: PitchUnit, style: LineStyle) -> Lay
 ///
 /// `smoothed` records whether `track` carries Viterbi-smoothed slots or raw
 /// candidates, per the formant-tracking caveat.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn formant_layer(track: &FormantTrack, smoothed: bool, style: SpeckleStyle) -> Layer {
     let frames = track
@@ -211,6 +224,7 @@ pub fn formant_layer(track: &FormantTrack, smoothed: bool, style: SpeckleStyle) 
 }
 
 /// An intensity contour layer, one point per analysis frame.
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn intensity_layer(track: &IntensityTrack, style: LineStyle) -> Layer {
     Layer::IntensityLine {
@@ -274,6 +288,7 @@ pub fn tiers_layer(slots: &[TierSlot], style: TierStyle) -> Layer {
 }
 
 /// A spectral-slice layer of `(frequency, dB)` bins built from a [`Slice`].
+#[cfg(feature = "analysis")]
 #[must_use]
 pub fn spectral_slice_layer(slice: &Slice, style: LineStyle) -> Layer {
     let bins = slice
@@ -283,171 +298,6 @@ pub fn spectral_slice_layer(slice: &Slice, style: LineStyle) -> Layer {
         .map(|(&f, &db)| (f, f64::from(db)))
         .collect();
     Layer::SpectralSlice { bins, style }
-}
-
-fn provenance(
-    layer: LayerKind,
-    params: &[(&str, String)],
-    smoothed: Option<bool>,
-) -> ProvenanceRecord {
-    let params = params
-        .iter()
-        .map(|(k, v)| ((*k).to_owned(), v.clone()))
-        .collect::<BTreeMap<_, _>>();
-    ProvenanceRecord {
-        layer,
-        params,
-        smoothed,
-    }
-}
-
-fn spectrogram_provenance(params: &SpectrogramParams) -> ProvenanceRecord {
-    provenance(
-        LayerKind::Spectrogram,
-        &[
-            ("window_length_s", format!("{}", params.window_length)),
-            ("max_frequency_hz", format!("{}", params.max_frequency)),
-            ("time_step_s", format!("{}", params.time_step)),
-            ("frequency_step_hz", format!("{}", params.frequency_step)),
-        ],
-        None,
-    )
-}
-
-fn pitch_provenance(params: &PitchParams) -> ProvenanceRecord {
-    let step = params
-        .time_step
-        .map_or_else(|| "auto".to_owned(), |s| format!("{s}"));
-    provenance(
-        LayerKind::Pitch,
-        &[
-            ("floor_hz", format!("{}", params.floor_hz)),
-            ("ceiling_hz", format!("{}", params.ceiling_hz)),
-            ("time_step_s", step),
-        ],
-        None,
-    )
-}
-
-const REFERENCE_WAV: &[u8] = include_bytes!("../../../tests/fixtures/audio/arctic_bdl_a0001.wav");
-const REFERENCE_TEXTGRID: &[u8] =
-    include_bytes!("../../../tests/fixtures/textgrids/arctic_bdl_a0001_long_utf8.TextGrid");
-
-/// Builds the roadmap gate figure: waveform, spectrogram, pitch, and one tier
-/// from `arctic_bdl_a0001` and its fixture TextGrid.
-///
-/// Every export backend reuses this figure as its gate input. The figure runs
-/// the default spectrogram and pitch analyses over the whole clip, envelopes
-/// the mono mix, and embeds the TextGrid's `words` interval tier.
-///
-/// # Panics
-/// Panics if the bundled fixture WAV or TextGrid fails to decode, which would
-/// mean the fixtures themselves are corrupt.
-#[must_use]
-pub fn reference_figure() -> Figure {
-    use phonia_audio::Audio;
-    use phonia_pitch::pitch_track;
-    use phonia_spectrogram::compute_tile;
-
-    let audio = Audio::from_wav_bytes(REFERENCE_WAV).expect("reference fixture WAV must decode");
-    let frames = audio.frames();
-    let duration = audio.duration();
-
-    let spec_params = SpectrogramParams::default();
-    let tile = compute_tile(
-        audio.slice_samples(0..frames),
-        &TileRequest {
-            t0: 0.0,
-            t1: duration,
-            f0: 0.0,
-            f1: spec_params.max_frequency,
-            width_px: 800,
-            height_px: 256,
-            params: spec_params,
-        },
-    );
-
-    let pitch_params = PitchParams::default();
-    let pitch = pitch_track(audio.slice_samples(0..frames), &pitch_params);
-
-    let mono = audio.mono_mix();
-    let envelope = waveform_minmax(&mono, 1000);
-    let span = TimeSpan::new(0.0, duration);
-
-    let (annotation, _) =
-        phonia_textgrid::read(REFERENCE_TEXTGRID).expect("reference fixture TextGrid must parse");
-    let words = annotation
-        .tiers()
-        .iter()
-        .find(|slot| tier_name(slot) == "words")
-        .or_else(|| annotation.tiers().first())
-        .expect("reference TextGrid must have at least one tier");
-
-    let time_axis = || Axis::linear(0.0, duration, Some("Time"), Some("s"));
-
-    let waveform_panel = Panel {
-        layers: vec![waveform_layer(envelope, span, LineStyle::default())],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(-1.0, 1.0, Some("Amplitude"), None),
-        height_share: 0.22,
-    };
-
-    let spectrogram_panel = Panel {
-        layers: vec![spectrogram_layer(
-            &tile,
-            DisplayMapping::default(),
-            Colormap::Viridis,
-        )],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(
-            0.0,
-            spec_params.max_frequency,
-            Some("Frequency"),
-            Some("Hz"),
-        ),
-        height_share: 0.44,
-    };
-
-    let pitch_panel = Panel {
-        layers: vec![pitch_layer(&pitch, PitchUnit::Hertz, LineStyle::default())],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(
-            pitch_params.floor_hz,
-            pitch_params.ceiling_hz,
-            Some("Pitch"),
-            Some("Hz"),
-        ),
-        height_share: 0.22,
-    };
-
-    let tier_panel = Panel {
-        layers: vec![tiers_layer(
-            std::slice::from_ref(words),
-            TierStyle::default(),
-        )],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(0.0, 1.0, None, None),
-        height_share: 0.12,
-    };
-
-    FigureBuilder::new(
-        SizeSpec::new(16.0, 12.0, crate::model::LengthUnit::Cm),
-        Theme::Dark,
-    )
-    .panel(waveform_panel)
-    .panel(spectrogram_panel)
-    .panel(pitch_panel)
-    .panel(tier_panel)
-    .source(spectrogram_provenance(&spec_params))
-    .source(pitch_provenance(&pitch_params))
-    .build()
-}
-
-fn tier_name(slot: &TierSlot) -> &str {
-    match &slot.tier {
-        Tier::Interval(tier) => &tier.name,
-        Tier::Point(tier) => &tier.name,
-    }
 }
 
 #[cfg(test)]

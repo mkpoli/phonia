@@ -269,7 +269,8 @@ fn pitch_payload(
         pitch_track_cc(view, &params, 1.0)
     } else {
         pitch_track(view, &params)
-    };
+    }
+    .expect("oracle case params are valid");
 
     let frames = track
         .frames()
@@ -426,7 +427,7 @@ fn pitch_params_json(params: &PitchParams) -> Json {
 /// numbering exactly, with no tracking layer on either side.
 fn formant_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
     let params = FormantParams::default();
-    let raw = formant_track(view, &params);
+    let raw = formant_track(view, &params).expect("FormantParams::default() is valid");
 
     let frames = raw
         .frames
@@ -546,7 +547,7 @@ fn voice_report_span(audio_filename: &str) -> TimeSpan {
 fn voice_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
     let pitch_params = PitchParams::default();
     let span = voice_report_span(audio_filename);
-    let report = voice_report(view, span, &pitch_params);
+    let report = voice_report(view, span, &pitch_params).expect("default pitch params are valid");
 
     let pitch = Json::object(vec![
         (

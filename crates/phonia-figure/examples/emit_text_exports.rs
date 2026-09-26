@@ -1,19 +1,23 @@
 //! Write the reference figure's text and code exports for inspection.
 //!
 //! Emits the TikZ, Typst, Vega-Lite, matplotlib, ggplot2, Makie, and GraphML
-//! exports of [`phonia_figure::reference_figure`] into a target directory (default
+//! exports of [`common::reference_figure`] into a target directory (default
 //! `target/figure-text`), each backend in its own subdirectory alongside its
 //! sidecar or data files.
 //!
 //! ```text
-//! cargo run -p phonia-figure --example emit_text_exports
+//! cargo run -p phonia-figure --example emit_text_exports --features analysis
 //! ```
+
+#[path = "../tests/common/mod.rs"]
+mod common;
 
 use std::path::{Path, PathBuf};
 
+use common::reference_figure;
 use phonia_figure::{
-    CodeExport, CodeLang, SidecarFile, TextExport, figure_tiers, reference_figure, to_code,
-    to_graphml, to_tikz, to_typst, to_vega,
+    CodeExport, CodeLang, SidecarFile, TextExport, figure_tiers, to_code, to_graphml, to_tikz,
+    to_typst, to_vega,
 };
 use phonia_render::Theme;
 

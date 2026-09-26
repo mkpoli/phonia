@@ -1,13 +1,14 @@
 //! Integration tests for the text-emission backends.
 //!
-//! Each backend exports [`phonia_figure::reference_figure`] and is checked for the
+//! Each backend exports [`common::reference_figure`] and is checked for the
 //! structural markers its toolchain needs plus byte-for-byte determinism.
 //! Toolchain compilation lives in `tools/figcheck`; these tests cover the
 //! emitted text itself.
 
-use phonia_figure::{
-    CodeLang, figure_tiers, reference_figure, to_code, to_graphml, to_tikz, to_typst, to_vega,
-};
+mod common;
+
+use common::reference_figure;
+use phonia_figure::{CodeLang, figure_tiers, to_code, to_graphml, to_tikz, to_typst, to_vega};
 
 fn spectrogram_sidecars(names: &[String]) -> usize {
     names

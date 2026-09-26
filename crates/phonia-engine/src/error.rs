@@ -11,7 +11,10 @@ use std::fmt;
 
 use phonia_annot::{AnnotationError, IntegrityIssue};
 use phonia_audio::AudioError;
+use phonia_formant::FormantError;
 use phonia_intensity::IntensityError;
+use phonia_pitch::PitchError;
+use phonia_spectrogram::SpectrogramError;
 
 use crate::document::AnnotationId;
 use crate::recording::RecordingId;
@@ -36,6 +39,15 @@ pub enum EngineError {
     /// An annotation offered to [`crate::Engine::apply`] failed its own
     /// integrity check before it could enter the store.
     InvalidAnnotation(Vec<IntegrityIssue>),
+    /// A [`phonia_pitch::PitchParams`] value passed to a pitch-tracking entry
+    /// point could not be analysed.
+    Pitch(PitchError),
+    /// Formant analysis rejected a parameter, or its internal resample
+    /// overran `phonia_audio`'s allocation limit. The wrapped
+    /// [`FormantError`] names the field or failure.
+    Formant(FormantError),
+    /// A spectrogram request was rejected by [`phonia_spectrogram`].
+    Spectrogram(SpectrogramError),
     /// A tile or waveform request carried a value the underlying analysis
     /// cannot use (non-finite time/frequency bounds, a non-positive
     /// parameter, or pixel dimensions that produced no analysis columns).
@@ -54,6 +66,7 @@ impl fmt::Display for EngineError {
             Self::Audio(err) => write!(f, "audio import failed: {err}"),
             Self::Annotation(err) => write!(f, "annotation mutation failed: {err}"),
             Self::Intensity(err) => write!(f, "invalid intensity parameter: {err}"),
+            Self::Spectrogram(err) => write!(f, "spectrogram request rejected: {err}"),
             Self::InvalidAnnotation(issues) => {
                 write!(
                     f,
@@ -61,7 +74,9 @@ impl fmt::Display for EngineError {
                     issues.len()
                 )
             }
+            Self::Formant(err) => write!(f, "formant analysis failed: {err}"),
             Self::InvalidRequest { reason } => write!(f, "invalid request: {reason}"),
+            Self::Pitch(err) => write!(f, "invalid pitch parameters: {err}"),
         }
     }
 }
@@ -72,6 +87,9 @@ impl Error for EngineError {
             Self::Audio(err) => Some(err),
             Self::Annotation(err) => Some(err),
             Self::Intensity(err) => Some(err),
+            Self::Pitch(err) => Some(err),
+            Self::Formant(err) => Some(err),
+            Self::Spectrogram(err) => Some(err),
             Self::UnknownAudioId(_)
             | Self::UnknownAnnotationId(_)
             | Self::UnknownRecordingId(_)
@@ -96,5 +114,23 @@ impl From<AudioError> for EngineError {
 impl From<IntensityError> for EngineError {
     fn from(err: IntensityError) -> Self {
         Self::Intensity(err)
+    }
+}
+
+impl From<PitchError> for EngineError {
+    fn from(err: PitchError) -> Self {
+        Self::Pitch(err)
+    }
+}
+
+impl From<FormantError> for EngineError {
+    fn from(err: FormantError) -> Self {
+        Self::Formant(err)
+    }
+}
+
+impl From<SpectrogramError> for EngineError {
+    fn from(err: SpectrogramError) -> Self {
+        Self::Spectrogram(err)
     }
 }

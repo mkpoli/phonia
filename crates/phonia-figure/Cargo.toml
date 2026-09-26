@@ -6,13 +6,16 @@ license.workspace = true
 description = "Backend-agnostic figure model and exporters: SVG scene graph with PNG and PDF derived from it"
 
 [dependencies]
-phonia-audio = { workspace = true }
-phonia-spectrogram = { workspace = true }
-phonia-pitch = { workspace = true }
-phonia-formant = { workspace = true }
-phonia-intensity = { workspace = true }
+# Optional: only the `analysis` feature's conversion helpers (builder.rs) and
+# the reference-figure test/example support need a live analysis result, so a
+# consumer wanting just the figure model and exporters does not pull these in.
+phonia-audio = { workspace = true, optional = true }
+phonia-spectrogram = { workspace = true, optional = true }
+phonia-pitch = { workspace = true, optional = true }
+phonia-formant = { workspace = true, optional = true }
+phonia-intensity = { workspace = true, optional = true }
+phonia-textgrid = { workspace = true, optional = true }
 phonia-annot = { workspace = true }
-phonia-textgrid = { workspace = true }
 phonia-render = { workspace = true }
 serde = { workspace = true }
 # float_roundtrip makes JSON deserialization recover f64 bit-for-bit, so a
@@ -31,6 +34,17 @@ svg2pdf = { workspace = true, optional = true }
 
 [features]
 default = []
+# Builds Layer from a live analysis result: spectrogram_layer, pitch_layer,
+# formant_layer, intensity_layer, spectral_slice_layer, and the
+# reference-figure fixture used by tests and examples.
+analysis = [
+    "dep:phonia-audio",
+    "dep:phonia-spectrogram",
+    "dep:phonia-pitch",
+    "dep:phonia-formant",
+    "dep:phonia-intensity",
+    "dep:phonia-textgrid",
+]
 # to_png: rasterize the SVG scene with resvg + tiny-skia.
 raster = ["dep:resvg"]
 # to_pdf: convert the SVG scene with svg2pdf.
@@ -38,4 +52,16 @@ pdf = ["dep:svg2pdf"]
 
 [[example]]
 name = "render_reference"
-required-features = ["raster", "pdf"]
+required-features = ["analysis", "raster", "pdf"]
+
+[[example]]
+name = "emit_text_exports"
+required-features = ["analysis"]
+
+[[test]]
+name = "backends"
+required-features = ["analysis"]
+
+[[test]]
+name = "text_backends"
+required-features = ["analysis"]

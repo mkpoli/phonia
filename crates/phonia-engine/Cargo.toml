@@ -16,7 +16,7 @@ phonia-intensity = { workspace = true }
 phonia-voice = { workspace = true }
 phonia-annot = { workspace = true }
 phonia-render = { workspace = true }
-phonia-figure = { workspace = true }
+phonia-figure = { workspace = true, features = ["analysis"] }
 serde = { workspace = true }
 
 [features]
