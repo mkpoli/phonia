@@ -11,6 +11,7 @@ use std::fmt;
 
 use phonia_annot::{AnnotationError, IntegrityIssue};
 use phonia_audio::AudioError;
+use phonia_intensity::IntensityError;
 
 use crate::document::AnnotationId;
 use crate::recording::RecordingId;
@@ -30,6 +31,8 @@ pub enum EngineError {
     Audio(AudioError),
     /// An annotation mutation was rejected by [`phonia_annot`].
     Annotation(AnnotationError),
+    /// An intensity analysis parameter was rejected by [`phonia_intensity`].
+    Intensity(IntensityError),
     /// An annotation offered to [`crate::Engine::apply`] failed its own
     /// integrity check before it could enter the store.
     InvalidAnnotation(Vec<IntegrityIssue>),
@@ -50,6 +53,7 @@ impl fmt::Display for EngineError {
             Self::UnknownRecordingId(id) => write!(f, "unknown recording id {}", id.as_u64()),
             Self::Audio(err) => write!(f, "audio import failed: {err}"),
             Self::Annotation(err) => write!(f, "annotation mutation failed: {err}"),
+            Self::Intensity(err) => write!(f, "invalid intensity parameter: {err}"),
             Self::InvalidAnnotation(issues) => {
                 write!(
                     f,
@@ -67,6 +71,7 @@ impl Error for EngineError {
         match self {
             Self::Audio(err) => Some(err),
             Self::Annotation(err) => Some(err),
+            Self::Intensity(err) => Some(err),
             Self::UnknownAudioId(_)
             | Self::UnknownAnnotationId(_)
             | Self::UnknownRecordingId(_)
@@ -85,5 +90,11 @@ impl From<AnnotationError> for EngineError {
 impl From<AudioError> for EngineError {
     fn from(err: AudioError) -> Self {
         Self::Audio(err)
+    }
+}
+
+impl From<IntensityError> for EngineError {
+    fn from(err: IntensityError) -> Self {
+        Self::Intensity(err)
     }
 }

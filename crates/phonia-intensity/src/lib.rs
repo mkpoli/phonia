@@ -12,8 +12,19 @@
 //! given by that "Kaiser-20" name (see [`INTENSITY_KAISER_BETA`]).
 //! A `Sound` object's samples are documented as air pressure directly in
 //! Pascal, so no separate calibration factor sits between sample amplitude
-//! and the reference pressure below.
+//! and the reference pressure below: this crate treats every input sample as
+//! a pascal value, exactly as Praat does. A WAV file is normalised to
+//! `±1.0` full scale, not to a physical pressure, so feeding one through
+//! unmodified yields dB relative to full scale (dBFS) offset by a fixed
+//! constant (`20·log10(1 Pa / 2×10⁻⁵ Pa) ≈ 94` dB), not a true sound
+//! pressure level. The numbers this crate reports are physical SPL only when
+//! the caller has itself calibrated the recording chain (microphone
+//! sensitivity, gain, ADC full-scale voltage) so that a sample value of
+//! `1.0` truly corresponds to `1` pascal at the microphone.
 #![warn(missing_docs)]
+
+use std::error::Error;
+use std::fmt;
 
 use phonia_audio::AudioView;
 use phonia_dsp::{FrameGrid, Window, window_samples};
@@ -101,6 +112,40 @@ impl IntensityParams {
     }
 }
 
+/// Rejected [`IntensityParams`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum IntensityError {
+    /// `pitch_floor_hz` was non-finite or non-positive; it divides into both
+    /// the analysis window's effective duration and the automatic frame hop.
+    InvalidPitchFloor {
+        /// The rejected value.
+        pitch_floor_hz: f64,
+    },
+    /// An explicit `time_step` was non-finite or non-positive.
+    InvalidTimeStep {
+        /// The rejected value.
+        time_step: f64,
+    },
+}
+
+impl fmt::Display for IntensityError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidPitchFloor { pitch_floor_hz } => {
+                write!(
+                    f,
+                    "pitch_floor_hz must be finite and positive, got {pitch_floor_hz}"
+                )
+            }
+            Self::InvalidTimeStep { time_step } => {
+                write!(f, "time_step must be finite and positive, got {time_step}")
+            }
+        }
+    }
+}
+
+impl Error for IntensityError {}
+
 /// An intensity contour: one dB SPL value per frame of a
 /// [`phonia_dsp::FrameGrid`] anchored to the source signal's own time domain, so
 /// a value queried at a given time is identical regardless of zoom or query
@@ -166,8 +211,28 @@ impl IntensityTrack {
 /// each frame's windowed-mean pressure is subtracted before squaring. Frames
 /// sit on a [`FrameGrid`] built from the signal's own duration, so results are
 /// independent of any viewport.
-#[must_use]
-pub fn intensity_track(audio: AudioView<'_>, params: &IntensityParams) -> IntensityTrack {
+///
+/// # Errors
+/// Returns [`IntensityError::InvalidPitchFloor`] when `params.pitch_floor_hz`
+/// is not finite and positive, and [`IntensityError::InvalidTimeStep`] when
+/// an explicit `params.time_step` is not finite and positive. A signal
+/// shorter than the analysis window is not an error: it yields an empty
+/// [`IntensityTrack`].
+pub fn intensity_track(
+    audio: AudioView<'_>,
+    params: &IntensityParams,
+) -> Result<IntensityTrack, IntensityError> {
+    if !(params.pitch_floor_hz.is_finite() && params.pitch_floor_hz > 0.0) {
+        return Err(IntensityError::InvalidPitchFloor {
+            pitch_floor_hz: params.pitch_floor_hz,
+        });
+    }
+    if let Some(time_step) = params.time_step
+        && !(time_step.is_finite() && time_step > 0.0)
+    {
+        return Err(IntensityError::InvalidTimeStep { time_step });
+    }
+
     let sample_rate = audio.sample_rate();
     let samples = audio.mono_mix();
     let window_duration = params.window_duration();
@@ -194,7 +259,7 @@ pub fn intensity_track(audio: AudioView<'_>, params: &IntensityParams) -> Intens
         })
         .collect();
 
-    IntensityTrack { grid, db }
+    Ok(IntensityTrack { grid, db })
 }
 
 /// Builds a unit-sum discrete Kaiser convolution kernel of effective duration
@@ -288,7 +353,7 @@ mod tests {
         let sample_rate = 44_100.0;
         let audio = sine_audio(0.6, 1000.0, sample_rate, 2.0);
         let params = IntensityParams::default();
-        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params);
+        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params).unwrap();
         assert!(track.len() > 20, "need enough frames to trim margins");
 
         // Trim a few frames off each end: the Kaiser kernel's tails are
@@ -313,7 +378,7 @@ mod tests {
         let amplitude = 0.6_f64;
         let audio = sine_audio(amplitude as f32, 1000.0, sample_rate, 2.0);
         let params = IntensityParams::default();
-        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params);
+        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params).unwrap();
 
         let p_rms = amplitude / 2.0_f64.sqrt();
         let expected_db = 20.0 * (p_rms / 2.0e-5).log10();
@@ -339,7 +404,7 @@ mod tests {
             subtract_mean: false,
             ..IntensityParams::default()
         };
-        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params);
+        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params).unwrap();
         assert!(!track.is_empty());
 
         let expected_db = 20.0 * (f64::from(amplitude) / 2.0e-5).log10();
@@ -360,7 +425,7 @@ mod tests {
         let frames = (0.5 * sample_rate) as usize;
         let audio = Audio::new(vec![vec![0.05_f32; frames]], sample_rate).unwrap();
         let params = IntensityParams::default();
-        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params);
+        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params).unwrap();
         assert!(!track.is_empty());
         // Without subtraction this amplitude reads ~68 dB (see the sibling
         // test); -150 dB is deep in f64 rounding noise, far below anything a
@@ -380,7 +445,7 @@ mod tests {
         let audio = sine_audio(0.3, 300.0, sample_rate, 1.0);
         let params = IntensityParams::default();
         let view = audio.slice_samples(0..audio.frames());
-        let track = intensity_track(view.clone(), &params);
+        let track = intensity_track(view.clone(), &params).unwrap();
 
         let expected_grid = FrameGrid::new(
             view.frames() as f64 * (1.0 / view.sample_rate()),
@@ -411,7 +476,133 @@ mod tests {
         let sample_rate = 16_000.0;
         let audio = sine_audio(0.2, 500.0, sample_rate, 0.001);
         let params = IntensityParams::default();
-        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params);
+        let track = intensity_track(audio.slice_samples(0..audio.frames()), &params).unwrap();
         assert!(track.is_empty());
+    }
+
+    /// A zero pitch floor is rejected rather than dividing by zero into an
+    /// infinite window duration.
+    #[test]
+    fn zero_pitch_floor_is_rejected() {
+        let sample_rate = 16_000.0;
+        let audio = sine_audio(0.2, 500.0, sample_rate, 0.5);
+        let params = IntensityParams {
+            pitch_floor_hz: 0.0,
+            ..IntensityParams::default()
+        };
+        assert_eq!(
+            intensity_track(audio.slice_samples(0..audio.frames()), &params),
+            Err(IntensityError::InvalidPitchFloor {
+                pitch_floor_hz: 0.0
+            })
+        );
+    }
+
+    /// A negative pitch floor is rejected.
+    #[test]
+    fn negative_pitch_floor_is_rejected() {
+        let sample_rate = 16_000.0;
+        let audio = sine_audio(0.2, 500.0, sample_rate, 0.5);
+        let params = IntensityParams {
+            pitch_floor_hz: -100.0,
+            ..IntensityParams::default()
+        };
+        assert_eq!(
+            intensity_track(audio.slice_samples(0..audio.frames()), &params),
+            Err(IntensityError::InvalidPitchFloor {
+                pitch_floor_hz: -100.0
+            })
+        );
+    }
+
+    /// A NaN pitch floor is rejected rather than propagating NaN into the
+    /// frame grid.
+    #[test]
+    fn nan_pitch_floor_is_rejected() {
+        let sample_rate = 16_000.0;
+        let audio = sine_audio(0.2, 500.0, sample_rate, 0.5);
+        let params = IntensityParams {
+            pitch_floor_hz: f64::NAN,
+            ..IntensityParams::default()
+        };
+        assert!(matches!(
+            intensity_track(audio.slice_samples(0..audio.frames()), &params),
+            Err(IntensityError::InvalidPitchFloor { pitch_floor_hz }) if pitch_floor_hz.is_nan()
+        ));
+    }
+
+    /// An infinite pitch floor is rejected.
+    #[test]
+    fn infinite_pitch_floor_is_rejected() {
+        let sample_rate = 16_000.0;
+        let audio = sine_audio(0.2, 500.0, sample_rate, 0.5);
+        let params = IntensityParams {
+            pitch_floor_hz: f64::INFINITY,
+            ..IntensityParams::default()
+        };
+        assert_eq!(
+            intensity_track(audio.slice_samples(0..audio.frames()), &params),
+            Err(IntensityError::InvalidPitchFloor {
+                pitch_floor_hz: f64::INFINITY
+            })
+        );
+    }
+
+    /// An explicit zero time step is rejected rather than panicking inside
+    /// `FrameGrid::new`.
+    #[test]
+    fn zero_time_step_is_rejected() {
+        let sample_rate = 16_000.0;
+        let audio = sine_audio(0.2, 500.0, sample_rate, 0.5);
+        let params = IntensityParams {
+            time_step: Some(0.0),
+            ..IntensityParams::default()
+        };
+        assert_eq!(
+            intensity_track(audio.slice_samples(0..audio.frames()), &params),
+            Err(IntensityError::InvalidTimeStep { time_step: 0.0 })
+        );
+    }
+
+    /// A negative explicit time step is rejected.
+    #[test]
+    fn negative_time_step_is_rejected() {
+        let sample_rate = 16_000.0;
+        let audio = sine_audio(0.2, 500.0, sample_rate, 0.5);
+        let params = IntensityParams {
+            time_step: Some(-0.01),
+            ..IntensityParams::default()
+        };
+        assert_eq!(
+            intensity_track(audio.slice_samples(0..audio.frames()), &params),
+            Err(IntensityError::InvalidTimeStep { time_step: -0.01 })
+        );
+    }
+
+    /// A non-finite explicit time step is rejected.
+    #[test]
+    fn non_finite_time_step_is_rejected() {
+        let sample_rate = 16_000.0;
+        let audio = sine_audio(0.2, 500.0, sample_rate, 0.5);
+        let params = IntensityParams {
+            time_step: Some(f64::NAN),
+            ..IntensityParams::default()
+        };
+        assert!(matches!(
+            intensity_track(audio.slice_samples(0..audio.frames()), &params),
+            Err(IntensityError::InvalidTimeStep { time_step }) if time_step.is_nan()
+        ));
+    }
+
+    /// The error type implements `Display` with a message naming the
+    /// rejected field and value.
+    #[test]
+    fn error_display_names_field_and_value() {
+        let err = IntensityError::InvalidPitchFloor {
+            pitch_floor_hz: -1.0,
+        };
+        assert!(err.to_string().contains("pitch_floor_hz"));
+        let err = IntensityError::InvalidTimeStep { time_step: -1.0 };
+        assert!(err.to_string().contains("time_step"));
     }
 }

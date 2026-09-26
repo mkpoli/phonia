@@ -485,7 +485,7 @@ fn formant_params_json(params: &FormantParams) -> Json {
 /// builds the `intensity-defaults` measured payload.
 fn intensity_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
     let params = IntensityParams::default();
-    let track = intensity_track(view, &params);
+    let track = intensity_track(view, &params).expect("default intensity params are valid");
 
     let frames = track
         .iter()

@@ -223,7 +223,8 @@ mod tests {
     fn intensity_layer_matches_track_iteration() {
         let audio = sine_audio(220.0, 0.4, 16000.0);
         let frames = audio.frames();
-        let track = intensity_track(audio.slice_samples(0..frames), &IntensityParams::default());
+        let track = intensity_track(audio.slice_samples(0..frames), &IntensityParams::default())
+            .expect("default intensity params are valid");
         let expected: Vec<(f64, f64)> = track.iter().collect();
         let layer = intensity_layer(&track, LineStyle::default());
         match layer {
