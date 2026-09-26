@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Colours dB spectrogram tiles as RGBA pixels with perceptual colormaps (viridis, magma, cividis, turbo, grayscale and more)"
 documentation = "https://docs.rs/phonia-render"
+readme = "README.md"
 keywords = ["colormap", "spectrogram", "viridis", "visualization", "phonetics"]
 categories = ["visualization", "multimedia::images"]
 

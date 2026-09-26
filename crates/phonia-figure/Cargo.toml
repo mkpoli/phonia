@@ -14,6 +14,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Figure model for phonetics plots (waveform, spectrogram, pitch, formants, intensity, annotation tiers) with SVG, PNG, PDF, TikZ, Typst, Vega-Lite, GraphML and plotting-script exporters"
 documentation = "https://docs.rs/phonia-figure"
+readme = "README.md"
 keywords = ["phonetics", "plot", "figure", "svg", "praat"]
 categories = ["visualization", "science"]
 

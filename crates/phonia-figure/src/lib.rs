@@ -1,23 +1,24 @@
 //! Backend-agnostic figure model: the single input every export backend
 //! consumes.
 //!
-//! A [`Figure`] is a self-contained description of a phonetics figure with all
-//! data embedded — waveform envelopes, raw-decibel spectrogram matrices, pitch
-//! and intensity point series, formant speckles, and annotation tiers. Nothing
-//! in the model references an engine, an audio store, or a live analysis, so a
-//! figure serializes to JSON deterministically and travels as the
-//! dialog↔worker wire format. Spectrograms store raw decibels and defer
-//! colorization to export time, so each backend re-colorizes per theme rather
-//! than replaying baked pixels.
+//! A [`Figure`] is a self-contained description of a phonetics figure with
+//! all data embedded — waveform envelopes, raw-decibel spectrogram
+//! matrices, pitch and intensity point series, formant speckles, and
+//! annotation tiers. Nothing in the model references an engine, an audio
+//! store, or a live analysis, so a figure serializes to JSON
+//! deterministically. Spectrograms store raw decibels and defer
+//! colorization to export time, so each backend re-colorizes per theme
+//! rather than replaying baked pixels.
 //!
 //! [`builder`] holds the tier-embedding helper that is always available, plus
 //! (behind the default-off `analysis` feature) every conversion from a
-//! committed analysis type ([`phonia_spectrogram::Tile`],
-//! [`phonia_pitch::PitchTrack`], [`phonia_formant::FormantTrack`],
-//! [`phonia_intensity::IntensityTrack`]) into an embedded [`Layer`]. A build
+//! committed analysis type (`phonia_spectrogram::Tile`,
+//! `phonia_pitch::PitchTrack`, `phonia_formant::FormantTrack`,
+//! `phonia_intensity::IntensityTrack`) into an embedded [`Layer`]. A build
 //! with no features pulls in only [`phonia_annot`] and [`phonia_render`] as
 //! analysis-adjacent dependencies; enable `analysis` to build figures from
 //! live analysis results.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 pub mod backends;
