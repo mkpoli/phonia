@@ -427,7 +427,7 @@ fn pitch_params_json(params: &PitchParams) -> Json {
 /// numbering exactly, with no tracking layer on either side.
 fn formant_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
     let params = FormantParams::default();
-    let raw = formant_track(view, &params);
+    let raw = formant_track(view, &params).expect("FormantParams::default() is valid");
 
     let frames = raw
         .frames

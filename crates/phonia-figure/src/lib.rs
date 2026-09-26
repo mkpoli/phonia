@@ -239,7 +239,8 @@ mod tests {
     fn formant_layer_records_smoothing_and_frame_shape() {
         let audio = sine_audio(220.0, 0.3, 16000.0);
         let frames = audio.frames();
-        let track = formant_track(audio.slice_samples(0..frames), &FormantParams::default());
+        let track =
+            formant_track(audio.slice_samples(0..frames), &FormantParams::default()).unwrap();
         let layer = formant_layer(&track, true, SpeckleStyle::default());
         match layer {
             Layer::FormantSpeckle {

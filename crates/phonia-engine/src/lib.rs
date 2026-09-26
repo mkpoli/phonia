@@ -707,19 +707,18 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant
-    /// parameter is outside the range `phonia_formant` accepts (its analysis
-    /// entry point asserts these, so the engine boundary checks them first).
+    /// store entry, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range `phonia_formant` accepts, or its internal resample
+    /// overruns `phonia_audio`'s allocation limit.
     pub fn formant_track(
         &self,
         id: AudioId,
         params: &FormantParams,
     ) -> Result<FormantTrack, EngineError> {
-        validate_formant_params(params)?;
         let access = self.store.whole(id)?;
         let audio = access.audio();
         let view = audio.slice_samples(0..audio.frames());
-        Ok(phonia_formant::formant_track(view, params))
+        Ok(phonia_formant::formant_track(view, params)?)
     }
 
     /// Computes Xia–Espy-Wilson smoothed formants of `id` over its whole
@@ -731,8 +730,8 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant
-    /// parameter is outside the range `phonia_formant` accepts.
+    /// store entry, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range `phonia_formant` accepts.
     pub fn formant_track_smoothed(
         &self,
         id: AudioId,
@@ -742,7 +741,7 @@ impl Engine {
         Ok(phonia_formant::track_smoothed(
             &raw,
             &phonia_formant::TrackingRefs::default(),
-        ))
+        )?)
     }
 
     /// Computes the intensity contour of `id` over its whole signal.
@@ -956,8 +955,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant parameter
-    /// is outside the range the analysis accepts, or a bound is not finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range the analysis accepts.
     pub fn formant_span_means(
         &self,
         id: AudioId,
@@ -1002,8 +1002,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a formant parameter
-    /// is outside the range the analysis accepts, or a bound is not finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Formant`] when a formant parameter is
+    /// outside the range the analysis accepts.
     pub fn formant_span_bandwidth_means(
         &self,
         id: AudioId,
@@ -2952,37 +2953,6 @@ fn sd_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Optio
     Some(variance.sqrt())
 }
 
-/// Validates a [`FormantParams`] before it reaches `phonia_formant`.
-///
-/// `phonia_formant::formant_track` asserts these same properties and panics on
-/// violation. The engine is the boundary untrusted callers reach, so it
-/// re-checks them here and turns a would-be panic into a typed error.
-fn validate_formant_params(params: &FormantParams) -> Result<(), EngineError> {
-    let invalid = |reason: &str| {
-        Err(EngineError::InvalidRequest {
-            reason: reason.to_string(),
-        })
-    };
-    if !(params.ceiling_hz.is_finite() && params.ceiling_hz > 100.0) {
-        return invalid("params.ceiling_hz must be finite and greater than 100 Hz");
-    }
-    if params.max_formants == 0 {
-        return invalid("params.max_formants must be positive");
-    }
-    if !(params.window_length.is_finite() && params.window_length > 0.0) {
-        return invalid("params.window_length must be finite and positive");
-    }
-    if let Some(step) = params.time_step
-        && !(step.is_finite() && step > 0.0)
-    {
-        return invalid("params.time_step must be finite and positive when set");
-    }
-    if !params.preemphasis_from_hz.is_finite() {
-        return invalid("params.preemphasis_from_hz must be finite");
-    }
-    Ok(())
-}
-
 /// Validates a [`TileRequest`] before it reaches `phonia_spectrogram`.
 ///
 /// `phonia_spectrogram::compute_tile` asserts these same properties and panics
@@ -3797,7 +3767,7 @@ mod tests {
         };
         assert!(matches!(
             engine.formant_track(id, &params),
-            Err(EngineError::InvalidRequest { .. })
+            Err(EngineError::Formant(_))
         ));
     }
 
