@@ -13,14 +13,14 @@
 //! A `Sound` object's samples are documented as air pressure directly in
 //! Pascal, so no separate calibration factor sits between sample amplitude
 //! and the reference pressure below: this crate treats every input sample as
-//! a pascal value, exactly as Praat does. A WAV file is normalised to
-//! `±1.0` full scale, not to a physical pressure, so feeding one through
-//! unmodified yields dB relative to full scale (dBFS) offset by a fixed
-//! constant (`20·log10(1 Pa / 2×10⁻⁵ Pa) ≈ 94` dB), not a true sound
-//! pressure level. The numbers this crate reports are physical SPL only when
-//! the caller has itself calibrated the recording chain (microphone
-//! sensitivity, gain, ADC full-scale voltage) so that a sample value of
-//! `1.0` truly corresponds to `1` pascal at the microphone.
+//! a pascal value, exactly as Praat does. Integer PCM is decoded to
+//! `±1.0` full scale, not to a physical pressure, so such a recording yields
+//! dB relative to full scale (dBFS) offset by a fixed constant
+//! (`20·log10(1 Pa / 2×10⁻⁵ Pa) ≈ 94` dB), not a true sound pressure level.
+//! Float samples are passed through unscaled. The reported values are a
+//! physical SPL only when the samples are already calibrated pressures:
+//! the recording chain (microphone sensitivity, gain, converter full scale)
+//! maps a sample value of `1.0` to `1` Pa at the microphone.
 #![warn(missing_docs)]
 
 use std::error::Error;
