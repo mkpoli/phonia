@@ -83,9 +83,9 @@ mod tests {
             .collect();
         preemphasis_in_place(&mut x, 50.0, sr);
         // y[t] = x[t] − a·x[t−1] = (−1)^t (1 + a) for t ≥ 1.
-        for t in 1..n {
+        for (t, &y) in x.iter().enumerate().skip(1) {
             let s = if t % 2 == 0 { 1.0 } else { -1.0 };
-            assert!((x[t] - s * (1.0 + a)).abs() < 1e-12);
+            assert!((y - s * (1.0 + a)).abs() < 1e-12);
         }
     }
 

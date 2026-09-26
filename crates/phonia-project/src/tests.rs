@@ -297,7 +297,7 @@ fn random_forest(rng: &mut Rng, media_count: usize, depth: u32) -> Vec<LibraryNo
     let count = (rng.next() % 4) as usize;
     let mut nodes = Vec::new();
     for _ in 0..count {
-        let make_group = depth < 3 && rng.next() % 3 == 0;
+        let make_group = depth < 3 && rng.next().is_multiple_of(3);
         if make_group {
             let id = GroupId::new(1_000 + rng.next() % 1_000);
             nodes.push(LibraryNode::Group(Group {
