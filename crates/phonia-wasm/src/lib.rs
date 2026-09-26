@@ -3644,7 +3644,7 @@ mod tests {
         assert_eq!(applied.kind(), "labelSet");
         assert_eq!(applied.annotation(), Some(doc));
 
-        let hits = engine.search_labels("aː".to_string(), false);
+        let hits = engine.search_labels("aː".to_string(), false).unwrap();
         assert_eq!(hits.annotations().len(), 1);
         assert_eq!(hits.annotations()[0], doc);
 

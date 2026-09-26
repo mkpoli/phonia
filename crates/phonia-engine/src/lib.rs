@@ -2271,6 +2271,7 @@ impl Engine {
     /// Returns [`EngineError::Annotation`] when `query` carries a
     /// [`phonia_annot::LabelPattern::Regex`] pattern that fails to compile.
     pub fn search_labels(&self, query: &LabelQuery) -> Result<Vec<EngineHit>, EngineError> {
+        query.validate()?;
         let mut hits = Vec::new();
         for id in self.documents.ids_sorted() {
             let Ok(document) = self.documents.get(id) else {
@@ -5056,6 +5057,16 @@ mod tests {
     #[test]
     fn search_labels_reports_invalid_regex_pattern() {
         let (engine, _audio, _first) = base_engine();
+        let err = engine.search_labels(&LabelQuery::regex(r"a(")).unwrap_err();
+        assert!(matches!(
+            err,
+            EngineError::Annotation(AnnotationError::InvalidLabelPattern { .. })
+        ));
+    }
+
+    #[test]
+    fn search_labels_rejects_invalid_regex_with_no_documents() {
+        let engine = Engine::new();
         let err = engine.search_labels(&LabelQuery::regex(r"a(")).unwrap_err();
         assert!(matches!(
             err,

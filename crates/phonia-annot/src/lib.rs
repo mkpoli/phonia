@@ -1854,6 +1854,15 @@ impl LabelQuery {
         self
     }
 
+    /// Checks that the pattern compiles, without searching anything.
+    ///
+    /// # Errors
+    /// Returns [`AnnotationError::InvalidLabelPattern`] when a
+    /// [`LabelPattern::Regex`] pattern fails to compile.
+    pub fn validate(&self) -> Result<(), AnnotationError> {
+        self.matcher().map(|_| ())
+    }
+
     fn matcher(&self) -> Result<Matcher, AnnotationError> {
         match &self.pattern {
             LabelPattern::Substring(text) => Ok(Matcher::Substring(text.clone())),
