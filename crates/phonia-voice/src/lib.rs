@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use phonia_audio::AudioView;
 use phonia_dsp::{FrameGrid, RealFftPlan, Window, next_pow2, sinc_interpolate_max, window_samples};
-use phonia_pitch::{PitchParams, PitchTrack, TimeSpan, pitch_track, pitch_track_cc};
+use phonia_pitch::{PitchError, PitchParams, PitchTrack, TimeSpan, pitch_track, pitch_track_cc};
 
 const EPSILON: f64 = 1e-12;
 
@@ -544,7 +544,11 @@ pub fn hnr_track_cc(audio: AudioView<'_>, params: &HarmonicityParams) -> HnrTrac
         octave_jump_cost: 0.0,
         voiced_unvoiced_cost: 0.0,
     };
-    let track = pitch_track_cc(audio, &pitch_params, params.periods_per_window);
+    // `valid_hnr_cc_params` does not check `floor_hz` against the sample
+    // rate; a floor above Nyquist still makes the derived ceiling invalid,
+    // so this falls back to the same empty track as any other unanalysable
+    // combination here.
+    let track = pitch_track_cc(audio, &pitch_params, params.periods_per_window).unwrap_or_default();
     let frames = track
         .frames()
         .iter()
@@ -771,13 +775,16 @@ pub fn spectral_moments(slice: &SpectrumSlice, power: f64) -> Moments {
 }
 
 /// Computes an aggregate voice-quality report over `span`.
-#[must_use]
+///
+/// # Errors
+/// Returns the [`PitchError`] from [`phonia_pitch::PitchParams::validate`]
+/// when `pitch_params` cannot be analysed.
 pub fn voice_report(
     audio: AudioView<'_>,
     span: TimeSpan,
     pitch_params: &PitchParams,
-) -> VoiceReport {
-    let pitch = pitch_track(audio.clone(), pitch_params);
+) -> Result<VoiceReport, PitchError> {
+    let pitch = pitch_track(audio.clone(), pitch_params)?;
     let pulse_params = PulseParams::default();
     let harmonicity_params = HarmonicityParams {
         floor_hz: pitch_params.floor_hz,
@@ -792,7 +799,7 @@ pub fn voice_report(
     let midpoint = 0.5 * (span.start + span.end);
     let periods = periods_in_span(&pp, span);
 
-    VoiceReport {
+    Ok(VoiceReport {
         span,
         pitch_params: pitch_params.clone(),
         pulse_params,
@@ -827,7 +834,7 @@ pub fn voice_report(
         period_sd_seconds: period_sd(&periods),
         unvoiced_fraction: pitch.unvoiced_fraction(span),
         pulses: pp,
-    }
+    })
 }
 
 /// Sample standard deviation of the glottal periods (seconds). `None` when

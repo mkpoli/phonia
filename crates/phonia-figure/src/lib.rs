@@ -203,7 +203,7 @@ mod tests {
     fn pitch_layer_carries_only_voiced_finite_points() {
         let audio = sine_audio(220.0, 0.4, 16000.0);
         let frames = audio.frames();
-        let track = pitch_track(audio.slice_samples(0..frames), &PitchParams::default());
+        let track = pitch_track(audio.slice_samples(0..frames), &PitchParams::default()).unwrap();
         let layer = pitch_layer(&track, PitchUnit::Hertz, LineStyle::default());
         match layer {
             Layer::PitchLine { points, unit, .. } => {

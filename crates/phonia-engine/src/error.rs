@@ -12,6 +12,7 @@ use std::fmt;
 use phonia_annot::{AnnotationError, IntegrityIssue};
 use phonia_audio::AudioError;
 use phonia_intensity::IntensityError;
+use phonia_pitch::PitchError;
 
 use crate::document::AnnotationId;
 use crate::recording::RecordingId;
@@ -36,6 +37,9 @@ pub enum EngineError {
     /// An annotation offered to [`crate::Engine::apply`] failed its own
     /// integrity check before it could enter the store.
     InvalidAnnotation(Vec<IntegrityIssue>),
+    /// A [`phonia_pitch::PitchParams`] value passed to a pitch-tracking entry
+    /// point could not be analysed.
+    Pitch(PitchError),
     /// A tile or waveform request carried a value the underlying analysis
     /// cannot use (non-finite time/frequency bounds, a non-positive
     /// parameter, or pixel dimensions that produced no analysis columns).
@@ -62,6 +66,7 @@ impl fmt::Display for EngineError {
                 )
             }
             Self::InvalidRequest { reason } => write!(f, "invalid request: {reason}"),
+            Self::Pitch(err) => write!(f, "invalid pitch parameters: {err}"),
         }
     }
 }
@@ -72,6 +77,7 @@ impl Error for EngineError {
             Self::Audio(err) => Some(err),
             Self::Annotation(err) => Some(err),
             Self::Intensity(err) => Some(err),
+            Self::Pitch(err) => Some(err),
             Self::UnknownAudioId(_)
             | Self::UnknownAnnotationId(_)
             | Self::UnknownRecordingId(_)
@@ -96,5 +102,11 @@ impl From<AudioError> for EngineError {
 impl From<IntensityError> for EngineError {
     fn from(err: IntensityError) -> Self {
         Self::Intensity(err)
+    }
+}
+
+impl From<PitchError> for EngineError {
+    fn from(err: PitchError) -> Self {
+        Self::Pitch(err)
     }
 }

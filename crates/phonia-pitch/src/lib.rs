@@ -15,7 +15,7 @@ mod perf;
 use phonia_audio::AudioView;
 use phonia_dsp::FrameGrid;
 
-pub use params::PitchParams;
+pub use params::{PitchError, PitchParams};
 pub use types::{PitchCandidate, PitchFrame, PitchTrack, TimeSpan};
 
 /// Computes a window-corrected autocorrelation pitch track.
@@ -26,9 +26,16 @@ pub use types::{PitchCandidate, PitchFrame, PitchTrack, TimeSpan};
 /// candidates ([`PitchFrame::candidates`]) whose strengths are raw
 /// correlations; the path finder applies the octave cost and the transition
 /// costs when it picks [`PitchFrame::f0`].
-#[must_use]
-pub fn pitch_track(audio: AudioView<'_>, params: &PitchParams) -> PitchTrack {
-    track(audio, params, analysis::Method::Autocorrelation)
+///
+/// Audio shorter than one analysis window is not an error: it yields an
+/// empty, valid [`PitchTrack`].
+///
+/// # Errors
+/// Returns the [`PitchError`] from [`PitchParams::validate`] when
+/// `params` cannot be analysed.
+pub fn pitch_track(audio: AudioView<'_>, params: &PitchParams) -> Result<PitchTrack, PitchError> {
+    params.validate()?;
+    Ok(track(audio, params, analysis::Method::Autocorrelation))
 }
 
 /// Computes a pitch track by normalised forward cross-correlation, Praat's
@@ -42,23 +49,31 @@ pub fn pitch_track(audio: AudioView<'_>, params: &PitchParams) -> PitchTrack {
 /// 70, as there); the automatic time step is `0.25 / floor`.
 /// Praat's command analyses one period per window; its cross-correlation
 /// harmonicity passes its own value.
-#[must_use]
+///
+/// # Errors
+/// Returns the [`PitchError`] from [`PitchParams::validate`] when
+/// `params` cannot be analysed, or
+/// [`PitchError::InvalidPeriodsPerWindow`] when `periods_per_window`
+/// is not finite or not positive.
 pub fn pitch_track_cc(
     audio: AudioView<'_>,
     params: &PitchParams,
     periods_per_window: f64,
-) -> PitchTrack {
+) -> Result<PitchTrack, PitchError> {
+    params.validate()?;
     if !(periods_per_window.is_finite() && periods_per_window > 0.0) {
-        return PitchTrack::new(Vec::new());
+        return Err(PitchError::InvalidPeriodsPerWindow(periods_per_window));
     }
     let method = analysis::Method::CrossCorrelation { periods_per_window };
-    track(audio, params, method)
+    Ok(track(audio, params, method))
 }
 
+/// Runs the analysis proper; `params` must already have passed
+/// [`PitchParams::validate`]. Audio shorter than one window, or a window that
+/// rounds to fewer than four samples at the audio's sample rate, still yields
+/// an empty track rather than an error: those depend on the signal, not the
+/// parameters alone.
 fn track(audio: AudioView<'_>, params: &PitchParams, method: analysis::Method) -> PitchTrack {
-    if !params.is_valid_for_analysis() {
-        return PitchTrack::new(Vec::new());
-    }
     let automatic_step_periods = match method {
         analysis::Method::Autocorrelation => 0.75,
         analysis::Method::CrossCorrelation { .. } => 0.25,
@@ -118,7 +133,7 @@ mod tests {
 
     fn analyse_signal(signal: Vec<f32>, sample_rate: f64, params: PitchParams) -> PitchTrack {
         let audio = audio_from_signal(signal, sample_rate);
-        pitch_track(audio.slice_samples(0..audio.frames()), &params)
+        pitch_track(audio.slice_samples(0..audio.frames()), &params).unwrap()
     }
 
     fn assert_relative_close(actual: f64, expected: f64, tolerance: f64) {
@@ -151,7 +166,8 @@ mod tests {
             audio.slice_samples(0..audio.frames()),
             &PitchParams::default(),
             1.0,
-        );
+        )
+        .unwrap();
         // The automatic step is a quarter period of the floor: 3.33 ms.
         assert!(track.frames().len() > 130, "{}", track.frames().len());
         let mean = track.mean_hz(TimeSpan::new(0.1, 0.4)).unwrap();
@@ -418,37 +434,143 @@ mod tests {
     }
 
     #[test]
-    fn degenerate_inputs_return_empty_tracks() {
+    fn degenerate_audio_returns_an_empty_track() {
         let sample_rate = 44_100.0;
-        let audio = audio_from_signal(sine(150.0, sample_rate, 0.5), sample_rate);
-        let view = audio.slice_samples(0..audio.frames());
-
-        let mut params = PitchParams {
-            floor_hz: 0.0,
-            ..PitchParams::default()
-        };
-        assert!(pitch_track(view.clone(), &params).frames().is_empty());
-
-        params = PitchParams {
-            ceiling_hz: 75.0,
-            ..PitchParams::default()
-        };
-        assert!(pitch_track(view.clone(), &params).frames().is_empty());
-
-        params = PitchParams {
-            max_candidates: 0,
-            ..PitchParams::default()
-        };
-        assert!(pitch_track(view.clone(), &params).frames().is_empty());
-
+        // Shorter than one analysis window: an audio-driven empty result, not
+        // a parameter error.
         let short = audio_from_signal(sine(150.0, sample_rate, 0.01), sample_rate);
         assert!(
             pitch_track(
                 short.slice_samples(0..short.frames()),
                 &PitchParams::default()
             )
+            .unwrap()
             .frames()
             .is_empty()
+        );
+    }
+
+    #[test]
+    fn non_positive_floor_is_rejected() {
+        let params = PitchParams {
+            floor_hz: 0.0,
+            ..PitchParams::default()
+        };
+        assert_eq!(params.validate(), Err(PitchError::InvalidFloor(0.0)));
+    }
+
+    #[test]
+    fn non_finite_floor_is_rejected() {
+        let params = PitchParams {
+            floor_hz: f64::NAN,
+            ..PitchParams::default()
+        };
+        assert!(matches!(
+            params.validate(),
+            Err(PitchError::InvalidFloor(value)) if value.is_nan()
+        ));
+    }
+
+    #[test]
+    fn ceiling_at_or_below_floor_is_rejected() {
+        let params = PitchParams {
+            ceiling_hz: 75.0,
+            ..PitchParams::default()
+        };
+        assert_eq!(
+            params.validate(),
+            Err(PitchError::CeilingNotAboveFloor {
+                floor_hz: 75.0,
+                ceiling_hz: 75.0,
+            })
+        );
+
+        let inverted = PitchParams {
+            floor_hz: 600.0,
+            ceiling_hz: 75.0,
+            ..PitchParams::default()
+        };
+        assert_eq!(
+            inverted.validate(),
+            Err(PitchError::CeilingNotAboveFloor {
+                floor_hz: 600.0,
+                ceiling_hz: 75.0,
+            })
+        );
+    }
+
+    #[test]
+    fn non_positive_time_step_is_rejected() {
+        let params = PitchParams {
+            time_step: Some(0.0),
+            ..PitchParams::default()
+        };
+        assert_eq!(params.validate(), Err(PitchError::InvalidTimeStep(0.0)));
+
+        let negative = PitchParams {
+            time_step: Some(-0.01),
+            ..PitchParams::default()
+        };
+        assert_eq!(negative.validate(), Err(PitchError::InvalidTimeStep(-0.01)));
+    }
+
+    #[test]
+    fn zero_max_candidates_is_rejected() {
+        let params = PitchParams {
+            max_candidates: 0,
+            ..PitchParams::default()
+        };
+        assert_eq!(params.validate(), Err(PitchError::ZeroCandidates));
+    }
+
+    #[test]
+    fn non_finite_cost_field_is_rejected() {
+        let params = PitchParams {
+            octave_jump_cost: f64::INFINITY,
+            ..PitchParams::default()
+        };
+        assert_eq!(
+            params.validate(),
+            Err(PitchError::NonFiniteField {
+                field: "octave_jump_cost",
+                value: f64::INFINITY,
+            })
+        );
+    }
+
+    #[test]
+    fn invalid_params_are_rejected_by_pitch_track_and_pitch_track_cc() {
+        let sample_rate = 44_100.0;
+        let audio = audio_from_signal(sine(150.0, sample_rate, 0.5), sample_rate);
+        let view = audio.slice_samples(0..audio.frames());
+        let params = PitchParams {
+            max_candidates: 0,
+            ..PitchParams::default()
+        };
+        assert_eq!(
+            pitch_track(view.clone(), &params),
+            Err(PitchError::ZeroCandidates)
+        );
+        assert_eq!(
+            pitch_track_cc(view, &params, 1.0),
+            Err(PitchError::ZeroCandidates)
+        );
+    }
+
+    #[test]
+    fn non_positive_periods_per_window_is_rejected() {
+        let sample_rate = 44_100.0;
+        let audio = audio_from_signal(sine(150.0, sample_rate, 0.5), sample_rate);
+        let view = audio.slice_samples(0..audio.frames());
+        assert_eq!(
+            pitch_track_cc(view.clone(), &PitchParams::default(), 0.0),
+            Err(PitchError::InvalidPeriodsPerWindow(0.0))
+        );
+        assert_eq!(
+            pitch_track_cc(view, &PitchParams::default(), f64::NAN)
+                .unwrap_err()
+                .to_string(),
+            PitchError::InvalidPeriodsPerWindow(f64::NAN).to_string()
         );
     }
 }

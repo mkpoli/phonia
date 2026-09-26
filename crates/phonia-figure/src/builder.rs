@@ -368,7 +368,8 @@ pub fn reference_figure() -> Figure {
     );
 
     let pitch_params = PitchParams::default();
-    let pitch = pitch_track(audio.slice_samples(0..frames), &pitch_params);
+    let pitch = pitch_track(audio.slice_samples(0..frames), &pitch_params)
+        .expect("default pitch params are valid");
 
     let mono = audio.mono_mix();
     let envelope = waveform_minmax(&mono, 1000);

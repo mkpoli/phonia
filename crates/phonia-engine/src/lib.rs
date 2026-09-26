@@ -558,13 +558,12 @@ impl Engine {
     ///
     /// The track sits on a frame grid derived from the audio duration alone,
     /// so a value queried at time *t* is the same at any zoom or scroll
-    /// (rule 2, `docs/plan/architecture.md`). `phonia_pitch::pitch_track` returns
-    /// an empty track for parameters it cannot analyse rather than panicking,
-    /// so this method never surfaces a parameter error of its own.
+    /// (rule 2, `docs/plan/architecture.md`).
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry.
+    /// store entry, and [`EngineError::Pitch`] when `params` cannot be
+    /// analysed.
     pub fn pitch_track(
         &self,
         id: AudioId,
@@ -573,7 +572,7 @@ impl Engine {
         let access = self.store.whole(id)?;
         let audio = access.audio();
         let view = audio.slice_samples(0..audio.frames());
-        Ok(phonia_pitch::pitch_track(view, params))
+        Ok(phonia_pitch::pitch_track(view, params)?)
     }
 
     /// Computes pitch over just the samples spanning `[t0, t1)` seconds,
@@ -592,8 +591,8 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when `t0`/`t1` are not
-    /// finite.
+    /// store entry, [`EngineError::InvalidRequest`] when `t0`/`t1` are not
+    /// finite, and [`EngineError::Pitch`] when `params` cannot be analysed.
     pub fn pitch_track_span(
         &self,
         id: AudioId,
@@ -616,7 +615,7 @@ impl Engine {
         // The span is a viewport window; decode only its samples so a streamed
         // source never materializes the whole signal for a preview.
         let window = self.store.range_owned(id, start, end)?;
-        let track = phonia_pitch::pitch_track(window.slice_samples(0..window.frames()), params);
+        let track = phonia_pitch::pitch_track(window.slice_samples(0..window.frames()), params)?;
         Ok((track, start as f64 / sample_rate))
     }
 
@@ -850,7 +849,8 @@ impl Engine {
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
     /// store entry, [`EngineError::InvalidRequest`] when a bound is not
-    /// finite, and [`EngineError::Intensity`] when `intensity_floor_hz` is
+    /// finite, [`EngineError::Pitch`] when the pitch floor/ceiling cannot be
+    /// analysed, and [`EngineError::Intensity`] when `intensity_floor_hz` is
     /// not finite and positive.
     #[allow(clippy::too_many_arguments)]
     pub fn selection_readout(
@@ -903,7 +903,7 @@ impl Engine {
             ceiling_hz: pitch_ceiling_hz,
             ..PitchParams::default()
         };
-        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params);
+        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params)?;
 
         let intensity_params = IntensityParams {
             pitch_floor_hz: intensity_floor_hz,
@@ -1442,8 +1442,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
-    /// finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Pitch`] when the pitch floor/ceiling cannot
+    /// be analysed.
     pub fn voice_report(
         &self,
         id: AudioId,
@@ -1471,7 +1472,7 @@ impl Engine {
             view,
             TimeSpan::new(lo, hi),
             &pitch_params,
-        ))
+        )?)
     }
 
     /// Glottal pulse instants across the whole signal, in seconds — the same
@@ -1480,8 +1481,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
-    /// finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Pitch`] when the pitch floor/ceiling cannot
+    /// be analysed.
     pub fn pulse_times(
         &self,
         id: AudioId,
@@ -1501,7 +1503,7 @@ impl Engine {
             ceiling_hz: pitch_ceiling_hz,
             ..PitchParams::default()
         };
-        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params);
+        let pitch = phonia_pitch::pitch_track(view.clone(), &pitch_params)?;
         let pulses = phonia_voice::pulses(view, &pitch, &PulseParams::default());
         Ok(pulses.times().to_vec())
     }

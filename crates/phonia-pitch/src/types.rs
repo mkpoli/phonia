@@ -67,6 +67,13 @@ pub struct PitchTrack {
     frames: Vec<PitchFrame>,
 }
 
+impl Default for PitchTrack {
+    /// An empty track, with no frames.
+    fn default() -> Self {
+        Self { frames: Vec::new() }
+    }
+}
+
 impl PitchTrack {
     pub(crate) fn new(frames: Vec<PitchFrame>) -> Self {
         Self { frames }
