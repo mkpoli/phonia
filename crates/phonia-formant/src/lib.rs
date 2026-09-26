@@ -1,15 +1,37 @@
 //! Pre-emphasis, Burg recursion, polynomial roots → frequency/bandwidth,
 //! Xia–Espy-Wilson DP tracking.
+//!
+//! [`formant_track`] reproduces Praat's "Sound: To Formant (burg)..."
+//! pipeline — resampling, the Gaussian window, pre-emphasis, Burg LPC, and
+//! root-to-formant conversion — and is Praat-matching: the oracle corpus
+//! (`docs/plan/gates.md`, T2.6) agrees with parselmouth on all but 8 of 6717
+//! checked points (median residual 0.3 Hz): three frames keep a root near
+//! the 50–75 Hz gate edge that Praat drops, and one F2 differs by 72 Hz. Its output is
+//! the crate's raw, per-frame candidate list: each frame's frequency-gated
+//! LPC roots, sorted by frequency, with no correspondence enforced between a
+//! slot in one frame and the same slot in the next.
+//!
+//! [`track_smoothed`] is the provisional tracking step: a Viterbi
+//! reassignment of those per-frame candidates to formant slots, after Xia &
+//! Espy-Wilson (2000). The paper gives neutral reference frequencies for
+//! F1-F4 but no published values for the local-cost and transition-cost
+//! weights; [`TrackingRefs`]'s defaults are this crate's own empirical
+//! choice, unvalidated against Praat's separate `Formant: Track...` command.
+//! Raw, untracked candidates are the display default for this reason
+//! (`docs/plan/gates.md`, T2.6); callers presenting the smoothed track
+//! should label it as provisional.
 #![warn(missing_docs)]
 
 mod burg;
 mod envelope;
+mod error;
 mod params;
 mod roots;
 mod track;
 mod types;
 
 pub use envelope::lpc_envelope_db;
+pub use error::FormantError;
 pub use params::{FormantParams, effective_time_step, frame_grid};
 pub use track::{TrackingRefs, formant_track, track_smoothed};
 pub use types::{FormantFrame, FormantPoint, FormantTrack};
@@ -30,7 +52,8 @@ mod tests {
         let targets = [(850.0, 50.0), (1220.0, 50.0), (2600.0, 120.0)];
         let audio = synthetic_vowel(sample_rate, 0.5, 90.0, &targets);
         let params = FormantParams::default();
-        let track = formant_track(audio.slice_samples(0..audio.frames()), &params);
+        let track =
+            formant_track(audio.slice_samples(0..audio.frames()), &params).expect("valid params");
         let mid = best_synthetic_frame(&track, &targets).expect("non-empty track");
 
         println!("synthetic frame {:.6}s: {:?}", mid.time, mid.formants);
@@ -68,14 +91,16 @@ mod tests {
                 ceiling_hz: 5000.0,
                 ..FormantParams::default()
             },
-        );
+        )
+        .expect("valid params");
         let female_default = formant_track(
             audio.slice_samples(0..audio.frames()),
             &FormantParams {
                 ceiling_hz: 5500.0,
                 ..FormantParams::default()
             },
-        );
+        )
+        .expect("valid params");
         let male_f1 = mean_f1(&male);
         let female_default_f1 = mean_f1(&female_default);
         println!("mean F1 ceiling 5000 Hz: {male_f1:.3}");
