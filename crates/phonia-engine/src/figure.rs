@@ -14,11 +14,10 @@ use std::collections::BTreeMap;
 use phonia_figure::{
     Axis, CodeExport, CodeLang, Figure, FigureBuilder, LayerKind, LengthUnit, LineStyle, Panel,
     PitchUnit, ProvenanceRecord, RgbaColor, SizeSpec, SpeckleStyle, TextExport, TierStyle,
-    formant_layer, harmonicity_layer, intensity_layer, pitch_layer, spectral_slice_layer,
+    TimeSpan, formant_layer, harmonicity_layer, intensity_layer, pitch_layer, spectral_slice_layer,
     spectrogram_layer, tiers_layer, to_code, to_graphml, to_svg, to_tikz, to_typst, to_vega,
     waveform_layer, waveform_minmax,
 };
-use phonia_pitch::TimeSpan;
 use phonia_render::{Colormap, DisplayMapping, Theme};
 use phonia_spectrogram::{Slice, SpectrogramParams, TileRequest, compute_tile};
 use serde::Deserialize;

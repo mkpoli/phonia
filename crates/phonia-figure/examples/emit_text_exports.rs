@@ -6,7 +6,7 @@
 //! sidecar or data files.
 //!
 //! ```text
-//! cargo run -p phonia-figure --example emit_text_exports
+//! cargo run -p phonia-figure --example emit_text_exports --features analysis
 //! ```
 
 #[path = "../tests/common/mod.rs"]

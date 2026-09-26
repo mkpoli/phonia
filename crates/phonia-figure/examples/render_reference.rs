@@ -6,7 +6,7 @@
 //! export artifacts; it reads the repo's fixtures from disk at run time.
 //!
 //! ```text
-//! cargo run -p phonia-figure --example render_reference --features raster,pdf
+//! cargo run -p phonia-figure --example render_reference --features analysis,raster,pdf
 //! ```
 
 #[path = "../tests/common/mod.rs"]

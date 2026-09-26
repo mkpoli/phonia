@@ -6,9 +6,8 @@ use common::reference_figure;
 use phonia_figure::{
     Axis, DashStyle, Figure, FigureBuilder, IntervalData, Layer, LayerKind, LengthUnit, LineStyle,
     MinMax, Panel, PitchUnit, PointData, RgbaColor, SizeSpec, SpeckleFrame, SpecklePoint,
-    SpeckleStyle, TierContent, TierData, TierStyle, to_svg,
+    SpeckleStyle, TierContent, TierData, TierStyle, TimeSpan, to_svg,
 };
-use phonia_pitch::TimeSpan;
 use phonia_render::{Colormap, DisplayMapping, Theme};
 
 /// Reads the width and height fields of a PNG's IHDR chunk.
