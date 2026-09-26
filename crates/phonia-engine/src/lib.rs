@@ -375,7 +375,7 @@ impl Engine {
         invert: bool,
         preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
-        validate_tile_request(req)?;
+        req.validate()?;
         let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
@@ -425,7 +425,7 @@ impl Engine {
         invert: bool,
         preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
-        validate_tile_request(req)?;
+        req.validate()?;
         let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
@@ -2953,55 +2953,6 @@ fn sd_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Optio
     Some(variance.sqrt())
 }
 
-/// Validates a [`TileRequest`] before it reaches `phonia_spectrogram`.
-///
-/// `phonia_spectrogram::compute_tile` validates these same properties itself
-/// and returns a typed [`phonia_spectrogram::SpectrogramError`] on violation
-/// (converted to [`EngineError::InvalidRequest`] via `?`). This pre-check
-/// exists for callers on the block-cache path (e.g.
-/// [`Engine::spectrogram_tile_rgba`]) that reach
-/// [`phonia_spectrogram::analysis_axes_dims`] without going through
-/// `compute_tile`, and so would otherwise skip the `t0`/`t1`/`f0`/`f1`
-/// finiteness and zero-size checks `TileRequest` itself needs.
-fn validate_tile_request(req: &TileRequest) -> Result<(), EngineError> {
-    let invalid = |reason: &str| {
-        Err(EngineError::InvalidRequest {
-            reason: reason.to_string(),
-        })
-    };
-
-    if !req.t0.is_finite() || !req.t1.is_finite() {
-        return invalid("t0/t1 must be finite");
-    }
-    if !req.f0.is_finite() || !req.f1.is_finite() {
-        return invalid("f0/f1 must be finite");
-    }
-    let params = &req.params;
-    if !(params.window_length.is_finite() && params.window_length > 0.0) {
-        return invalid("params.window_length must be finite and positive");
-    }
-    if !(params.max_frequency.is_finite() && params.max_frequency > 0.0) {
-        return invalid("params.max_frequency must be finite and positive");
-    }
-    if !(params.time_step.is_finite() && params.time_step > 0.0) {
-        return invalid("params.time_step must be finite and positive");
-    }
-    if !(params.frequency_step.is_finite() && params.frequency_step > 0.0) {
-        return invalid("params.frequency_step must be finite and positive");
-    }
-    if let Window::Gaussian {
-        effective_len_factor,
-    } = params.window
-        && !(effective_len_factor.is_finite() && effective_len_factor > 0.0)
-    {
-        return invalid("params.window Gaussian effective_len_factor must be finite and positive");
-    }
-    if req.width_px == 0 || req.height_px == 0 {
-        return invalid("width_px and height_px must both be positive");
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3518,7 +3469,9 @@ mod tests {
                 false,
                 false,
             ),
-            Err(EngineError::InvalidRequest { .. })
+            Err(EngineError::Spectrogram(
+                phonia_spectrogram::SpectrogramError::NonFiniteTimeBound { .. }
+            ))
         ));
     }
 

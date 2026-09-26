@@ -301,7 +301,7 @@ impl AudioStore {
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] for an unknown id,
     /// [`EngineError::Audio`] when a streamed range cannot be decoded, and
-    /// [`EngineError::InvalidRequest`] when `params` fails validation.
+    /// [`EngineError::Spectrogram`] when `params` fails validation.
     pub(crate) fn column_block(
         &self,
         id: AudioId,

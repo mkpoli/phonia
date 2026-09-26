@@ -4,8 +4,9 @@
 //! # Output matrix layout
 //!
 //! [`Tile::db`] is row-major: row 0 holds the lowest frequency in `f_axis`,
-//! and each row runs across `t_axis` left to right, so `db[row * t_axis.len()
-//! + col]` is the value at `(t_axis[col], f_axis[row])`. [`ColumnBlock::db`] is
+//! and each row runs across `t_axis` left to right, so
+//! `db[row * t_axis.len() + col]` is the value at
+//! `(t_axis[col], f_axis[row])`. [`ColumnBlock::db`] is
 //! column-major instead: `db[local_col * freq_len + row]`, so a block's bytes
 //! stay stable while a viewport scrolls across whole columns. [`Slice::db`] is
 //! a single column, one value per `f_axis` entry.
@@ -15,9 +16,10 @@
 //! Every frame is multiplied by the analysis window (Gaussian, Hanning, or
 //! Kaiser; see [`Window`]) before the FFT, then the periodogram is divided by
 //! `sample_rate·Σw[n]²` — the window's own energy — so the result is a power
-//! *spectral density* (`Pa²/Hz`) rather than a raw bin power, and windows of
-//! different shapes or lengths report the same level for the same input
-//! power. See [`compute_tile`] for the full one-sided PSD formula.
+//! *spectral density* (`Pa²/Hz`) rather than a raw bin power. Broadband noise
+//! reads at the same level whatever the window; a pure tone or DC does not,
+//! because its power falls into a band whose width depends on the window's
+//! shape and length. See [`compute_tile`] for the full one-sided PSD formula.
 //!
 //! # dB reference
 //!
@@ -92,7 +94,8 @@ impl Default for SpectrogramParams {
 pub enum SpectrogramError {
     /// `window_length` was not finite and positive.
     InvalidWindowLength(f64),
-    /// `max_frequency` was not finite and positive.
+    /// `max_frequency` was not finite and non-negative. Zero is valid and
+    /// analyses the 0 Hz bin alone.
     InvalidMaxFrequency(f64),
     /// `time_step` was not finite and positive.
     InvalidTimeStep(f64),
@@ -117,13 +120,6 @@ pub enum SpectrogramError {
     },
     /// A [`spectral_slice`] time was not finite.
     NonFiniteSliceTime(f64),
-    /// A tile request asked for zero columns, zero rows, or both.
-    ZeroSizeTile {
-        /// Requested tile columns.
-        width_px: u32,
-        /// Requested tile rows.
-        height_px: u32,
-    },
 }
 
 impl fmt::Display for SpectrogramError {
@@ -133,7 +129,10 @@ impl fmt::Display for SpectrogramError {
                 write!(f, "window_length must be finite and positive, got {value}")
             }
             Self::InvalidMaxFrequency(value) => {
-                write!(f, "max_frequency must be finite and positive, got {value}")
+                write!(
+                    f,
+                    "max_frequency must be finite and non-negative, got {value}"
+                )
             }
             Self::InvalidTimeStep(value) => {
                 write!(f, "time_step must be finite and positive, got {value}")
@@ -156,13 +155,6 @@ impl fmt::Display for SpectrogramError {
             Self::NonFiniteSliceTime(value) => {
                 write!(f, "slice time must be finite, got {value}")
             }
-            Self::ZeroSizeTile {
-                width_px,
-                height_px,
-            } => write!(
-                f,
-                "tile request has zero size: width_px={width_px}, height_px={height_px}"
-            ),
         }
     }
 }
@@ -735,6 +727,18 @@ fn nearest_axis_index(axis: &[f64], target: f64) -> usize {
     }
 }
 
+impl TileRequest {
+    /// Checks the request without computing anything: finite time and
+    /// frequency bounds and usable analysis parameters. A request that selects
+    /// no data, including a zero-pixel tile, passes and yields an empty tile.
+    ///
+    /// # Errors
+    /// Returns the [`SpectrogramError`] for the first unusable value.
+    pub fn validate(&self) -> Result<(), SpectrogramError> {
+        validate_request(self)
+    }
+}
+
 fn validate_request(req: &TileRequest) -> Result<(), SpectrogramError> {
     if !req.t0.is_finite() || !req.t1.is_finite() {
         return Err(SpectrogramError::NonFiniteTimeBound {
@@ -749,12 +753,6 @@ fn validate_request(req: &TileRequest) -> Result<(), SpectrogramError> {
         });
     }
     validate_params(&req.params)?;
-    if req.width_px == 0 || req.height_px == 0 {
-        return Err(SpectrogramError::ZeroSizeTile {
-            width_px: req.width_px,
-            height_px: req.height_px,
-        });
-    }
     Ok(())
 }
 
@@ -762,7 +760,7 @@ fn validate_params(params: &SpectrogramParams) -> Result<(), SpectrogramError> {
     if !(params.window_length.is_finite() && params.window_length > 0.0) {
         return Err(SpectrogramError::InvalidWindowLength(params.window_length));
     }
-    if !(params.max_frequency.is_finite() && params.max_frequency > 0.0) {
+    if !(params.max_frequency.is_finite() && params.max_frequency >= 0.0) {
         return Err(SpectrogramError::InvalidMaxFrequency(params.max_frequency));
     }
     if !(params.time_step.is_finite() && params.time_step > 0.0) {
@@ -1184,15 +1182,20 @@ mod tests {
     }
 
     #[test]
-    fn rejects_non_positive_max_frequency() {
-        let params = SpectrogramParams {
-            max_frequency: 0.0,
+    fn rejects_negative_max_frequency_and_accepts_zero() {
+        let negative = SpectrogramParams {
+            max_frequency: -1.0,
             ..SpectrogramParams::default()
         };
         assert_eq!(
-            effective_time_step(&params),
-            Err(SpectrogramError::InvalidMaxFrequency(0.0))
+            effective_time_step(&negative),
+            Err(SpectrogramError::InvalidMaxFrequency(-1.0))
         );
+        let dc_only = SpectrogramParams {
+            max_frequency: 0.0,
+            ..SpectrogramParams::default()
+        };
+        assert!(effective_time_step(&dc_only).is_ok());
     }
 
     #[test]
@@ -1241,7 +1244,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_zero_size_tile_requests() {
+    fn zero_size_tile_requests_yield_an_empty_tile() {
         let audio = sine_audio(16_000.0, 0.1, 1000.0);
         let req = TileRequest {
             t0: 0.0,
@@ -1252,13 +1255,8 @@ mod tests {
             height_px: 4,
             params: SpectrogramParams::default(),
         };
-        assert_eq!(
-            compute_tile(audio.slice_samples(0..audio.frames()), &req),
-            Err(SpectrogramError::ZeroSizeTile {
-                width_px: 0,
-                height_px: 4,
-            })
-        );
+        let tile = compute_tile(audio.slice_samples(0..audio.frames()), &req).unwrap();
+        assert!(tile.db.is_empty());
     }
 
     #[test]
