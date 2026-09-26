@@ -64,6 +64,9 @@ pub(crate) struct Layout {
     pub(crate) max_candidates: usize,
 }
 
+/// Largest analysis window, in samples, that [`Layout::new`] will size.
+const MAX_WINDOW_SAMPLES: f64 = (1_u64 << 40) as f64;
+
 impl Layout {
     /// Returns `None` when the window rounds to fewer than four samples.
     pub(crate) fn new(params: &PitchParams, sample_rate: f64, method: Method) -> Option<Self> {
@@ -78,6 +81,12 @@ impl Layout {
         };
         let window_duration = periods_per_window / params.floor_hz;
         let window_seconds = window_duration + look_ahead;
+        // A window past 2^40 samples (about 290 days at 44.1 kHz) is longer than any
+        // signal in memory, so it yields no frames; stopping here also keeps an
+        // extreme floor from overflowing the sample counts below.
+        if window_duration / dx > MAX_WINDOW_SAMPLES {
+            return None;
+        }
         let half_window = ((window_duration / dx).floor() as usize / 2).checked_sub(1)?;
         if half_window < 2 {
             return None;

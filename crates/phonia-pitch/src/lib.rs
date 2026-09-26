@@ -451,6 +451,26 @@ mod tests {
     }
 
     #[test]
+    fn a_vanishing_floor_yields_an_empty_track() {
+        let sample_rate = 44_100.0;
+        let audio = audio_from_signal(sine(150.0, sample_rate, 0.5), sample_rate);
+        let view = || audio.slice_samples(0..audio.frames());
+        for floor_hz in [2e-309, 1e-300] {
+            let params = PitchParams {
+                floor_hz,
+                ..PitchParams::default()
+            };
+            assert!(pitch_track(view(), &params).unwrap().frames().is_empty());
+            assert!(
+                pitch_track_cc(view(), &params, 1.0)
+                    .unwrap()
+                    .frames()
+                    .is_empty()
+            );
+        }
+    }
+
+    #[test]
     fn non_positive_floor_is_rejected() {
         let params = PitchParams {
             floor_hz: 0.0,
