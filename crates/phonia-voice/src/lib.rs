@@ -1,5 +1,27 @@
 //! Pulse extraction from pitch + waveform, jitter/shimmer families, HNR,
 //! CPP/CPPS, spectral moments, aggregate voice report.
+//!
+//! ## Praat comparison status
+//!
+//! Checked against a parselmouth/Praat 6.1.38 oracle
+//! (`tools/oracle-bridge` + `oracle diff-all`; recorded in
+//! `docs/plan/gates.md`):
+//!
+//! - [`voice_report`]'s jitter and shimmer families and mean HNR pass on both
+//!   sustained-vowel fixtures with zero violations across the 14 compared
+//!   scalars, including a closed-form 3% jitter / 6% shimmer case. On running
+//!   speech the residual (pulse placement, not the pitch track, which is at
+//!   parity) is 1–43% relative, worst on `shimmer.apq11` (43.5%) and
+//!   `shimmer.apq5` (28%); voice reports are defined on sustained phonation,
+//!   and this residual is tracked as a backlog item rather than tuned away.
+//! - [`hnr_track_cc`] agrees with parselmouth on every fixture: voicing 100%,
+//!   HNR to the reference files' six decimals except two frames of one
+//!   running-speech fixture (24.896 vs 24.565 dB and 7.916 vs 8.275 dB),
+//!   within the recorded 0.5 dB per-frame band.
+//! - [`hnr_track`] (autocorrelation), [`cpp`]/[`cpps`]/[`cpp_track`], and
+//!   [`cepstrum_slice`] have **no Praat oracle counterpart wired up** —
+//!   `tools/oracle-bridge` does not compare them — so their correctness rests
+//!   on this crate's own tests, not a Praat residual.
 #![warn(missing_docs)]
 
 use std::borrow::Cow;
