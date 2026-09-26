@@ -23,9 +23,10 @@ Every module has a cargo feature of the same name, all on by default:
 phonia = { version = "0.1", default-features = false, features = ["pitch", "textgrid"] }
 ```
 
-The analyses follow Praat's documented algorithms and are checked against
-Praat itself; each crate's documentation states how closely its output
-matches. The Phonia application built on these crates runs at
+The analyses follow Praat's documented algorithms. Pitch, formants, intensity,
+cross-correlation HNR and the voice report are compared against Praat's own
+output, and the spectrogram against SciPy; CPP and CPPS have no reference
+comparison yet. The Phonia application built on these crates runs at
 <https://phonia.app>; the source is at <https://github.com/mkpoli/phonia>.
 
 ## Compatibility

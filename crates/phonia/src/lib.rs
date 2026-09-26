@@ -21,10 +21,11 @@
 //! `textgrid` brings in `annot`, `voice` brings in `pitch`, and the analysis
 //! modules bring in `audio`.
 //!
-//! The analyses follow Praat's documented algorithms and are checked against
-//! Praat itself; each crate's documentation states how closely its output
-//! matches. The Phonia application built on these crates runs at
-//! <https://phonia.app>.
+//! The analyses follow Praat's documented algorithms. Pitch, formants,
+//! intensity, cross-correlation HNR and the voice report are compared
+//! against Praat's own output, and the spectrogram against SciPy; CPP and
+//! CPPS have no reference comparison yet. The Phonia application built on
+//! these crates runs at <https://phonia.app>.
 #![no_std]
 
 #[cfg(feature = "annot")]
