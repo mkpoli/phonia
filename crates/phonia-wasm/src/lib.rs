@@ -2672,12 +2672,15 @@ impl WasmEngine {
 
     /// Searches interval and point labels across every attached document.
     ///
-    /// When `regex` is set, `pattern` is a Rust `regex` crate expression;
-    /// invalid syntax yields no hits. Otherwise `pattern` is a literal
-    /// substring. Each hit reports its document, tier, target, and byte span.
+    /// When `regex` is set, `pattern` is a Rust `regex` crate expression.
+    /// Otherwise `pattern` is a literal substring. Each hit reports its
+    /// document, tier, target, and byte span.
+    ///
+    /// # Errors
+    /// Rejects when `regex` is set and `pattern` fails to compile as a
+    /// regular expression.
     #[wasm_bindgen(js_name = searchLabels)]
-    #[must_use]
-    pub fn search_labels(&self, pattern: String, regex: bool) -> WasmHits {
+    pub fn search_labels(&self, pattern: String, regex: bool) -> Result<WasmHits, JsError> {
         let query = LabelQuery {
             pattern: if regex {
                 LabelPattern::Regex(pattern)
@@ -2687,7 +2690,7 @@ impl WasmEngine {
             tiers: None,
         };
         let mut out = WasmHits::default();
-        for hit in self.inner.search_labels(&query) {
+        for hit in self.inner.search_labels(&query)? {
             out.annotations.push(hit.annotation.as_u64());
             out.tiers.push(hit.hit.tier.get());
             let (kind, target) = match hit.hit.target {
@@ -2699,7 +2702,7 @@ impl WasmEngine {
             out.starts.push(hit.hit.span.start as u32);
             out.ends.push(hit.hit.span.end as u32);
         }
-        out
+        Ok(out)
     }
 
     /// Reads a Praat TextGrid (long or short text format; UTF-8/UTF-16/Latin-1)
@@ -3641,7 +3644,7 @@ mod tests {
         assert_eq!(applied.kind(), "labelSet");
         assert_eq!(applied.annotation(), Some(doc));
 
-        let hits = engine.search_labels("aː".to_string(), false);
+        let hits = engine.search_labels("aː".to_string(), false).unwrap();
         assert_eq!(hits.annotations().len(), 1);
         assert_eq!(hits.annotations()[0], doc);
 
