@@ -22,6 +22,7 @@
 //!   [`cepstrum_slice`] have **no Praat oracle counterpart wired up** —
 //!   `tools/oracle-bridge` does not compare them — so their correctness rests
 //!   on this crate's own tests, not a Praat residual.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 use std::borrow::Cow;

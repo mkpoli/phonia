@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Praat-compatible intensity contours in dB from a Kaiser-windowed squared signal"
 documentation = "https://docs.rs/phonia-intensity"
+readme = "README.md"
 keywords = ["intensity", "praat", "phonetics", "speech", "audio"]
 categories = ["multimedia::audio", "science"]
 

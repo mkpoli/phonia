@@ -21,6 +21,7 @@
 //! Raw, untracked candidates are the display default for this reason
 //! (`docs/plan/gates.md`, T2.6); callers presenting the smoothed track
 //! should label it as provisional.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 mod burg;

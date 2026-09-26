@@ -3,7 +3,7 @@
 //! The crate stores audio as planar `f32` channels with an `f64` sample rate.
 //! WAV reading and writing uses `hound`. Resampling uses `rubato`'s
 //! windowed-sinc interpolator.
-
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 use std::borrow::Cow;

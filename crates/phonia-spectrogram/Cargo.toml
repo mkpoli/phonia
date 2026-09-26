@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Gaussian-window spectrograms as power spectral density in dB, computed in viewport-independent tiles"
 documentation = "https://docs.rs/phonia-spectrogram"
+readme = "README.md"
 keywords = ["spectrogram", "stft", "audio", "phonetics", "praat"]
 categories = ["multimedia::audio", "science"]
 

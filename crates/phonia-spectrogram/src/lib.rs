@@ -29,6 +29,7 @@
 //! `1e-300 Pa²/Hz` before the log, so every value is finite. Display-only
 //! pre-emphasis ([`apply_display_preemphasis_db`]) is never baked into these
 //! values; callers apply it themselves for rendering.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 use std::error::Error;

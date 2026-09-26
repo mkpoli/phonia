@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Analysis windows, cached FFT plans, absolute-time frame grids and sinc interpolation for speech analysis"
 documentation = "https://docs.rs/phonia-dsp"
+readme = "README.md"
 keywords = ["dsp", "fft", "window", "interpolation", "phonetics"]
 categories = ["multimedia::audio", "science"]
 

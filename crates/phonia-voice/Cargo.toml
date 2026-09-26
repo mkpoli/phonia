@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Voice-quality measures for phonetics: glottal pulses, jitter, shimmer, HNR, CPP and CPPS, spectral moments"
 documentation = "https://docs.rs/phonia-voice"
+readme = "README.md"
 keywords = ["jitter", "shimmer", "hnr", "phonetics", "praat"]
 categories = ["multimedia::audio", "science"]
 
