@@ -13,9 +13,7 @@
 //! [`builder`] holds every conversion from a committed analysis type
 //! ([`phonia_spectrogram::Tile`], [`phonia_pitch::PitchTrack`],
 //! [`phonia_formant::FormantTrack`], [`phonia_intensity::IntensityTrack`],
-//! [`phonia_annot::TierSlot`]) into an embedded [`Layer`], and
-//! [`builder::reference_figure`] assembles the roadmap gate figure that every
-//! export backend reuses as its input.
+//! [`phonia_annot::TierSlot`]) into an embedded [`Layer`].
 #![warn(missing_docs)]
 
 pub mod backends;
@@ -34,8 +32,8 @@ pub use backends::{PdfError, to_pdf};
 pub use backends::{PngError, to_png};
 pub use builder::{
     FigureBuilder, formant_layer, harmonicity_layer, intensity_layer, pitch_layer,
-    reference_figure, spectral_slice_layer, spectrogram_layer, tier_data, tiers_layer,
-    waveform_layer, waveform_minmax,
+    spectral_slice_layer, spectrogram_layer, tier_data, tiers_layer, waveform_layer,
+    waveform_minmax,
 };
 pub use model::{
     Axis, AxisScale, CaptionMeta, Figure, FigureError, IntervalData, Layer, LayerKind, LengthUnit,
@@ -114,11 +112,6 @@ mod tests {
         // 72 pt is one inch.
         let pt = SizeSpec::new(72.0, 144.0, LengthUnit::Pt);
         assert_eq!(pt.px_at(96.0), (96, 192));
-    }
-
-    #[test]
-    fn validate_accepts_the_reference_figure() {
-        reference_figure().validate().expect("reference is valid");
     }
 
     #[test]
@@ -293,42 +286,6 @@ mod tests {
         assert!(env.iter().all(|m| m.min <= m.max));
         assert!(waveform_minmax(&[], 10).is_empty());
         assert!(waveform_minmax(&samples, 0).is_empty());
-    }
-
-    #[test]
-    fn reference_figure_has_the_gate_layers() {
-        let fig = reference_figure();
-        let kinds: Vec<LayerKind> = fig
-            .panels
-            .iter()
-            .flat_map(|p| p.layers.iter().map(Layer::kind))
-            .collect();
-        assert!(kinds.contains(&LayerKind::Waveform));
-        assert!(kinds.contains(&LayerKind::Spectrogram));
-        assert!(kinds.contains(&LayerKind::Pitch));
-        assert!(kinds.contains(&LayerKind::Tiers));
-        // Provenance records the spectrogram and pitch analyses.
-        assert_eq!(fig.caption_meta.sources.len(), 2);
-    }
-
-    #[test]
-    fn two_reference_builds_serialize_byte_identically() {
-        // Building the gate figure twice must produce byte-identical JSON:
-        // the model carries no HashMap iteration order, timestamp, or other
-        // run-to-run nondeterminism, so exports and wire traffic are stable.
-        let first = reference_figure().to_json().expect("serialize first");
-        let second = reference_figure().to_json().expect("serialize second");
-        assert_eq!(first, second);
-    }
-
-    #[test]
-    fn json_round_trip_is_byte_identical() {
-        let fig = reference_figure();
-        let first = fig.to_json().expect("serialize");
-        let decoded = Figure::from_json(&first).expect("deserialize");
-        let second = decoded.to_json().expect("reserialize");
-        assert_eq!(first, second);
-        assert_eq!(fig, decoded);
     }
 
     #[test]
