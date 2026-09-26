@@ -48,6 +48,10 @@ pub use model::{
 };
 pub use style::{DashStyle, LineStyle, RgbaColor, SpeckleStyle, TierStyle};
 
+/// Render types that appear in a [`Figure`]: the theme it is drawn against and
+/// the colormap and dB mapping of its spectrogram layers.
+pub use phonia_render::{Colormap, DisplayMapping, Theme};
+
 #[cfg(test)]
 mod tests {
     use super::*;
