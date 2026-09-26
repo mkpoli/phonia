@@ -753,22 +753,18 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when the pitch floor
-    /// is not finite and positive.
+    /// store entry, and [`EngineError::Intensity`] when a parameter is
+    /// rejected by [`phonia_intensity`] (a non-finite or non-positive pitch
+    /// floor or time step).
     pub fn intensity_track(
         &self,
         id: AudioId,
         params: &IntensityParams,
     ) -> Result<IntensityTrack, EngineError> {
-        if !(params.pitch_floor_hz.is_finite() && params.pitch_floor_hz > 0.0) {
-            return Err(EngineError::InvalidRequest {
-                reason: "intensity pitch_floor_hz must be finite and positive".to_string(),
-            });
-        }
         let access = self.store.whole(id)?;
         let audio = access.audio();
         let view = audio.slice_samples(0..audio.frames());
-        Ok(phonia_intensity::intensity_track(view, params))
+        Ok(phonia_intensity::intensity_track(view, params)?)
     }
 
     /// Returns the mean raw power spectral density inside a time–frequency box,
@@ -853,8 +849,9 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` does not name a live
-    /// store entry, and [`EngineError::InvalidRequest`] when a bound is not
-    /// finite.
+    /// store entry, [`EngineError::InvalidRequest`] when a bound is not
+    /// finite, and [`EngineError::Intensity`] when `intensity_floor_hz` is
+    /// not finite and positive.
     #[allow(clippy::too_many_arguments)]
     pub fn selection_readout(
         &self,
@@ -912,7 +909,7 @@ impl Engine {
             pitch_floor_hz: intensity_floor_hz,
             ..IntensityParams::default()
         };
-        let intensity = phonia_intensity::intensity_track(view.clone(), &intensity_params);
+        let intensity = phonia_intensity::intensity_track(view.clone(), &intensity_params)?;
         let intensity_mean_db = mean_in_span(intensity.iter(), span);
         let intensity_sd_db = sd_in_span(intensity.iter(), span);
 
@@ -1305,7 +1302,8 @@ impl Engine {
         let audio = access.audio();
         let duration = audio.duration();
         let view = audio.slice_samples(0..audio.frames());
-        let intensity = phonia_intensity::intensity_track(view, &IntensityParams::default());
+        let intensity = phonia_intensity::intensity_track(view, &IntensityParams::default())
+            .expect("default intensity params are valid");
         let frames: Vec<(f64, f64)> = intensity.iter().collect();
         let whole = vec![(0.0, duration, true)];
         if frames.is_empty() {
@@ -3821,7 +3819,7 @@ mod tests {
         };
         assert!(matches!(
             engine.intensity_track(id, &params),
-            Err(EngineError::InvalidRequest { .. })
+            Err(EngineError::Intensity(_))
         ));
     }
 
