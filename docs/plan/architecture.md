@@ -1,7 +1,7 @@
 # Architecture
 
 Cargo workspace monorepo. The analysis core is a set of small crates with no UI
-dependencies, each publishable on its own under the `phx-` prefix
+dependencies, each publishable on its own under the `phonia-` prefix
 (`naming.md` covers the product name). Two frontends share one Svelte UI
 package; the same core runs natively under Tauri and as WASM in the browser.
 
@@ -10,20 +10,20 @@ package; the same core runs natively under Tauri and as WASM in the browser.
 ```
 Cargo.toml              # [workspace] with dependency + metadata inheritance
 crates/
-  phx-audio             # buffers, decode, resample
-  phx-dsp               # windows, FFT, framing, interpolation
-  phx-spectrogram       # Gaussian STFT power spectra + tiles
-  phx-pitch             # Boersma-1993 autocorrelation F0
-  phx-formant           # Burg LPC formants + DP tracking
-  phx-intensity         # windowed-RMS intensity
-  phx-voice             # pulses, HNR, jitter, shimmer, CPP, voice report
-  phx-annot             # annotation model (tiers, hierarchy)
-  phx-textgrid          # Praat TextGrid import/export
-  phx-render            # colormaps, dB→RGBA tile rendering
-  phx-figure            # figure description + export backends
-  phx-project           # project file, autosave, media references
-  phx-engine            # session engine: commands, undo journal, cache
-  phx-wasm              # wasm-bindgen bindings over phx-engine
+  phonia-audio             # buffers, decode, resample
+  phonia-dsp               # windows, FFT, framing, interpolation
+  phonia-spectrogram       # Gaussian STFT power spectra + tiles
+  phonia-pitch             # Boersma-1993 autocorrelation F0
+  phonia-formant           # Burg LPC formants + DP tracking
+  phonia-intensity         # windowed-RMS intensity
+  phonia-voice             # pulses, HNR, jitter, shimmer, CPP, voice report
+  phonia-annot             # annotation model (tiers, hierarchy)
+  phonia-textgrid          # Praat TextGrid import/export
+  phonia-render            # colormaps, dB→RGBA tile rendering
+  phonia-figure            # figure description + export backends
+  phonia-project           # project file, autosave, media references
+  phonia-engine            # session engine: commands, undo journal, cache
+  phonia-wasm              # wasm-bindgen bindings over phonia-engine
 apps/
   ui/                   # shared Svelte 5 component library + views
   web/                  # SvelteKit app: WASM core in a Worker, OPFS storage
@@ -34,42 +34,42 @@ tests/fixtures/         # small permissively licensed audio + TextGrids
 docs/
 ```
 
-Post-v0.1 additions, reserved in the design: `phx-py` (PyO3 bindings over the
-same engine API), `phx-cli` (batch analysis to CSV), `phx-server` (REST surface
+Post-v0.1 additions, reserved in the design: `phonia-py` (PyO3 bindings over the
+same engine API), `phonia-cli` (batch analysis to CSV), `phonia-server` (REST surface
 on the Gentle model).
 
 ## Crate responsibilities and dependency edges
 
-Arrows point at dependencies. Analysis crates depend on `phx-dsp` only;
+Arrows point at dependencies. Analysis crates depend on `phonia-dsp` only;
 they take sample slices, so they stay usable outside this project.
 
 ```
-phx-audio ──► phx-dsp ──┐
-phx-dsp ◄── phx-spectrogram, phx-pitch, phx-formant, phx-intensity
-phx-voice ──► phx-pitch, phx-dsp
-phx-annot ◄── phx-textgrid
-phx-render ──► (plain arrays; no core deps)
-phx-figure ──► plotters, svg2pdf (feature-gated backends)
-phx-project ──► phx-audio, phx-annot
-phx-engine ──► everything above
-phx-wasm ──► phx-engine
+phonia-audio ──► phonia-dsp ──┐
+phonia-dsp ◄── phonia-spectrogram, phonia-pitch, phonia-formant, phonia-intensity
+phonia-voice ──► phonia-pitch, phonia-dsp
+phonia-annot ◄── phonia-textgrid
+phonia-render ──► (plain arrays; no core deps)
+phonia-figure ──► plotters, svg2pdf (feature-gated backends)
+phonia-project ──► phonia-audio, phonia-annot
+phonia-engine ──► everything above
+phonia-wasm ──► phonia-engine
 ```
 
 | Crate | Responsibility | Key external deps |
 |---|---|---|
-| phx-audio | `Audio` (planar f32 samples + f64 sample rate), WAV via hound, broad decode via symphonia (opt-in features; MPL-2.0 unmodified), resampling via rubato or Praat's band-limited sinc | hound, symphonia, rubato, phx-dsp |
-| phx-dsp | Hanning/Gaussian/Kaiser windows, real FFT wrappers, absolute-time frame grid, windowed-sinc interpolation, pre-emphasis | realfft, rustfft, ndarray |
-| phx-spectrogram | Gaussian-window STFT power spectral density; viewport-independent tile computation in dB | phx-dsp |
-| phx-pitch | Window-corrected autocorrelation candidates + Viterbi path finder (Boersma 1993); full parameter surface with Praat-documented defaults | phx-dsp |
-| phx-formant | Pre-emphasis, Burg recursion, polynomial roots → frequency/bandwidth, Xia–Espy-Wilson DP tracking | phx-dsp |
-| phx-intensity | Squared signal convolved with Gaussian window (3.2/pitchFloor), dB SPL re 2×10⁻⁵ Pa | phx-dsp |
-| phx-voice | Pulse extraction from pitch + waveform, jitter/shimmer families, HNR, CPP/CPPS, spectral moments, aggregate voice report | phx-pitch |
-| phx-annot | Tiers (interval/point), typed hierarchy (parent/child spans on the ELAN model), validation of cross-tier integrity | — |
-| phx-textgrid | Praat TextGrid read (long/short/binary text variants; UTF-8/UTF-16/Latin-1) and write (UTF-8 always) | phx-annot |
-| phx-render | Perceptual colormaps (viridis family, turbo, cubehelix, grayscales), dB→RGBA mapping with explicit ramp inversion | — |
-| phx-figure | Backend-agnostic figure model; exporters: SVG, PDF (svg2pdf), PGFPlots/TikZ, Typst/CeTZ, Vega JSON, matplotlib/R/Julia code + data, GraphML | plotters, svg2pdf, typst (later) |
-| phx-project | Project file (versioned, self-describing), media references, analysis parameter profiles, autosave snapshots | serde |
-| phx-engine | The one API both frontends and future bindings consume: commands with explicit arguments, journaled unified undo, content-addressed analysis cache | all core crates |
+| phonia-audio | `Audio` (planar f32 samples + f64 sample rate), WAV via hound, broad decode via symphonia (opt-in features; MPL-2.0 unmodified), resampling via rubato or Praat's band-limited sinc | hound, symphonia, rubato, phonia-dsp |
+| phonia-dsp | Hanning/Gaussian/Kaiser windows, real FFT wrappers, absolute-time frame grid, windowed-sinc interpolation, pre-emphasis | realfft, rustfft, ndarray |
+| phonia-spectrogram | Gaussian-window STFT power spectral density; viewport-independent tile computation in dB | phonia-dsp |
+| phonia-pitch | Window-corrected autocorrelation candidates + Viterbi path finder (Boersma 1993); full parameter surface with Praat-documented defaults | phonia-dsp |
+| phonia-formant | Pre-emphasis, Burg recursion, polynomial roots → frequency/bandwidth, Xia–Espy-Wilson DP tracking | phonia-dsp |
+| phonia-intensity | Squared signal convolved with Gaussian window (3.2/pitchFloor), dB SPL re 2×10⁻⁵ Pa | phonia-dsp |
+| phonia-voice | Pulse extraction from pitch + waveform, jitter/shimmer families, HNR, CPP/CPPS, spectral moments, aggregate voice report | phonia-pitch |
+| phonia-annot | Tiers (interval/point), typed hierarchy (parent/child spans on the ELAN model), validation of cross-tier integrity | — |
+| phonia-textgrid | Praat TextGrid read (long/short/binary text variants; UTF-8/UTF-16/Latin-1) and write (UTF-8 always) | phonia-annot |
+| phonia-render | Perceptual colormaps (viridis family, turbo, cubehelix, grayscales), dB→RGBA mapping with explicit ramp inversion | — |
+| phonia-figure | Backend-agnostic figure model; exporters: SVG, PDF (svg2pdf), PGFPlots/TikZ, Typst/CeTZ, Vega JSON, matplotlib/R/Julia code + data, GraphML | plotters, svg2pdf, typst (later) |
+| phonia-project | Project file (versioned, self-describing), media references, analysis parameter profiles, autosave snapshots | serde |
+| phonia-engine | The one API both frontends and future bindings consume: commands with explicit arguments, journaled unified undo, content-addressed analysis cache | all core crates |
 
 ## Fixed design rules
 
@@ -94,7 +94,7 @@ These come straight from the pain-point catalog and bind every crate:
 6. **MIT OR Apache-2.0**, enforced by cargo-deny allowlist (MIT, Apache-2.0,
    BSD, MPL-2.0 unmodified-dependency only). GPL anywhere in the tree fails CI.
 
-## API sketch (phx-engine surface)
+## API sketch (phonia-engine surface)
 
 ```rust
 // Analysis (pure, cached)
@@ -137,7 +137,7 @@ interface CoreClient {
   and an OPFS sync access handle; imported audio is copied into OPFS; results
   cross as transferable buffers. simd128 enabled, scalar fallback;
   wasm-bindgen-rayon deferred until batch analysis demands it.
-- **Desktop**: `TauriCoreClient` — Tauri commands into native `phx-engine`.
+- **Desktop**: `TauriCoreClient` — Tauri commands into native `phonia-engine`.
   File I/O happens in Rust commands (dialog plugin only picks paths). Playback
   runs on a cpal callback thread behind a `PlaybackEngine` trait
   (play/pause/seek/position), with an atomic sample-counter clock emitted to

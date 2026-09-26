@@ -5,15 +5,15 @@ block into every delegation. Algorithm/format sources for this phase:
 `../../research/praat-features-and-pain-points.md` §1.7/§1.11 (TextGrid
 behaviour and format landscape) and the Praat manual pages cited inline.
 
-Available at this point: `phx_engine::Engine` (audio store,
+Available at this point: `phonia_engine::Engine` (audio store,
 `waveform_slice`, `spectrogram_tile_rgba` — no journal yet),
-`phx_annot`/`phx_textgrid` are empty skeletons; `apps/ui` and `apps/web` are
+`phonia_annot`/`phonia_textgrid` are empty skeletons; `apps/ui` and `apps/web` are
 being built in T1.6 — T3.4 depends on its merge.
 
-### T3.1 · phx-annot
+### T3.1 · phonia-annot
 **Objective.** Annotation document model with typed tier relations and
 integrity validation.
-**Files.** `crates/phx-annot/src/*`.
+**Files.** `crates/phonia-annot/src/*`.
 **Interfaces.**
 ```rust
 pub struct Annotation { /* tiers ordered; time domain [xmin, xmax] in seconds */ }
@@ -42,15 +42,15 @@ T3.3 stores these as inverse operations).
 (indices shift under edits; ids must not). Label text is sanitized on entry:
 control characters (tab/CR/LF from pastes) rejected with a typed error, never
 stored (pain point 2.6). `AlignedBoundaries` moves are atomic across tiers.
-No dependency on any other phx crate.
+No dependency on any other phonia crate.
 **Verification.** Property tests: any sequence of successful mutations keeps
 `validate()` empty; every mutator's returned inverse restores a
 structurally equal document. Unit tests per `IntegrityIssue` variant. Search
 tested against a document with IPA and combining-character labels.
 
-### T3.2 · phx-textgrid
+### T3.2 · phonia-textgrid
 **Objective.** Read every TextGrid Praat writes; write exactly one format.
-**Files.** `crates/phx-textgrid/src/*`, new fixtures under
+**Files.** `crates/phonia-textgrid/src/*`, new fixtures under
 `tests/fixtures/textgrids/`.
 **Interfaces.**
 ```rust
@@ -82,8 +82,8 @@ panic).
 ### T3.3 · engine journal + annotation commands
 **Objective.** The unified undo journal (design rule 5) and the annotation
 surface of the engine.
-**Files.** `crates/phx-engine/src/{journal,document,commands}.rs`, additions
-to `lib.rs`; `crates/phx-wasm` plumbing.
+**Files.** `crates/phonia-engine/src/{journal,document,commands}.rs`, additions
+to `lib.rs`; `crates/phonia-wasm` plumbing.
 **Interfaces.**
 ```rust
 pub enum Command {  // serializable (serde), self-describing

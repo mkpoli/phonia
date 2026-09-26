@@ -1,6 +1,6 @@
 //! Rust-side oracle bridge.
 //!
-//! Runs `phx-pitch`, `phx-formant`, `phx-intensity`, and `phx-voice` against
+//! Runs `phonia-pitch`, `phonia-formant`, `phonia-intensity`, and `phonia-voice` against
 //! the fixture WAVs under `tests/fixtures/audio/` with the same parameters
 //! `tools/oracle/src/oracle/cases.py` defines for `pitch-defaults`,
 //! `formant-defaults`, `intensity-defaults`, and `voice-report-defaults`,
@@ -12,17 +12,17 @@
 //! `uv run oracle diff-all --measured-dir <out-dir>` can compare them
 //! directly against the committed parselmouth references.
 //!
-//! Case -> phx crate mapping (`docs/plan/tasks/phase-2.md` T2.1-T2.3,
+//! Case -> crate mapping (`docs/plan/tasks/phase-2.md` T2.1-T2.3,
 //! `docs/plan/tasks/phase-4.md` T4.2/T4.5):
-//!   - `pitch-defaults`         -> `phx_pitch::pitch_track`
-//!   - `pitch-accurate-speech`  -> `phx_pitch::pitch_track` (Gaussian window, 20 ms step, 65-500 Hz)
-//!   - `harmonicity-cc-defaults`, `harmonicity-cc-speech` -> `phx_voice::hnr_track_cc`
-//!   - `resample-down`, `resample-half`, `resample-up` -> `phx_audio::Audio::resampled` with `ResampleQuality::PRAAT`
-//!   - `formant-defaults`       -> `phx_formant::formant_track`
-//!   - `intensity-defaults`     -> `phx_intensity::intensity_track`
-//!   - `voice-report-defaults`  -> `phx_voice::voice_report`
+//!   - `pitch-defaults`         -> `phonia_pitch::pitch_track`
+//!   - `pitch-accurate-speech`  -> `phonia_pitch::pitch_track` (Gaussian window, 20 ms step, 65-500 Hz)
+//!   - `harmonicity-cc-defaults`, `harmonicity-cc-speech` -> `phonia_voice::hnr_track_cc`
+//!   - `resample-down`, `resample-half`, `resample-up` -> `phonia_audio::Audio::resampled` with `ResampleQuality::PRAAT`
+//!   - `formant-defaults`       -> `phonia_formant::formant_track`
+//!   - `intensity-defaults`     -> `phonia_intensity::intensity_track`
+//!   - `voice-report-defaults`  -> `phonia_voice::voice_report`
 //!
-//! Frames are emitted exactly as each crate's own [`phx_dsp::FrameGrid`]
+//! Frames are emitted exactly as each crate's own [`phonia_dsp::FrameGrid`]
 //! places them; this bridge performs no resampling, trimming, or
 //! re-alignment of the Rust output to match Praat's frame times. A frame
 //! count mismatch against a reference is a real disagreement (per
@@ -40,11 +40,11 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use phx_audio::{Audio, AudioView, ResampleQuality, band_limited_grid};
-use phx_formant::{FormantParams, formant_track};
-use phx_intensity::{IntensityParams, intensity_track};
-use phx_pitch::{PitchParams, PitchTrack, TimeSpan, pitch_track, pitch_track_cc};
-use phx_voice::{HarmonicityParams, hnr_track_cc, voice_report};
+use phonia_audio::{Audio, AudioView, ResampleQuality, band_limited_grid};
+use phonia_formant::{FormantParams, formant_track};
+use phonia_intensity::{IntensityParams, intensity_track};
+use phonia_pitch::{PitchParams, PitchTrack, TimeSpan, pitch_track, pitch_track_cc};
+use phonia_voice::{HarmonicityParams, hnr_track_cc, voice_report};
 
 use json::Json;
 
@@ -254,7 +254,7 @@ fn audio_field(audio_filename: &str) -> Json {
     Json::String(format!("tests/fixtures/audio/{audio_filename}"))
 }
 
-/// Runs `phx_pitch::pitch_track` with the parameter set `oracle.cases.CASES`
+/// Runs `phonia_pitch::pitch_track` with the parameter set `oracle.cases.CASES`
 /// declares for `case_name` (`pitch-defaults` mirrors Praat's "Sound: To
 /// Pitch (raw autocorrelation)..." documented defaults; `pitch-accurate-speech`
 /// the Gaussian-window speech setting) and builds that case's measured
@@ -343,7 +343,7 @@ fn resample_payload(audio: &Audio, audio_filename: &str, case_name: &str, target
     ])
 }
 
-/// Runs `phx_voice::hnr_track_cc` with the parameter set `oracle.cases.CASES`
+/// Runs `phonia_voice::hnr_track_cc` with the parameter set `oracle.cases.CASES`
 /// declares for `case_name` and builds its measured payload. The `params`
 /// block mirrors `oracle.params.HarmonicityParams.as_dict()`, which carries no
 /// ceiling: the cross-correlation harmonicity searches up to Nyquist.
@@ -386,7 +386,7 @@ fn harmonicity_payload(
 }
 
 /// Field-for-field mirror of `oracle.params.PitchParams.as_dict()`; field
-/// names and defaults match `crates/phx-pitch/src/params.rs::PitchParams`.
+/// names and defaults match `crates/phonia-pitch/src/params.rs::PitchParams`.
 fn pitch_params_json(params: &PitchParams) -> Json {
     Json::object(vec![
         (
@@ -408,7 +408,7 @@ fn pitch_params_json(params: &PitchParams) -> Json {
     ])
 }
 
-/// Runs `phx_formant::formant_track` with `FormantParams::default()` -- the
+/// Runs `phonia_formant::formant_track` with `FormantParams::default()` -- the
 /// same defaults `oracle.params.FormantParams()` declares (both mirror
 /// Praat's "Sound: To Formant (burg)..." documented defaults) -- and builds
 /// the `formant-defaults` measured payload from the raw per-frame Burg
@@ -462,7 +462,7 @@ fn formant_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
 
 /// Field-for-field mirror of `oracle.params.FormantParams.as_dict()`; field
 /// names and defaults match
-/// `crates/phx-formant/src/params.rs::FormantParams`.
+/// `crates/phonia-formant/src/params.rs::FormantParams`.
 fn formant_params_json(params: &FormantParams) -> Json {
     Json::object(vec![
         ("ceiling_hz", Json::number(params.ceiling_hz)),
@@ -479,7 +479,7 @@ fn formant_params_json(params: &FormantParams) -> Json {
     ])
 }
 
-/// Runs `phx_intensity::intensity_track` with `IntensityParams::default()`
+/// Runs `phonia_intensity::intensity_track` with `IntensityParams::default()`
 /// -- the same defaults `oracle.params.IntensityParams()` declares (both
 /// mirror Praat's "Sound: To Intensity..." documented defaults) -- and
 /// builds the `intensity-defaults` measured payload.
@@ -505,7 +505,7 @@ fn intensity_payload(view: AudioView<'_>, audio_filename: &str) -> Json {
 
 /// Field-for-field mirror of `oracle.params.IntensityParams.as_dict()`;
 /// field names and defaults match
-/// `crates/phx-intensity/src/lib.rs::IntensityParams`.
+/// `crates/phonia-intensity/src/lib.rs::IntensityParams`.
 fn intensity_params_json(params: &IntensityParams) -> Json {
     Json::object(vec![
         ("pitch_floor_hz", Json::number(params.pitch_floor_hz)),
@@ -534,11 +534,11 @@ fn voice_report_span(audio_filename: &str) -> TimeSpan {
     }
 }
 
-/// Runs `phx_voice::voice_report` with `PitchParams::default()` -- the same
+/// Runs `phonia_voice::voice_report` with `PitchParams::default()` -- the same
 /// pitch parameters `oracle.params.PitchParams()` declares -- over the span
 /// `voice_report_span` names for this fixture, and builds the
 /// `voice-report-defaults` measured payload from the comparable scalar
-/// subset of [`phx_voice::VoiceReport`]: jitter local/rap/ppq5/ddp, shimmer
+/// subset of [`phonia_voice::VoiceReport`]: jitter local/rap/ppq5/ddp, shimmer
 /// local/apq3/apq5/apq11/dda, mean HNR, and F0 mean/median/min/max. CPP/CPPS
 /// and voice breaks are computed by `voice_report` but have no Praat oracle
 /// counterpart wired up on the Python side, so they are not part of this

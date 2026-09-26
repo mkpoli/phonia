@@ -1,0 +1,30 @@
+[package]
+name = "phonia-engine"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+description = "The one API both frontends and future bindings consume: commands with explicit arguments, journaled unified undo, content-addressed analysis cache"
+
+[dependencies]
+phonia-audio = { workspace = true }
+phonia-dsp = { workspace = true }
+phonia-spectrogram = { workspace = true }
+phonia-pitch = { workspace = true }
+phonia-formant = { workspace = true }
+phonia-intensity = { workspace = true }
+phonia-voice = { workspace = true }
+phonia-annot = { workspace = true }
+phonia-render = { workspace = true }
+phonia-figure = { workspace = true }
+serde = { workspace = true }
+
+[features]
+default = []
+# Native-only figure exports. The PNG and PDF backends pull resvg / svg2pdf,
+# which do not build for wasm; a native frontend enables these, the wasm build
+# leaves them off and the web app rasterizes the SVG preview for PNG instead.
+figure-raster = ["phonia-figure/raster"]
+figure-pdf = ["phonia-figure/pdf"]
+
+[dev-dependencies]
+hound = { workspace = true }

@@ -402,7 +402,7 @@ Praat never produces the `0x00` form at all.
 
 ### 3.3 Other corrections and confirmations
 
-See §7 for the full itemized diff against `crates/phx-textgrid/docs/binary-format.md`.
+See §7 for the full itemized diff against `crates/phonia-textgrid/docs/binary-format.md`.
 
 ## 4. Chronological TextGrid text format
 
@@ -664,7 +664,7 @@ do it.
 A binary object file carries no file-level encoding preamble and needs
 none, because every string field carries its own narrow/wide-UTF-16 flag
 inline (§1.4) — there is no BOM, no encoding preference, and no detection
-step anywhere in the binary read/write path. This confirms the phx-textgrid
+step anywhere in the binary read/write path. This confirms the phonia-textgrid
 crate's existing assumption that binary TextGrids sidestep the whole
 encoding-detection question by construction.
 
@@ -690,7 +690,7 @@ version headers). A TextGrid file written by a Praat release meaningfully
 older than this predates reliable Unicode support and should be treated as
 one of the legacy 8-bit cases in §6.2.
 
-## 7. Corrections to `crates/phx-textgrid/docs/binary-format.md`
+## 7. Corrections to `crates/phonia-textgrid/docs/binary-format.md`
 
 The crate's binary-format documentation was derived independently, without
 source access, from hexdumps of sample file pairs. It holds up well overall:

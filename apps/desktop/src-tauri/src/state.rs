@@ -10,8 +10,8 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use phx_engine::{Applied, Engine};
-use phx_playback::CpalPlayback;
+use phonia_engine::{Applied, Engine};
+use phonia_playback::CpalPlayback;
 use serde::{Deserialize, Serialize};
 
 /// Tauri-managed application state: the native engine, the projects root, and
@@ -178,7 +178,7 @@ pub struct AppliedDto {
 
 impl From<Applied> for AppliedDto {
     fn from(applied: Applied) -> Self {
-        use phx_engine::{AnnotationId, AudioId, BoundaryId, TierId};
+        use phonia_engine::{AnnotationId, AudioId, BoundaryId, TierId};
         let a = |id: AnnotationId| id.as_u64();
         let au = |id: AudioId| id.as_u64();
         let t = |id: TierId| id.get();
@@ -325,7 +325,7 @@ pub struct SaveProjectSpec {
     pub tags: Vec<String>,
     pub media: Vec<SaveProjectMedia>,
     #[serde(default)]
-    pub groups: Vec<phx_project::LibraryNode>,
+    pub groups: Vec<phonia_project::LibraryNode>,
 }
 
 /// One media entry returned by `load_project_container`, document inlined.
@@ -355,7 +355,7 @@ pub struct LoadProjectResult {
     pub authors: Vec<String>,
     pub tags: Vec<String>,
     pub media: Vec<LoadProjectMedia>,
-    pub groups: Vec<phx_project::LibraryNode>,
+    pub groups: Vec<phonia_project::LibraryNode>,
 }
 
 /// A figure export bundle: the main document plus any sidecar files.

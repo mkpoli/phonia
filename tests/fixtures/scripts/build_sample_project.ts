@@ -6,7 +6,7 @@
 // and runs the same import path a folder drop uses. Running this script copies
 // the fixture recordings into the web app's static tree, converts each
 // recording's genuine CMU ARCTIC forced-alignment label file into a TextGrid
-// via `phx-textgrid`'s own writer (`cargo run -p phx-textgrid --example
+// via `phonia-textgrid`'s own writer (`cargo run -p phonia-textgrid --example
 // lab_to_textgrid`), and writes the manifest deterministically (fixed order,
 // stable JSON), so the output is reproducible.
 //
@@ -63,7 +63,7 @@ function labToTextGrid(labPath: string, wavPath: string, outPath: string): void 
   const result = spawnSync(
     'cargo',
     [
-      'run', '-p', 'phx-textgrid', '--example', 'lab_to_textgrid', '--',
+      'run', '-p', 'phonia-textgrid', '--example', 'lab_to_textgrid', '--',
       labPath, String(duration), 'phones', outPath,
       '--words', join(alignmentsDir, 'arctic_a0001.words'),
       '--map', join(alignmentsDir, 'arpabet-ipa.map')

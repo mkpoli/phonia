@@ -52,7 +52,7 @@ tapers the signal ACF toward zero at longer lags (Boersma 1993, eq. 9):
 
     r_x(τ) ≈ r_a(τ) / r_w(τ)
 
-Per-frame procedure (Boersma 1993, §4), as `phx-pitch` runs it:
+Per-frame procedure (Boersma 1993, §4), as `phonia-pitch` runs it:
 
 1. Compute the global absolute peak of the mean-removed signal (used later by
    the unvoiced candidate's strength).
@@ -80,7 +80,7 @@ Per-frame procedure (Boersma 1993, §4), as `phx-pitch` runs it:
    peak heights (needed for HNR); parabolic interpolation alone leaves ~0.1
    sample error.
 
-Where the paper leaves a discretisation open, `phx-pitch` follows the
+Where the paper leaves a discretisation open, `phonia-pitch` follows the
 conventions below. None of them is derivable from the paper or from the manual
 pages cited above; each was settled by comparing frame-for-frame against
 parselmouth through `tools/oracle` (`pitch-defaults` and
@@ -103,7 +103,7 @@ hold them in place:
 - The local mean spans one pitch-floor period to either side of the frame
   centre; the local peak is read on the windowed frame over half a period
   (`⌊P/2⌋ + 1` samples) to either side.
-- No low-pass filtering precedes the analysis: `phx-pitch` implements the
+- No low-pass filtering precedes the analysis: `phonia-pitch` implements the
   *raw* autocorrelation variant ("Sound: To Pitch (raw autocorrelation)...",
   parselmouth's `to_pitch_ac`), which the manual distinguishes from the
   filtered variant introduced in Praat 6.4. The paper's §4 mentions a soft
@@ -539,8 +539,8 @@ time step 0.01 s, pitch floor 75 Hz, silence threshold 0.1, periods per window
 **Cross-correlation harmonicity** ("Sound: To Harmonicity (cc)...",
 <https://www.fon.hum.uva.nl/praat/manual/Sound__To_Harmonicity__cc____.html>;
 defaults time step 0.01 s, pitch floor 75 Hz, silence threshold 0.1, periods
-per window 1.0) is `phx_voice::hnr_track_cc`, built on
-`phx_pitch::pitch_track_cc`. Each frame is a cross-correlation pitch frame with
+per window 1.0) is `phonia_voice::hnr_track_cc`, built on
+`phonia_pitch::pitch_track_cc`. Each frame is a cross-correlation pitch frame with
 the voicing threshold and every path cost at zero and the ceiling at Nyquist,
 so its best candidate is the strongest correlation `r` unless the frame is
 quiet relative to the silence threshold (eq. 23 with voicing threshold 0);
@@ -582,7 +582,7 @@ the sense of §1.2:
 Note for the autocorrelation variant, inferred from a grid length and not yet
 confirmed by an oracle case: parselmouth's `to_harmonicity_ac` frame grid spans
 twice `periods_per_window / floor`, which is what the Gaussian-window analysis
-of §1.2 would produce, not the Hanning one that `phx_voice::hnr_track`
+of §1.2 would produce, not the Hanning one that `phonia_voice::hnr_track`
 currently uses. Rebuilding it on `pitch_track` with the Gaussian window, with a
 `harmonicity-ac` oracle case to confirm the inference, is the follow-up in
 `docs/plan/horizon.md` that would bring the voice report's HNR to the same
@@ -688,7 +688,7 @@ parameter (default 50) sets the interpolation depth in samples. Precision 1 is
 linear interpolation; Precision > 1 is sin(x)/x (sinc) interpolation with depth
 equal to Precision — higher is slower but more accurate. When the target rate is
 below the source rate, Praat applies anti-aliasing low-pass filtering before
-resampling. `phx_audio::ResampleQuality::BandLimitedSinc` (`PRAAT` at depth
+resampling. `phonia_audio::ResampleQuality::BandLimitedSinc` (`PRAAT` at depth
 50) is this algorithm as the oracle reproduces it — sample for sample within
 the reference files' six-decimal rounding on the `resample-down`,
 `resample-half` and `resample-up` cases; a full-precision comparison outside
@@ -706,7 +706,7 @@ and 10⁻⁶ at others — with the details the manual leaves open settled the w
   arbiter; the padding was swept too (none, 1000 and 2000 samples agree).
   No filtering when the rate rises.
 - The taper over the truncated sinc is the one of eq. 22 in §1.2
-  (`phx_dsp::sinc_interpolate`), with the depth reduced to the samples
+  (`phonia_dsp::sinc_interpolate`), with the depth reduced to the samples
   available at either end; where that leaves one sample per side the read is
   linear and where it leaves two it is the cubic through the four neighbours,
   which is what the first samples of a resampled signal showed.

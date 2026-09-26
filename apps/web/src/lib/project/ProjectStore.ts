@@ -41,7 +41,7 @@ const PROJECTS_DIR = 'phonix-projects';
 const HOME_FILE = 'home.json';
 /** Container file name inside a project directory. */
 const PROJECT_FILE = 'project.phxproj';
-/** Sidecar suffix, matching `phx_project::AUTOSAVE_SUFFIX`. */
+/** Sidecar suffix, matching `phonia_project::AUTOSAVE_SUFFIX`. */
 const AUTOSAVE_SUFFIX = '.autosave';
 
 /**
@@ -56,12 +56,12 @@ const AUDIO_DIR = 'audio';
 
 /**
  * Quiet period after the last edit before an autosave is written, in ms.
- * Mirrors `phx_project::DEFAULT_DEBOUNCE_MS`.
+ * Mirrors `phonia_project::DEFAULT_DEBOUNCE_MS`.
  */
 export const AUTOSAVE_DEBOUNCE_MS = 2_000;
 /**
  * Ceiling on how long unbroken editing defers an autosave, in ms.
- * Mirrors `phx_project::DEFAULT_MAX_WAIT_MS`.
+ * Mirrors `phonia_project::DEFAULT_MAX_WAIT_MS`.
  */
 export const AUTOSAVE_MAX_WAIT_MS = 15_000;
 
@@ -202,12 +202,12 @@ async function fileExists(dir: FileSystemDirectoryHandle, name: string): Promise
 /**
  * Orchestrates project persistence over the Origin Private File System.
  *
- * The container format and its round-trip stay in `phx-project` (reached through
+ * The container format and its round-trip stay in `phonia-project` (reached through
  * the worker's `saveProjectContainer` / `loadProjectContainer`); this class owns
  * only the OPFS tree — one directory per project holding the container, its
  * autosave sidecar, and the referenced `audio/` files — plus the recovery rule
  * (a sidecar strictly newer than the project file holds unsaved work) and the
- * autosave debounce timing, both matching `phx_project`.
+ * autosave debounce timing, both matching `phonia_project`.
  */
 export class ProjectStore {
   #client: WasmCoreClient;

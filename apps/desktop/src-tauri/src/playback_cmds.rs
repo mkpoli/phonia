@@ -1,4 +1,4 @@
-//! Native playback commands over the [`phx_playback`] engine.
+//! Native playback commands over the [`phonia_playback`] engine.
 //!
 //! The frontend's native playback client drives these; each maps one method of
 //! the shared playback interface (`load`/`play`/`pause`/`seek`, plus range
@@ -6,8 +6,8 @@
 //! host has no output device the engine is absent and every command returns an
 //! error, which the client reads as its cue to fall back to WebAudio.
 
-use phx_audio::Audio;
-use phx_playback::{CpalPlayback, PlaybackEngine};
+use phonia_audio::Audio;
+use phonia_playback::{CpalPlayback, PlaybackEngine};
 use serde::Serialize;
 use tauri::State;
 use tauri::ipc::{InvokeBody, Request};

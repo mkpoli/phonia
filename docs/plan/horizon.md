@@ -32,9 +32,9 @@ documentation only, oracles as black boxes, no GPL source consulted.
   fixture built to sit on that boundary. First step: dump both root sets
   for those three frames.
 - **Autocorrelation harmonicity on the pitch machinery** (algorithms report
-  §5.1). `phx_voice::hnr_track` has its own Hanning-window ACF; parselmouth's
+  §5.1). `phonia_voice::hnr_track` has its own Hanning-window ACF; parselmouth's
   `to_harmonicity_ac` grid length says Praat's is the Gaussian-window
-  analysis of `phx_pitch`. Rebuild it as `hnr_track_cc` was built — the
+  analysis of `phonia_pitch`. Rebuild it as `hnr_track_cc` was built — the
   pitch analysis with zero voicing threshold and zero path costs — add a
   `harmonicity-ac` oracle case to confirm, and re-check the voice report's
   HNR scalar against its 1 dB band. First step: the oracle case.
@@ -57,7 +57,7 @@ documentation only, oracles as black boxes, no GPL source consulted.
 - **Playback reliability as a stated guarantee** (CV §3). Praat's
   first-play truncation and its OS-level workaround folklore are a warning:
   playback must work the first time on every shell. The sample-counter clock
-  (`phx-playback`) is the structural half; the missing half is a test.
+  (`phonia-playback`) is the structural half; the missing half is a test.
   First step: add a first-play integration test (cold engine → play → assert
   full-length delivery) to the web e2e and the phase-6 desktop gate.
 
@@ -67,23 +67,23 @@ documentation only, oracles as black boxes, no GPL source consulted.
    journaled commands with a channel strip in the corpus row and editor.
    Evidence: CV §7 (the unanswerable "delete channel 1" question; Praat
    offers only copy-out commands). Builds on: planar per-channel buffers in
-   `phx-audio`, the engine journal, the streamed store. First step:
+   `phonia-audio`, the engine journal, the streamed store. First step:
    `Command::{ExtractChannel, RemoveChannel, MixToMono}` with id-stable
    inverses, wasm bindings, channel badge UI.
 2. **Vowel-space analytics** — an F1×F2 chart (IPA targets, per-language
    reference sets, points from labeled intervals) as both an app panel and a
-   `phx-figure` layer. Evidence: CV §11 (Ian Howell / VoceVista precedent;
+   `phonia-figure` layer. Evidence: CV §11 (Ian Howell / VoceVista precedent;
    the delta-segmentation panel in the owner's screenshot is the owner's own
-   extension, unpublished elsewhere). Builds on: `phx-formant` means over
+   extension, unpublished elsewhere). Builds on: `phonia-formant` means over
    spans (T8.2 `formant_span_means`), the figure model, dataviz-conformant
-   palettes. First step: `Layer::VowelSpace` in `phx-figure` with
+   palettes. First step: `Layer::VowelSpace` in `phonia-figure` with
    a reference-dataset format (license-checked), then the app panel.
 3. **ELAN interop** — read and write `.eaf` so fieldwork round-trips stop
    degrading. Evidence: CV §8 (ELAN-first fieldworkers; export/import cycles
    are a named engineering concern for ELAN's own authors). Builds on:
-   `phx-annot`'s hierarchical tiers (modeled on ELAN already),
-   `phx-textgrid`'s reader discipline (fixtures, fuzzing, typed errors).
-   First step: `phx-eaf` crate, EAF XML schema from ELAN's
+   `phonia-annot`'s hierarchical tiers (modeled on ELAN already),
+   `phonia-textgrid`'s reader discipline (fixtures, fuzzing, typed errors).
+   First step: `phonia-eaf` crate, EAF XML schema from ELAN's
    published documentation, round-trip fixtures authored + oracle-generated
    via ELAN itself if redistributable.
 4. **Broad decode: formats and video containers as audio sources** — open
@@ -135,7 +135,7 @@ documentation only, oracles as black boxes, no GPL source consulted.
    two-step noise reduction and 128-sample Repair as the documented
    baseline; RX's arbitrary-region model as the harder target). Builds on:
    the T8.2 spectral filter primitive, the tile cache for preview, the
-   journal. First step: `phx-repair` crate with
+   journal. First step: `phonia-repair` crate with
    literature-cited spectral subtraction (Boll 1979 lineage; artifacts
    documented honestly), synthetic gates (SNR improvement, artifact bounds).
 10. **Arbitrary-region spectral edit** — RX-register box/lasso attenuation
@@ -180,7 +180,7 @@ documentation only, oracles as black boxes, no GPL source consulted.
 15. **Python bindings** — a parselmouth-shaped `phonia` Python package over
     the engine API, because scripting users live there (the architecture
     was library-first for exactly this). First step: pyo3 crate
-    exposing pitch/formant/intensity/voice over `phx-*`, with the oracle
+    exposing pitch/formant/intensity/voice over `phonia-*`, with the oracle
     harness converted to consume it as its first real user.
 16. **Praat-script compatibility** (*investigation-first*) — run existing
     `.praat` scripts against the engine. Carried from `roadmap.md`'s

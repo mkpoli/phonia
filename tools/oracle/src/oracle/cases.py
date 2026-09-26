@@ -186,7 +186,7 @@ CASES: dict[str, Case] = {
             "local/apq3/apq5/apq11/dda, mean HNR, F0 mean/median/min/max) "
             "over each fixture's `VOICE_REPORT_SPANS` span, via Praat's "
             "PointProcess/Pitch/Harmonicity \"Get ...\" commands -- the "
-            "same pitch parameters `phx_voice::voice_report` takes."
+            "same pitch parameters `phonia_voice::voice_report` takes."
         ),
     ),
 }

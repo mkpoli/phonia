@@ -5,19 +5,19 @@ import type { TauriCoreClient } from '$lib/core/TauriCoreClient';
 
 /** Container file name inside a project directory. */
 const PROJECT_FILE = 'project.phxproj';
-/** Sidecar suffix, matching `phx_project::AUTOSAVE_SUFFIX`. */
+/** Sidecar suffix, matching `phonia_project::AUTOSAVE_SUFFIX`. */
 const AUTOSAVE_SUFFIX = '.autosave';
 /** Subdirectory holding the referenced recordings. */
 const AUDIO_DIR = 'audio';
 
 /**
  * Quiet period after the last edit before an autosave is written, in ms.
- * Mirrors `phx_project::DEFAULT_DEBOUNCE_MS`.
+ * Mirrors `phonia_project::DEFAULT_DEBOUNCE_MS`.
  */
 export const AUTOSAVE_DEBOUNCE_MS = 2_000;
 /**
  * Ceiling on how long unbroken editing defers an autosave, in ms.
- * Mirrors `phx_project::DEFAULT_MAX_WAIT_MS`.
+ * Mirrors `phonia_project::DEFAULT_MAX_WAIT_MS`.
  */
 export const AUTOSAVE_MAX_WAIT_MS = 15_000;
 
@@ -102,7 +102,7 @@ async function fsListDirs(dir: string): Promise<string[]> {
  * Orchestrates project persistence over the real filesystem, one directory per
  * project under the app data root, holding the container, its autosave sidecar,
  * and the referenced `audio/` files. The container format and its round trip
- * stay in `phx-project` (reached through the client's `saveProjectContainer` /
+ * stay in `phonia-project` (reached through the client's `saveProjectContainer` /
  * `loadProjectContainer`); this class owns the directory tree, the recovery rule
  * (a sidecar strictly newer than the project file holds unsaved work), and the
  * autosave debounce timing — the same contract the web store keeps over OPFS.

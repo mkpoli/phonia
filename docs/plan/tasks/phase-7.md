@@ -16,7 +16,7 @@ parameter-explanation copy reviewed against the de-ai checklists before
 merge.
 
 ### T7.3 · scripting parity demonstration
-A minimal script surface (CLI or in-app console calling `phx-engine`
+A minimal script surface (CLI or in-app console calling `phonia-engine`
 directly) sufficient to run wow-moment 4: palette measurement vs scripted
 measurement, numerically identical, side by side.
 

@@ -1,7 +1,7 @@
 """Parameter sets mirrored from the Rust `*Params` structs.
 
-Field names and defaults match `crates/phx-pitch`, `crates/phx-formant`, and
-`crates/phx-intensity` as specified in `docs/plan/tasks/phase-2.md` (T2.1,
+Field names and defaults match `crates/phonia-pitch`, `crates/phonia-formant`, and
+`crates/phonia-intensity` as specified in `docs/plan/tasks/phase-2.md` (T2.1,
 T2.2, T2.3), so a case run here uses the same nominal analysis settings as
 the Rust side it is compared against.
 """
@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True)
 class PitchParams:
-    """Mirrors `phx_pitch::PitchParams`."""
+    """Mirrors `phonia_pitch::PitchParams`."""
 
     time_step: float | None = None
     floor_hz: float = 75.0
@@ -32,7 +32,7 @@ class PitchParams:
 
 @dataclass(frozen=True)
 class FormantParams:
-    """Mirrors `phx_formant::FormantParams`."""
+    """Mirrors `phonia_formant::FormantParams`."""
 
     ceiling_hz: float = 5500.0
     max_formants: int = 5
@@ -46,7 +46,7 @@ class FormantParams:
 
 @dataclass(frozen=True)
 class IntensityParams:
-    """Mirrors `phx_intensity::IntensityParams`."""
+    """Mirrors `phonia_intensity::IntensityParams`."""
 
     pitch_floor_hz: float = 100.0
     time_step: float | None = None
@@ -58,7 +58,7 @@ class IntensityParams:
 
 @dataclass(frozen=True)
 class HarmonicityParams:
-    """The fields of `phx_voice::HarmonicityParams` that the cross-correlation
+    """The fields of `phonia_voice::HarmonicityParams` that the cross-correlation
     harmonicity (`Sound.to_harmonicity_cc`) reads; the Rust struct also
     carries a ceiling, which only the autocorrelation variant uses."""
 

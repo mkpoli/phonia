@@ -159,7 +159,7 @@ def intensity_frames(sound: Any, params: IntensityParams) -> list[dict]:
 # Jitter/shimmer boundary arguments below are Praat's own "Get jitter/
 # shimmer (...)..." dialog defaults (manual pages "Voice 2. Jitter",
 # "Voice 3. Shimmer"): shortest/longest accepted period 0.1-20 ms, maximum
-# period factor 1.3, maximum amplitude factor 1.6. `phx_voice` has no
+# period factor 1.3, maximum amplitude factor 1.6. `phonia_voice` has no
 # equivalent knob at the jitter/shimmer-formula stage -- its period-ratio
 # gate (`PulseParams::min_period_factor`/`max_period_factor`, 0.6-1.6) runs
 # earlier, during pulse extraction -- so these stay Praat-only constants,
@@ -169,7 +169,7 @@ _JITTER_LONGEST_PERIOD = 0.02
 _JITTER_MAX_PERIOD_FACTOR = 1.3
 _SHIMMER_MAX_AMPLITUDE_FACTOR = 1.6
 
-# Harmonicity defaults match `phx_voice::HarmonicityParams::default()`
+# Harmonicity defaults match `phonia_voice::HarmonicityParams::default()`
 # exactly (silence threshold, periods per window) except `minimum_pitch`,
 # which follows the case's own `PitchParams.floor_hz`, and `time_step`,
 # which follows `PitchParams.time_step` when set.
@@ -182,7 +182,7 @@ def voice_report(sound: Any, params: PitchParams, span: tuple[float, float]) -> 
     """Scalar voice-report measures over `span`, via Praat's PointProcess/
     Pitch/Harmonicity "Get ..." commands -- documented public API reached
     through `parselmouth.praat.call` -- matching the comparable scalar
-    surface of `phx_voice::voice_report`.
+    surface of `phonia_voice::voice_report`.
     """
     from parselmouth.praat import call
 

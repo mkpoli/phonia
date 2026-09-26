@@ -1,9 +1,0 @@
-[package]
-name = "phx-dsp"
-version = "0.0.1"
-edition.workspace = true
-license.workspace = true
-description = "Hanning/Gaussian/Kaiser windows, real FFT wrappers, absolute-time frame grid, windowed-sinc interpolation, pre-emphasis"
-
-[dependencies]
-realfft = { workspace = true }

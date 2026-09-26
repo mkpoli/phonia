@@ -1,5 +1,5 @@
 //! The Phonia desktop shell: the shared Svelte UI in a Tauri webview over a
-//! native [`phx_engine`] core.
+//! native [`phonia_engine`] core.
 //!
 //! The engine sits behind a `Mutex<Engine>` in Tauri-managed state, and every
 //! `#[tauri::command]` mirrors one method of the web worker protocol, so the

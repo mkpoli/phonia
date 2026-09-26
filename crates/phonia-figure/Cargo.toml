@@ -1,0 +1,41 @@
+[package]
+name = "phonia-figure"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+description = "Backend-agnostic figure model and exporters: SVG scene graph with PNG and PDF derived from it"
+
+[dependencies]
+phonia-audio = { workspace = true }
+phonia-spectrogram = { workspace = true }
+phonia-pitch = { workspace = true }
+phonia-formant = { workspace = true }
+phonia-intensity = { workspace = true }
+phonia-annot = { workspace = true }
+phonia-textgrid = { workspace = true }
+phonia-render = { workspace = true }
+serde = { workspace = true }
+# float_roundtrip makes JSON deserialization recover f64 bit-for-bit, so a
+# serialize -> deserialize -> serialize cycle is byte-identical.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+# SVG is the scene-graph source of truth. It embeds the colorized spectrogram
+# as a base64 PNG, so base64 and png compile for every target including
+# wasm32; both are pure Rust.
+base64 = { workspace = true }
+png = { workspace = true }
+# PNG and PDF derive from the SVG by rasterizing / converting it. resvg and
+# svg2pdf pull tiny-skia and a font stack that are native-only, so they sit
+# behind features left off on the wasm build.
+resvg = { workspace = true, optional = true }
+svg2pdf = { workspace = true, optional = true }
+
+[features]
+default = []
+# to_png: rasterize the SVG scene with resvg + tiny-skia.
+raster = ["dep:resvg"]
+# to_pdf: convert the SVG scene with svg2pdf.
+pdf = ["dep:svg2pdf"]
+
+[[example]]
+name = "render_reference"
+required-features = ["raster", "pdf"]

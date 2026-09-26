@@ -23,7 +23,11 @@ name over `phx-*` crates and accept the crates.io search collision.
 Decision owner: the user. Until decided, "Phonix" stays the working name in
 docs; nothing user-facing ships before v0.1 demo prep, so the decision can
 wait until phase 5 without cost. Whichever way it goes, register the bare
-crate (`phonia` or nothing) and `phx-core` immediately (crates.io has no
+crate (`phonia` or nothing) and `phonia-core` immediately (crates.io has no
 namespace protection; RFC 3243 unimplemented).
 
 Decided 2026-07-17: the product is Phonia; crates keep the phx- prefix.
+
+Revised 2026-09-26: crates take the `phonia-` prefix. The bare `phx` crate on
+crates.io belongs to an unrelated project, so `phx-*` names read as its
+family, and the prefix no longer names the product.

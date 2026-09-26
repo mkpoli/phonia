@@ -14,11 +14,11 @@ written at phase start from this document.
 Cargo workspace with all crate skeletons compiling; CI (fmt, clippy
 `-D warnings`, tests, wasm32 build check, cargo-deny license allowlist);
 `tests/fixtures/` populated with permissively licensed audio clips and
-TextGrid samples with attribution manifest; `phx-core` name registered on
+TextGrid samples with attribution manifest; `phonia-core` name registered on
 crates.io as a placeholder.
 
 **Gate.** `cargo test --workspace` and `cargo build --target
-wasm32-unknown-unknown -p phx-wasm` green in CI on Linux/macOS/Windows
+wasm32-unknown-unknown -p phonia-wasm` green in CI on Linux/macOS/Windows
 runners.
 
 ## Phase 1 — walking skeleton: see and hear a sound
@@ -26,10 +26,10 @@ runners.
 **Goal.** Open audio in the browser, see waveform + spectrogram, scroll,
 zoom, play. Demoable end-to-end, however plain.
 
-**Deliverables.** `phx-audio` (WAV decode, buffer model), `phx-dsp` (windows,
-real FFT, absolute-time frame grid, pre-emphasis), `phx-spectrogram`
-(Gaussian STFT, dB tiles), `phx-render` (viridis/magma/grayscale),
-minimal `phx-engine` + `phx-wasm` (import, waveform pyramid, tiles), web app
+**Deliverables.** `phonia-audio` (WAV decode, buffer model), `phonia-dsp` (windows,
+real FFT, absolute-time frame grid, pre-emphasis), `phonia-spectrogram`
+(Gaussian STFT, dB tiles), `phonia-render` (viridis/magma/grayscale),
+minimal `phonia-engine` + `phonia-wasm` (import, waveform pyramid, tiles), web app
 with Worker + OPFS, WebGL2 tile canvas with pan/zoom (Canvas2D fallback),
 WebAudio playback with engine-clocked cursor.
 
@@ -45,8 +45,8 @@ parallel with the web-app shell; they meet at the engine.
 
 **Goal.** The Praat editor's analysis surface, with honest defaults.
 
-**Deliverables.** `phx-pitch` (Boersma 1993, full parameter set, Viterbi),
-`phx-formant` (Burg, root-solving, DP tracking), `phx-intensity`; overlay
+**Deliverables.** `phonia-pitch` (Boersma 1993, full parameter set, Viterbi),
+`phonia-formant` (Burg, root-solving, DP tracking), `phonia-intensity`; overlay
 rendering in the editor; non-modal inspector with live re-analysis and
 clipping warnings; oracle harness (`tools/oracle/`) running in CI.
 
@@ -59,8 +59,8 @@ without blocking; zoom-independence holds for every track.
 
 **Goal.** Tier-based annotation a working phonetician can live in.
 
-**Deliverables.** `phx-annot` (interval/point tiers, hierarchical tier
-relations, integrity validation), `phx-textgrid` (read all three variants ×
+**Deliverables.** `phonia-annot` (interval/point tiers, hierarchical tier
+relations, integrity validation), `phonia-textgrid` (read all three variants ×
 all encodings; write UTF-8), tier UI with the keyboard-first loop, label
 search across the project, journaled undo across all annotation edits.
 
@@ -73,9 +73,9 @@ keyboard-only annotation of a sentence recorded on video; undo stack survives
 
 **Goal.** Sessions persist; measurements aggregate.
 
-**Deliverables.** `phx-project` (project file format, autosave, crash
+**Deliverables.** `phonia-project` (project file format, autosave, crash
 recovery, parameter profiles), home screen / project manager with
-drop-a-folder import, `phx-voice` (pulses, jitter/shimmer, HNR, CPP,
+drop-a-folder import, `phonia-voice` (pulses, jitter/shimmer, HNR, CPP,
 spectral moments, voice report card), spectrogram box selection with
 readout.
 
@@ -87,7 +87,7 @@ import (wow-moment 1) demonstrated.
 
 **Goal.** Publication output better than anything Praat ships.
 
-**Deliverables.** `phx-figure` model + exporters: SVG, PDF, PNG, PGFPlots/
+**Deliverables.** `phonia-figure` model + exporters: SVG, PDF, PNG, PGFPlots/
 TikZ, Typst/CeTZ, Vega JSON, data + matplotlib/R/Julia code, GraphML (for
 annotation-graph data); export dialog with live theme-aware preview.
 

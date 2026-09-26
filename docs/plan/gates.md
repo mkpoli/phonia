@@ -119,8 +119,8 @@ duration as n·(1/fs)).
   unchanged, the pitch rebuild alone moves them); the band for this fixture
   was widened to 45% and the sustained-vowel fixtures still pass 0/14.
   Tightening it back is the pulse-placement item in `horizon.md`.
-  *2026-09-16, harmonicity (cc):* `phx_voice::hnr_track_cc` on
-  `phx_pitch::pitch_track_cc` agrees with parselmouth on all eight
+  *2026-09-16, harmonicity (cc):* `phonia_voice::hnr_track_cc` on
+  `phonia_pitch::pitch_track_cc` agrees with parselmouth on all eight
   `harmonicity-cc-*` fixtures — voicing 100%, HNR equal to the reference
   files' six decimals on every frame but two of `arctic_bdl_a0001` at the
   defaults (t = 2.1675 s, 24.896 vs 24.565 dB; t = 2.4375 s, 7.916 vs

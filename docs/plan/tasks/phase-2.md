@@ -5,10 +5,10 @@ citations: `../../research/algorithms-and-validation.md` (§1 pitch, §2
 formants, §4 intensity, §7 validation) — copy the relevant section into each
 delegation, since references are not carried over.
 
-### T2.1 · phx-pitch
+### T2.1 · phonia-pitch
 **Objective.** Boersma-1993 autocorrelation pitch with the Viterbi path
 finder.
-**Files.** `crates/phx-pitch/src/*`.
+**Files.** `crates/phonia-pitch/src/*`.
 **Interfaces.**
 ```rust
 pub struct PitchParams { pub time_step: Option<f64>, pub floor_hz: f64 /* 75 */,
@@ -25,7 +25,7 @@ pub fn pitch_track(audio: AudioView, params: &PitchParams) -> PitchTrack;
 **Requirements.** Window-corrected ACF (r_a/r_w, with r_w computed from the
 sampled window), Hanning at 3/floor (Gaussian at 6/floor when very_accurate),
 zero-padded pow2 FFT ACF, candidate maxima placed by parabolic then
-windowed-sinc peak interpolation (phx-dsp), unvoiced candidate strength eq. 23,
+windowed-sinc peak interpolation (phonia-dsp), unvoiced candidate strength eq. 23,
 voiced strength eq. 24, transition costs eq. 27 scaled by 0.01/step, DP over
 all frames. The discretisation conventions are listed in the algorithms report
 §1.2. All equations are reproduced in the algorithms report
@@ -37,9 +37,9 @@ speech — voiced-frame F0 within 1% where both voiced at the same octave,
 voicing decisions majority-consistent, GPE cases listed individually in the
 report.
 
-### T2.2 · phx-formant
+### T2.2 · phonia-formant
 **Objective.** Burg LPC formant estimation with DP tracking.
-**Files.** `crates/phx-formant/src/*`.
+**Files.** `crates/phonia-formant/src/*`.
 **Interfaces.**
 ```rust
 pub struct FormantParams { pub ceiling_hz: f64 /* 5500 */, pub max_formants: usize /* 5 */,
@@ -62,9 +62,9 @@ F1–F3 within 2%, bandwidths within 20%; oracle comparison on fixture vowels
 within validation.md bands; a male-speech fixture analyzed at 5000 vs 5500 Hz
 ceiling shows the documented shift (sanity of the ceiling semantics).
 
-### T2.3 · phx-intensity
+### T2.3 · phonia-intensity
 **Objective.** Praat-equivalent intensity contour.
-**Files.** `crates/phx-intensity/src/*`.
+**Files.** `crates/phonia-intensity/src/*`.
 **Interfaces.** `IntensityParams { pitch_floor_hz /* 100 */, time_step:
 Option<f64>, subtract_mean: bool /* true */ }`,
 `intensity_track(audio, &params) -> IntensityTrack` (dB SPL re 2×10⁻⁵ Pa).
@@ -79,7 +79,7 @@ known-RMS signals map to exact dB; oracle within 1 dB on fixtures.
 **Objective.** Pitch/formant/intensity rendered over the spectrogram; live
 non-modal inspector.
 **Files.** `apps/ui/` (TrackOverlay, InspectorPanel), `apps/web/` wiring,
-`phx-engine`/`phx-wasm` additions (`pitch_track`, `formant_track`,
+`phonia-engine`/`phonia-wasm` additions (`pitch_track`, `formant_track`,
 `intensity_track` calls + params plumbing).
 **Requirements.** Pitch as a line (voiced runs) on its own right-hand scale;
 formants as speckles sized by bandwidth; intensity as a thin line; per-track

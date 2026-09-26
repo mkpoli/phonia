@@ -8,12 +8,12 @@ PlaybackEngine trait, WebKitGTK mitigations).
 ### T6.1 · Tauri shell + TauriCoreClient
 `apps/desktop/`: Tauri 2 project wrapping `apps/ui`; `TauriCoreClient`
 implementing the same `CoreClient` interface over `invoke`; native
-`phx-engine` behind commands; file I/O in Rust commands with the dialog
+`phonia-engine` behind commands; file I/O in Rust commands with the dialog
 plugin used only to obtain paths. Gate: the full web Playwright suite (via
 tauri-driver/WebdriverIO) passes against the desktop build on Linux.
 
 ### T6.2 · native playback engine
-`PlaybackEngine` trait in a new `crates/phx-playback`: cpal callback thread,
+`PlaybackEngine` trait in a new `crates/phonia-playback`: cpal callback thread,
 symphonia decode, atomic sample-counter clock, position events to the
 webview at display rate; seek/loop over selections. Gate: cursor drift
 < 1 frame over 5 minutes; no underruns on the 10-minute fixture.

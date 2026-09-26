@@ -11,7 +11,7 @@ import init, {
 	renameProjectContainer as wasmRenameProjectContainer,
 	renderFigureSvg as wasmRenderFigureSvg,
 	wavStreamHeader as wasmWavStreamHeader
-} from '../wasm/pkg/phx_wasm.js';
+} from '../wasm/pkg/phonia_wasm.js';
 import type {
   AnnotationId,
   AudioId,
@@ -394,7 +394,7 @@ function readAtOf(handle: SyncAccessHandle) {
 
 /**
  * Detects a WAV, AIFF, or FLAC container from its leading bytes, mirroring
- * `phx_audio::sniff_container`. Only WAV supports the streamed-open path
+ * `phonia_audio::sniff_container`. Only WAV supports the streamed-open path
  * ({@link wasmWavStreamHeader} parses a RIFF/WAVE header), so the worker reads
  * this before deciding whether a stored file is a streaming candidate or
  * belongs straight on the eager decode path.

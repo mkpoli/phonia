@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use phx_engine::{AnnotationId, ByteReader, Engine};
-use phx_project::{ContentHash, FsStore, MediaId, MediaRef, Project, Storage};
+use phonia_engine::{AnnotationId, ByteReader, Engine};
+use phonia_project::{ContentHash, FsStore, MediaId, MediaRef, Project, Storage};
 use tauri::State;
 use tauri::ipc::{InvokeBody, Request, Response};
 
@@ -63,24 +63,24 @@ impl ByteReader for FileReader {
     }
 
     #[cfg(unix)]
-    fn read_exact_at(&self, offset: u64, buf: &mut [u8]) -> Result<(), phx_engine::AudioError> {
+    fn read_exact_at(&self, offset: u64, buf: &mut [u8]) -> Result<(), phonia_engine::AudioError> {
         use std::os::unix::fs::FileExt;
         self.file
             .read_exact_at(buf, offset)
-            .map_err(|e| phx_engine::AudioError::Io(e.to_string()))
+            .map_err(|e| phonia_engine::AudioError::Io(e.to_string()))
     }
 
     #[cfg(windows)]
-    fn read_exact_at(&self, offset: u64, buf: &mut [u8]) -> Result<(), phx_engine::AudioError> {
+    fn read_exact_at(&self, offset: u64, buf: &mut [u8]) -> Result<(), phonia_engine::AudioError> {
         use std::os::windows::fs::FileExt;
         let mut done = 0;
         while done < buf.len() {
             let read = self
                 .file
                 .seek_read(&mut buf[done..], offset + done as u64)
-                .map_err(|e| phx_engine::AudioError::Io(e.to_string()))?;
+                .map_err(|e| phonia_engine::AudioError::Io(e.to_string()))?;
             if read == 0 {
-                return Err(phx_engine::AudioError::Io(
+                return Err(phonia_engine::AudioError::Io(
                     "reader ended before the requested range".to_string(),
                 ));
             }
@@ -109,7 +109,7 @@ fn hash_file(path: &Path) -> std::io::Result<String> {
 
 /// Reports whether `rel`'s extension is `.wav`, case-insensitively.
 ///
-/// Only WAV supports the streamed-open path below — [`phx_engine::StreamingWav`]
+/// Only WAV supports the streamed-open path below — [`phonia_engine::StreamingWav`]
 /// parses a RIFF/WAVE header — so an AIFF or FLAC recording always takes the
 /// eager branch of [`open_audio_streaming`] regardless of length.
 fn looks_like_wav(rel: &str) -> bool {
@@ -140,7 +140,7 @@ pub fn open_audio_streaming(state: State<AppState>, rel: String) -> Result<Audio
 
     let (id, hash) = if looks_like_wav(&rel) {
         let frames =
-            phx_engine::StreamingWav::open(FileReader::open(&path).map_err(|e| e.to_string())?)
+            phonia_engine::StreamingWav::open(FileReader::open(&path).map_err(|e| e.to_string())?)
                 .map_err(|e| e.to_string())?
                 .frames();
         if frames > Engine::eager_import_frame_limit() {
@@ -249,14 +249,14 @@ pub fn save_project_container(
     // list that was just built rather than trusting the host to keep the two in
     // lockstep.
     project.normalize_library();
-    Ok(phx_project::save(&project))
+    Ok(phonia_project::save(&project))
 }
 
 /// Parses a project container into the metadata the session restores from, with
 /// each annotated recording's document serialized inline.
 #[tauri::command]
 pub fn load_project_container(bytes: Vec<u8>) -> Result<LoadProjectResult, String> {
-    let project = phx_project::load(&bytes).map_err(|e| e.to_string())?;
+    let project = phonia_project::load(&bytes).map_err(|e| e.to_string())?;
     let mut media = Vec::with_capacity(project.media.len());
     for reference in &project.media {
         let annotation_json = match project.annotations.get(&reference.id) {
@@ -291,9 +291,9 @@ pub fn load_project_container(bytes: Vec<u8>) -> Result<LoadProjectResult, Strin
 /// Rewrites a container's name, preserving media, annotations, and timestamp.
 #[tauri::command]
 pub fn rename_project_container(bytes: Vec<u8>, name: String) -> Result<Vec<u8>, String> {
-    let mut project = phx_project::load(&bytes).map_err(|e| e.to_string())?;
+    let mut project = phonia_project::load(&bytes).map_err(|e| e.to_string())?;
     project.name = name;
-    Ok(phx_project::save(&project))
+    Ok(phonia_project::save(&project))
 }
 
 // --- Flat filesystem surface (rooted at the projects directory) ------------

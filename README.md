@@ -60,26 +60,25 @@ nothing to install, and as a desktop app for native playback and PDF export.
 A Rust analysis core drives two interfaces, a browser app and a Tauri desktop
 app. The core is a Cargo workspace of small library crates with no UI
 dependencies, compiled natively for the desktop and to WebAssembly for the
-browser. The crate name `phonix` on crates.io belongs to an unrelated project,
-so published crates use the `phx-` prefix. Each crate owns one concern:
+browser. Library crates carry the `phonia-` prefix. Each crate owns one concern:
 
 | Crate | Responsibility |
 | --- | --- |
-| [`phx-audio`](crates/phx-audio) | Planar f32 audio with sample rate; WAV, AIFF, FLAC, MP3; resampling |
-| [`phx-dsp`](crates/phx-dsp) | Windows, real FFT wrappers, absolute-time frame grids, interpolation, pre-emphasis |
-| [`phx-spectrogram`](crates/phx-spectrogram) | Gaussian-window STFT spectral density in dB, viewport-independent tiles |
-| [`phx-pitch`](crates/phx-pitch) | Autocorrelation candidates and Viterbi tracking |
-| [`phx-formant`](crates/phx-formant) | Burg analysis and formant tracking |
-| [`phx-intensity`](crates/phx-intensity) | Gaussian-smoothed intensity in dB SPL |
-| [`phx-voice`](crates/phx-voice) | Pulses, jitter, shimmer, HNR, CPP, spectral moments |
-| [`phx-annot`](crates/phx-annot) | Interval and point tiers, tier relations, invertible edits |
-| [`phx-textgrid`](crates/phx-textgrid) | Praat TextGrid reader and writer |
-| [`phx-project`](crates/phx-project) | Versioned project files, media references, parameter profiles, autosave |
-| [`phx-render`](crates/phx-render) | Perceptual colormaps, theme-aware tile rendering |
-| [`phx-figure`](crates/phx-figure) | Figure model and exporters over an SVG scene graph |
-| [`phx-playback`](crates/phx-playback) | Native audio output behind a playback trait |
-| [`phx-engine`](crates/phx-engine) | The API both frontends consume: commands, journaled undo, analysis cache |
-| [`phx-wasm`](crates/phx-wasm) | WebAssembly bindings over the engine |
+| [`phonia-audio`](crates/phonia-audio) | Planar f32 audio with sample rate; WAV, AIFF, FLAC, MP3; resampling |
+| [`phonia-dsp`](crates/phonia-dsp) | Windows, real FFT wrappers, absolute-time frame grids, interpolation, pre-emphasis |
+| [`phonia-spectrogram`](crates/phonia-spectrogram) | Gaussian-window STFT spectral density in dB, viewport-independent tiles |
+| [`phonia-pitch`](crates/phonia-pitch) | Autocorrelation candidates and Viterbi tracking |
+| [`phonia-formant`](crates/phonia-formant) | Burg analysis and formant tracking |
+| [`phonia-intensity`](crates/phonia-intensity) | Gaussian-smoothed intensity in dB SPL |
+| [`phonia-voice`](crates/phonia-voice) | Pulses, jitter, shimmer, HNR, CPP, spectral moments |
+| [`phonia-annot`](crates/phonia-annot) | Interval and point tiers, tier relations, invertible edits |
+| [`phonia-textgrid`](crates/phonia-textgrid) | Praat TextGrid reader and writer |
+| [`phonia-project`](crates/phonia-project) | Versioned project files, media references, parameter profiles, autosave |
+| [`phonia-render`](crates/phonia-render) | Perceptual colormaps, theme-aware tile rendering |
+| [`phonia-figure`](crates/phonia-figure) | Figure model and exporters over an SVG scene graph |
+| [`phonia-playback`](crates/phonia-playback) | Native audio output behind a playback trait |
+| [`phonia-engine`](crates/phonia-engine) | The API both frontends consume: commands, journaled undo, analysis cache |
+| [`phonia-wasm`](crates/phonia-wasm) | WebAssembly bindings over the engine |
 
 Three app packages sit on the core: `apps/web` (SvelteKit frontend compiled to
 WebAssembly), `apps/desktop` (Tauri shell with native playback), and `apps/ui`

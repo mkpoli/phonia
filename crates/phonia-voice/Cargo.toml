@@ -1,0 +1,11 @@
+[package]
+name = "phonia-voice"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+description = "Pulse extraction from pitch + waveform, jitter/shimmer families, HNR, CPP/CPPS, spectral moments, aggregate voice report"
+
+[dependencies]
+phonia-audio = { workspace = true }
+phonia-pitch = { workspace = true }
+phonia-dsp = { workspace = true }

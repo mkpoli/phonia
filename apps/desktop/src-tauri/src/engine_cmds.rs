@@ -2,7 +2,7 @@
 //! method, each locking the shared [`Engine`] for a single call and returning
 //! the same shape the WASM worker returns to the shared UI.
 
-use phx_engine::{
+use phonia_engine::{
     AlignMode, AnnotationId, Applied, AudioId, BoundaryId, Colormap, Command, DisplayMapping,
     Engine, EngineError, Figure, FigureFormat, FigureRequest, FormantParams, IntensityParams,
     IntervalId, LabelPattern, LabelQuery, LabelTarget, PitchParams, PointId, SpectrogramParams,
@@ -208,7 +208,7 @@ pub fn pitch_track_span(
     Ok(pitch_dto(track.frames(), start))
 }
 
-fn pitch_dto(frames: &[phx_engine::PitchFrame], offset: f64) -> PitchTrackDto {
+fn pitch_dto(frames: &[phonia_engine::PitchFrame], offset: f64) -> PitchTrackDto {
     let mut times = Vec::with_capacity(frames.len());
     let mut f0 = Vec::with_capacity(frames.len());
     let mut max_hz = 0.0_f64;
@@ -603,7 +603,7 @@ pub fn create_annotation(
     xmin: f64,
     xmax: f64,
 ) -> Result<u64, String> {
-    let annotation = phx_engine::Annotation::new(xmin, xmax).map_err(|e| e.to_string())?;
+    let annotation = phonia_engine::Annotation::new(xmin, xmax).map_err(|e| e.to_string())?;
     let mut engine = lock(&state)?;
     match apply(
         &mut engine,
@@ -1114,7 +1114,7 @@ pub fn import_text_grid(
     audio_id: u64,
     bytes: Vec<u8>,
 ) -> Result<u64, String> {
-    let (annotation, _source) = phx_textgrid::read(&bytes).map_err(|e| e.to_string())?;
+    let (annotation, _source) = phonia_textgrid::read(&bytes).map_err(|e| e.to_string())?;
     let mut engine = lock(&state)?;
     match apply(
         &mut engine,
@@ -1134,7 +1134,7 @@ pub fn export_text_grid(state: State<AppState>, annotation_id: u64) -> Result<Ve
     let annotation = engine
         .annotation(AnnotationId::from_u64(annotation_id))
         .map_err(err)?;
-    phx_textgrid::write(annotation).map_err(|e| e.to_string())
+    phonia_textgrid::write(annotation).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1152,7 +1152,7 @@ pub fn attach_annotation_json(
     audio_id: u64,
     json: String,
 ) -> Result<u64, String> {
-    let annotation: phx_engine::Annotation =
+    let annotation: phonia_engine::Annotation =
         serde_json::from_str(&json).map_err(|e| e.to_string())?;
     let mut engine = lock(&state)?;
     match apply(
