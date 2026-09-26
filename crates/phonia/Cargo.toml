@@ -1,15 +1,39 @@
 [package]
 name = "phonia"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Name reservation for Phonia, an open-source phonetics toolkit; its library crates are published under the phonia- prefix"
+description = "Phonetic analysis in Rust: Praat-compatible pitch, formants, intensity and voice quality, spectrograms, audio decoding and TextGrid annotation"
 documentation = "https://docs.rs/phonia"
 readme = "README.md"
-keywords = ["phonetics", "praat", "linguistics"]
-categories = ["science"]
+keywords = ["phonetics", "praat", "linguistics", "speech", "acoustics"]
+categories = ["science", "multimedia::audio"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
+phonia-audio = { workspace = true, optional = true }
+phonia-dsp = { workspace = true, optional = true }
+phonia-spectrogram = { workspace = true, optional = true }
+phonia-pitch = { workspace = true, optional = true }
+phonia-formant = { workspace = true, optional = true }
+phonia-intensity = { workspace = true, optional = true }
+phonia-voice = { workspace = true, optional = true }
+phonia-annot = { workspace = true, optional = true }
+phonia-textgrid = { workspace = true, optional = true }
+
+[features]
+default = ["audio", "dsp", "spectrogram", "pitch", "formant", "intensity", "voice", "annot", "textgrid"]
+audio = ["dep:phonia-audio"]
+dsp = ["dep:phonia-dsp"]
+spectrogram = ["dep:phonia-spectrogram", "audio"]
+pitch = ["dep:phonia-pitch", "audio"]
+formant = ["dep:phonia-formant", "audio"]
+intensity = ["dep:phonia-intensity", "audio"]
+voice = ["dep:phonia-voice", "pitch"]
+annot = ["dep:phonia-annot"]
+textgrid = ["dep:phonia-textgrid", "annot"]

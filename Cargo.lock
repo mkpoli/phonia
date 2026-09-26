@@ -940,7 +940,18 @@ dependencies = [
 
 [[package]]
 name = "phonia"
-version = "0.0.1"
+version = "0.1.0"
+dependencies = [
+ "phonia-annot",
+ "phonia-audio",
+ "phonia-dsp",
+ "phonia-formant",
+ "phonia-intensity",
+ "phonia-pitch",
+ "phonia-spectrogram",
+ "phonia-textgrid",
+ "phonia-voice",
+]
 
 [[package]]
 name = "phonia-annot"
