@@ -1,6 +1,7 @@
 //! Window-corrected autocorrelation candidates (Boersma 1993) or forward
 //! cross-correlation candidates, plus a Viterbi path finder; full parameter
 //! surface with Praat-documented defaults.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 mod analysis;

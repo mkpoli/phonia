@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Planar f32 audio buffers with WAV, AIFF, FLAC and MP3 decoding and Praat-compatible resampling"
 documentation = "https://docs.rs/phonia-audio"
+readme = "README.md"
 keywords = ["audio", "wav", "flac", "resampling", "phonetics"]
 categories = ["multimedia::audio", "science"]
 

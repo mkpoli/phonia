@@ -6,6 +6,7 @@
 //! queried at a given time is identical regardless of zoom, scroll, or which
 //! caller asked for it. Samples are stored `f32` elsewhere in the workspace and
 //! promoted to `f64` here before windowing and transforms.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 mod fft;

@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Praat-compatible pitch tracking: autocorrelation and cross-correlation candidates with a Viterbi path finder"
 documentation = "https://docs.rs/phonia-pitch"
+readme = "README.md"
 keywords = ["pitch", "f0", "praat", "phonetics", "speech"]
 categories = ["multimedia::audio", "science"]
 

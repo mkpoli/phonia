@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Praat-compatible formant analysis: Burg LPC, polynomial roots to frequency and bandwidth, optional Viterbi tracking"
 documentation = "https://docs.rs/phonia-formant"
+readme = "README.md"
 keywords = ["formant", "lpc", "praat", "phonetics", "speech"]
 categories = ["multimedia::audio", "science"]
 

@@ -21,6 +21,7 @@
 //! physical SPL only when the samples are already calibrated pressures:
 //! the recording chain (microphone sensitivity, gain, converter full scale)
 //! maps a sample value of `1.0` to `1` Pa at the microphone.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 use std::error::Error;
