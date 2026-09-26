@@ -1,5 +1,5 @@
-//! Perceptual colormaps (viridis, magma, turbo, grayscale) and dB→RGBA tile
-//! rendering.
+//! Perceptual colormaps (viridis, magma, cividis, turbo, grayscale and
+//! others) and dB→RGBA tile rendering.
 //!
 //! [`colorize`] maps a row-major tile of dB power values onto 8-bit RGBA
 //! pixels: a linear-in-dB clip against `[floor, ceiling]`
