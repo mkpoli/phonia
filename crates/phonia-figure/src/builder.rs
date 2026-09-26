@@ -3,9 +3,9 @@
 //! [`tier_data`] and [`tiers_layer`] convert annotation [`TierSlot`]s into
 //! embedded tiers and are always available. Behind the default-off
 //! `analysis` feature, every conversion from a live analysis result to an
-//! embedded [`Layer`] lives here too: a spectrogram [`Tile`] becomes a
-//! raw-decibel layer, a [`PitchTrack`] becomes a point series, a
-//! [`FormantTrack`] becomes a speckle, and an [`IntensityTrack`] becomes a
+//! embedded [`Layer`] lives here too: a spectrogram `Tile` becomes a
+//! raw-decibel layer, a `PitchTrack` becomes a point series, a
+//! `FormantTrack` becomes a speckle, and an `IntensityTrack` becomes a
 //! contour. The functions copy data out of the analysis types, so the
 //! resulting [`Figure`] holds no reference back to them.
 

@@ -7,6 +7,7 @@
 //! that render identically on light and dark backgrounds; the `invert` flag
 //! reverses whichever ramp was chosen. The crate takes plain arrays in and
 //! out; it has no dependency on the rest of the workspace.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 mod colormap;
