@@ -457,7 +457,7 @@ export interface VoiceReportData {
     dda: number | null;
   };
   meanHnrDb: number | null;
-  cppDb: number;
+  cppDb: number | null;
   cppsDb: number | null;
   voiceBreaks: { thresholdSeconds: number; totalSeconds: number; count: number };
   meanPeriodSeconds: number | null;

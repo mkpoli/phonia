@@ -361,8 +361,9 @@ pub struct VoiceReport {
     pub shimmer: ShimmerMeasures,
     /// Mean HNR over the requested span.
     pub mean_hnr_db: Option<f64>,
-    /// CPP at the span midpoint.
-    pub cpp_db: f64,
+    /// CPP at the span midpoint. `None` when that frame cannot support the
+    /// requested quefrency and regression ranges.
+    pub cpp_db: Option<f64>,
     /// Smoothed CPP over the requested span.
     pub cpps_db: Option<f64>,
     /// Voice breaks from pulse gaps greater than `1.25 / pitch_floor`.
@@ -571,13 +572,13 @@ pub fn hnr_track_cc(audio: AudioView<'_>, params: &HarmonicityParams) -> HnrTrac
 
 /// Computes CPP at one time in seconds.
 ///
-/// The return value is finite. It is `0.0` when the frame cannot support the
-/// requested quefrency and regression ranges.
+/// Returns `None` when the frame cannot support the requested quefrency and
+/// regression ranges.
 #[must_use]
-pub fn cpp(audio: AudioView<'_>, at: f64, params: &CppParams) -> f64 {
+pub fn cpp(audio: AudioView<'_>, at: f64, params: &CppParams) -> Option<f64> {
     let signal = mono_as_f64(&audio);
     let mut plan = RealFftPlan::new();
-    cpp_from_frame(&signal, audio.sample_rate(), at, params, &mut plan).unwrap_or(0.0)
+    cpp_from_frame(&signal, audio.sample_rate(), at, params, &mut plan)
 }
 
 /// Computes smoothed CPP across a span by averaging frame cepstra, smoothing
@@ -1670,6 +1671,20 @@ mod tests {
         assert!(
             periodic_cpp > noise_cpp + 1.0,
             "periodic CPP {periodic_cpp} dB should exceed noise CPP {noise_cpp} dB"
+        );
+    }
+
+    #[test]
+    fn cpp_is_none_for_a_frame_too_short_to_hold_a_sample() {
+        let audio = audio_from_signal(Vec::new(), 44_100.0);
+        let value = cpp(
+            audio.slice_samples(0..audio.frames()),
+            0.0,
+            &CppParams::default(),
+        );
+        assert_eq!(
+            value, None,
+            "an empty signal has no cepstral frame to peak in"
         );
     }
 
