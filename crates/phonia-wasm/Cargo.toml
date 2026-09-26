@@ -4,6 +4,7 @@ version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 description = "wasm-bindgen bindings over phonia-engine"
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]

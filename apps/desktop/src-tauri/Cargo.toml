@@ -2,6 +2,7 @@
 name = "phonix-desktop"
 version = "0.2.0"
 description = "Phonia desktop shell: the shared UI over a native phonia-engine core"
+publish = false
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.85"
