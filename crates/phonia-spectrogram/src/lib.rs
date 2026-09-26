@@ -1097,55 +1097,6 @@ mod tests {
     }
 
     #[test]
-    fn scipy_oracle_fixture_matches_relative_tolerance() {
-        let fixture = include_str!("../../../tools/oracle/spectrogram_reference.csv");
-        let rows = parse_oracle_fixture(fixture);
-        let audio = oracle_audio(16_000.0, 0.08);
-        let params = SpectrogramParams {
-            window_length: 0.01,
-            max_frequency: 3200.0,
-            time_step: 0.004,
-            frequency_step: 125.0,
-            ..SpectrogramParams::default()
-        };
-        let tile = compute_tile(
-            audio.slice_samples(0..audio.frames()),
-            &TileRequest {
-                t0: 0.0,
-                t1: 0.08,
-                f0: 0.0,
-                f1: 3200.0,
-                width_px: 18,
-                height_px: 26,
-                params,
-            },
-        )
-        .unwrap();
-
-        for row in rows {
-            let time_index = tile
-                .t_axis
-                .iter()
-                .position(|&v| (v - row.time).abs() < 1.0e-15)
-                .expect("fixture time on tile axis");
-            let freq_index = tile
-                .f_axis
-                .iter()
-                .position(|&v| (v - row.frequency).abs() < 1.0e-12)
-                .expect("fixture frequency on tile axis");
-            let actual = f64::from(tile.db[freq_index * tile.t_axis.len() + time_index]);
-            let reference = row.db;
-            let rel = (actual - reference).abs() / reference.abs().max(1.0e-12);
-            assert!(
-                rel <= 1.0e-6,
-                "time {} freq {} actual {actual} reference {reference} rel {rel}",
-                row.time,
-                row.frequency
-            );
-        }
-    }
-
-    #[test]
     fn rejects_non_positive_window_length() {
         let params = SpectrogramParams {
             window_length: 0.0,
@@ -1301,26 +1252,5 @@ mod tests {
             }
             i = next;
         }
-    }
-
-    #[derive(Debug)]
-    struct OracleRow {
-        time: f64,
-        frequency: f64,
-        db: f64,
-    }
-
-    fn parse_oracle_fixture(text: &str) -> Vec<OracleRow> {
-        text.lines()
-            .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.starts_with("time"))
-            .map(|line| {
-                let mut fields = line.split(',');
-                OracleRow {
-                    time: fields.next().unwrap().parse().unwrap(),
-                    frequency: fields.next().unwrap().parse().unwrap(),
-                    db: fields.next().unwrap().parse().unwrap(),
-                }
-            })
-            .collect()
     }
 }

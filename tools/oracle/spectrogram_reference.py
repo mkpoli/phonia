@@ -8,8 +8,11 @@ dependencies, not a standalone script environment):
 
 With no WAV argument, the script analyzes a deterministic 80 ms synthetic
 signal. A WAV path can be supplied to analyze external audio with the same
-parameters. Output is CSV so the Rust test can include it as text
-(`crates/phonia-spectrogram/src/lib.rs::scipy_oracle_fixture_matches_relative_tolerance`).
+parameters. Output is CSV, written by default into the crate's own fixture
+directory so the Rust test can include it as text
+(`crates/phonia-spectrogram/tests/scipy_oracle.rs::scipy_oracle_fixture_matches_relative_tolerance`,
+fixture at `crates/phonia-spectrogram/tests/data/spectrogram_reference.csv`) —
+kept inside the crate so it survives `cargo package -p phonia-spectrogram`.
 
 Independence from the Rust implementation: only two things are shared with
 `crates/phonia-dsp` and `crates/phonia-spectrogram` by design, and both are grid
@@ -228,7 +231,16 @@ def main() -> None:
     parser.add_argument("--max-frequency", type=float, default=3200.0)
     parser.add_argument("--time-step", type=float, default=0.004)
     parser.add_argument("--frequency-step", type=float, default=125.0)
-    parser.add_argument("--out", type=Path, default=Path(__file__).with_suffix(".csv"))
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path(__file__).resolve().parents[2]
+        / "crates"
+        / "phonia-spectrogram"
+        / "tests"
+        / "data"
+        / "spectrogram_reference.csv",
+    )
     args = parser.parse_args()
 
     if args.wav is None:
