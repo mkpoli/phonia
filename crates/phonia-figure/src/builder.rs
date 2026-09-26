@@ -7,17 +7,15 @@
 //! embedded tiers. The functions copy data out of the analysis types, so the
 //! resulting [`Figure`] holds no reference back to them.
 
-use std::collections::BTreeMap;
-
 use phonia_annot::{Tier, TierSlot};
 use phonia_formant::FormantTrack;
 use phonia_intensity::IntensityTrack;
-use phonia_pitch::{PitchParams, PitchTrack, TimeSpan};
+use phonia_pitch::{PitchTrack, TimeSpan};
 use phonia_render::{Colormap, DisplayMapping, Theme};
-use phonia_spectrogram::{Slice, SpectrogramParams, Tile, TileRequest};
+use phonia_spectrogram::{Slice, Tile};
 
 use crate::model::{
-    Axis, CaptionMeta, Figure, IntervalData, Layer, LayerKind, MinMax, Panel, PitchUnit, PointData,
+    CaptionMeta, Figure, IntervalData, Layer, MinMax, Panel, PitchUnit, PointData,
     ProvenanceRecord, SizeSpec, SpeckleFrame, SpecklePoint, TierContent, TierData,
 };
 use crate::style::{LineStyle, SpeckleStyle, TierStyle};
@@ -283,174 +281,6 @@ pub fn spectral_slice_layer(slice: &Slice, style: LineStyle) -> Layer {
         .map(|(&f, &db)| (f, f64::from(db)))
         .collect();
     Layer::SpectralSlice { bins, style }
-}
-
-fn provenance(
-    layer: LayerKind,
-    params: &[(&str, String)],
-    smoothed: Option<bool>,
-) -> ProvenanceRecord {
-    let params = params
-        .iter()
-        .map(|(k, v)| ((*k).to_owned(), v.clone()))
-        .collect::<BTreeMap<_, _>>();
-    ProvenanceRecord {
-        layer,
-        params,
-        smoothed,
-    }
-}
-
-fn spectrogram_provenance(params: &SpectrogramParams) -> ProvenanceRecord {
-    provenance(
-        LayerKind::Spectrogram,
-        &[
-            ("window_length_s", format!("{}", params.window_length)),
-            ("max_frequency_hz", format!("{}", params.max_frequency)),
-            ("time_step_s", format!("{}", params.time_step)),
-            ("frequency_step_hz", format!("{}", params.frequency_step)),
-        ],
-        None,
-    )
-}
-
-fn pitch_provenance(params: &PitchParams) -> ProvenanceRecord {
-    let step = params
-        .time_step
-        .map_or_else(|| "auto".to_owned(), |s| format!("{s}"));
-    provenance(
-        LayerKind::Pitch,
-        &[
-            ("floor_hz", format!("{}", params.floor_hz)),
-            ("ceiling_hz", format!("{}", params.ceiling_hz)),
-            ("time_step_s", step),
-        ],
-        None,
-    )
-}
-
-const REFERENCE_WAV: &[u8] = include_bytes!("../../../tests/fixtures/audio/arctic_bdl_a0001.wav");
-const REFERENCE_TEXTGRID: &[u8] =
-    include_bytes!("../../../tests/fixtures/textgrids/arctic_bdl_a0001_long_utf8.TextGrid");
-
-/// Builds the roadmap gate figure: waveform, spectrogram, pitch, and one tier
-/// from `arctic_bdl_a0001` and its fixture TextGrid.
-///
-/// Every export backend reuses this figure as its gate input. The figure runs
-/// the default spectrogram and pitch analyses over the whole clip, envelopes
-/// the mono mix, and embeds the TextGrid's `words` interval tier.
-///
-/// # Panics
-/// Panics if the bundled fixture WAV or TextGrid fails to decode, or if the
-/// hardcoded spectrogram tile request is somehow invalid — either would mean
-/// the fixtures or the request built here are corrupt.
-#[must_use]
-pub fn reference_figure() -> Figure {
-    use phonia_audio::Audio;
-    use phonia_pitch::pitch_track;
-    use phonia_spectrogram::compute_tile;
-
-    let audio = Audio::from_wav_bytes(REFERENCE_WAV).expect("reference fixture WAV must decode");
-    let frames = audio.frames();
-    let duration = audio.duration();
-
-    let spec_params = SpectrogramParams::default();
-    let tile = compute_tile(
-        audio.slice_samples(0..frames),
-        &TileRequest {
-            t0: 0.0,
-            t1: duration,
-            f0: 0.0,
-            f1: spec_params.max_frequency,
-            width_px: 800,
-            height_px: 256,
-            params: spec_params,
-        },
-    )
-    .expect("reference tile request is valid");
-
-    let pitch_params = PitchParams::default();
-    let pitch = pitch_track(audio.slice_samples(0..frames), &pitch_params)
-        .expect("default pitch params are valid");
-
-    let mono = audio.mono_mix();
-    let envelope = waveform_minmax(&mono, 1000);
-    let span = TimeSpan::new(0.0, duration);
-
-    let (annotation, _) =
-        phonia_textgrid::read(REFERENCE_TEXTGRID).expect("reference fixture TextGrid must parse");
-    let words = annotation
-        .tiers()
-        .iter()
-        .find(|slot| tier_name(slot) == "words")
-        .or_else(|| annotation.tiers().first())
-        .expect("reference TextGrid must have at least one tier");
-
-    let time_axis = || Axis::linear(0.0, duration, Some("Time"), Some("s"));
-
-    let waveform_panel = Panel {
-        layers: vec![waveform_layer(envelope, span, LineStyle::default())],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(-1.0, 1.0, Some("Amplitude"), None),
-        height_share: 0.22,
-    };
-
-    let spectrogram_panel = Panel {
-        layers: vec![spectrogram_layer(
-            &tile,
-            DisplayMapping::default(),
-            Colormap::Viridis,
-        )],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(
-            0.0,
-            spec_params.max_frequency,
-            Some("Frequency"),
-            Some("Hz"),
-        ),
-        height_share: 0.44,
-    };
-
-    let pitch_panel = Panel {
-        layers: vec![pitch_layer(&pitch, PitchUnit::Hertz, LineStyle::default())],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(
-            pitch_params.floor_hz,
-            pitch_params.ceiling_hz,
-            Some("Pitch"),
-            Some("Hz"),
-        ),
-        height_share: 0.22,
-    };
-
-    let tier_panel = Panel {
-        layers: vec![tiers_layer(
-            std::slice::from_ref(words),
-            TierStyle::default(),
-        )],
-        time_axis: time_axis(),
-        value_axis: Axis::linear(0.0, 1.0, None, None),
-        height_share: 0.12,
-    };
-
-    FigureBuilder::new(
-        SizeSpec::new(16.0, 12.0, crate::model::LengthUnit::Cm),
-        Theme::Dark,
-    )
-    .panel(waveform_panel)
-    .panel(spectrogram_panel)
-    .panel(pitch_panel)
-    .panel(tier_panel)
-    .source(spectrogram_provenance(&spec_params))
-    .source(pitch_provenance(&pitch_params))
-    .build()
-}
-
-fn tier_name(slot: &TierSlot) -> &str {
-    match &slot.tier {
-        Tier::Interval(tier) => &tier.name,
-        Tier::Point(tier) => &tier.name,
-    }
 }
 
 #[cfg(test)]

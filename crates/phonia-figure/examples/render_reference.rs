@@ -1,17 +1,21 @@
 //! Regenerate the reference-figure exports for visual inspection.
 //!
-//! Renders [`phonia_figure::reference_figure`] to SVG, PNG, and PDF in both the
-//! dark and light themes and writes them into a target directory (default
+//! Renders [`common::reference_figure`] to SVG, PNG, and PDF in both the dark
+//! and light themes and writes them into a target directory (default
 //! `target/figure-reference`). This is the committed way to reproduce the
-//! export artifacts; it takes no input beyond the bundled fixtures.
+//! export artifacts; it reads the repo's fixtures from disk at run time.
 //!
 //! ```text
 //! cargo run -p phonia-figure --example render_reference --features raster,pdf
 //! ```
 
+#[path = "../tests/common/mod.rs"]
+mod common;
+
 use std::path::PathBuf;
 
-use phonia_figure::{reference_figure, to_pdf, to_png, to_svg};
+use common::reference_figure;
+use phonia_figure::{to_pdf, to_png, to_svg};
 use phonia_render::Theme;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
