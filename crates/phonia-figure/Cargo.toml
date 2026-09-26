@@ -1,7 +1,8 @@
 [package]
 name = "phonia-figure"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
+rust-version.workspace = true
 # The crate's own code is MIT OR Apache-2.0 like the rest of the workspace.
 # It also bundles DejaVu Sans 2.37 (assets/fonts/), whose licence
 # (LICENSE-DejaVu.txt, verbatim from upstream) is the Bitstream Vera Fonts
@@ -9,7 +10,15 @@ edition.workspace = true
 # imported from Arev fonts, which has no SPDX identifier; DejaVu's own changes
 # are public domain.
 license = "(MIT OR Apache-2.0) AND Bitstream-Vera"
-description = "Backend-agnostic figure model and exporters: SVG scene graph with PNG and PDF derived from it"
+repository.workspace = true
+homepage.workspace = true
+description = "Figure model for phonetics plots (waveform, spectrogram, pitch, formants, intensity, annotation tiers) with SVG, PNG, PDF, TikZ, Typst, Vega-Lite, GraphML and plotting-script exporters"
+documentation = "https://docs.rs/phonia-figure"
+keywords = ["phonetics", "plot", "figure", "svg", "praat"]
+categories = ["visualization", "science"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 # Optional: only the `analysis` feature's conversion helpers (builder.rs) and

@@ -8,16 +8,15 @@ use crate::data::{
 
 /// Perceptual colormap used to render a normalized dB tile.
 ///
-/// Every ramp is a fixed table: none of them reshapes itself against the UI
-/// theme, so a tile looks the same on a light and a dark background. Two
+/// Every ramp is a fixed table: none of them reshapes itself against the
+/// [`crate::Theme`], so a tile looks the same on a light and a dark background. Two
 /// achromatic ramps cover the two reading directions explicitly, and any
 /// ramp can be reversed at render time with the `invert` flag of
 /// [`crate::colorize`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Colormap {
-    /// The app's default ramp: warm charcoal floor through the teal identity
-    /// ramp into a warm soft-yellow paper highlight, drawn from the Phonia
-    /// brand family. Monotonically increasing in relative luminance.
+    /// Phonia's own ramp: a warm charcoal floor through teal into a soft
+    /// yellow highlight. Monotonically increasing in relative luminance.
     Phonia,
     /// Perceptually uniform purple→teal→yellow ramp (matplotlib default
     /// since 2.0). Monotonically increasing in relative luminance.
@@ -35,10 +34,9 @@ pub enum Colormap {
     /// color-vision deficiency. Monotonically increasing in relative
     /// luminance.
     Cividis,
-    /// Warm sibling of Phonia: the same charcoal floor through a
-    /// burnt-umber and amber midtone into a golden-cream highlight, more
-    /// saturated than Phonia's paper cream. Monotonically increasing in
-    /// relative luminance.
+    /// Warm sibling of [`Colormap::Phonia`]: the same charcoal floor
+    /// through a burnt-umber and amber midtone into a golden-cream
+    /// highlight. Monotonically increasing in relative luminance.
     Golden,
     /// High-contrast blue→cyan→green→yellow→red rainbow (Google's turbo).
     /// Luminance peaks mid-ramp; quiet and loud separate by hue.
