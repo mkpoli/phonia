@@ -182,7 +182,8 @@ mod tests {
                 height_px: 32,
                 params,
             },
-        );
+        )
+        .unwrap();
         let layer = spectrogram_layer(&tile, DisplayMapping::default(), Colormap::Magma);
         match layer {
             Layer::Spectrogram {
@@ -346,7 +347,8 @@ mod tests {
                 height_px: 16,
                 params,
             },
-        );
+        )
+        .unwrap();
         let fig = FigureBuilder::new(SizeSpec::new(8.0, 6.0, LengthUnit::In), Theme::Dark)
             .panel(Panel {
                 layers: vec![

@@ -375,7 +375,7 @@ impl Engine {
         invert: bool,
         preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
-        validate_tile_request(req)?;
+        req.validate()?;
         let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
@@ -425,7 +425,7 @@ impl Engine {
         invert: bool,
         preemphasis: bool,
     ) -> Result<Vec<u8>, EngineError> {
-        validate_tile_request(req)?;
+        req.validate()?;
         let tile_db = self.spectrogram_tile_db(id, req, preemphasis)?;
 
         let expected_len = req.width_px as usize * req.height_px as usize;
@@ -472,7 +472,7 @@ impl Engine {
         // then computed bounded (whole-buffer for eager, ranged read for
         // streamed) and cached, never materializing the whole signal.
         let info = self.store.info(id)?;
-        let axes = analysis_axes_dims(info.sample_rate, info.duration, &req.params);
+        let axes = analysis_axes_dims(info.sample_rate, info.duration, &req.params)?;
         let freq_len = axes.frequencies.len();
 
         let time_indices = select_axis_indices(
@@ -810,8 +810,8 @@ impl Engine {
         };
         // Match the tile resolution to the analysis grid so every snapped
         // frame and frequency bin inside the box contributes about once.
-        let time_step = phonia_spectrogram::effective_time_step(&params);
-        let frequency_step = phonia_spectrogram::effective_frequency_step(&params);
+        let time_step = phonia_spectrogram::effective_time_step(&params)?;
+        let frequency_step = phonia_spectrogram::effective_frequency_step(&params)?;
         let width = (((hi - lo) / time_step).ceil() as u32).clamp(1, 4096);
         let height = (((fhi - flo) / frequency_step).ceil() as u32).clamp(1, 4096);
         let req = TileRequest {
@@ -824,7 +824,7 @@ impl Engine {
             params,
         };
         let view = audio.slice_samples(0..audio.frames());
-        let tile = phonia_spectrogram::compute_tile(view, &req);
+        let tile = phonia_spectrogram::compute_tile(view, &req)?;
         if tile.db.is_empty() {
             return Ok(f64::NEG_INFINITY);
         }
@@ -2953,49 +2953,6 @@ fn sd_in_span(frames: impl Iterator<Item = (f64, f64)>, span: TimeSpan) -> Optio
     Some(variance.sqrt())
 }
 
-/// Validates a [`TileRequest`] before it reaches `phonia_spectrogram`.
-///
-/// `phonia_spectrogram::compute_tile` asserts these same properties and panics
-/// on violation, which is the right contract for a pure math crate calling
-/// itself internally with already-validated data. The engine is the
-/// boundary that untrusted callers reach, so it re-checks the same
-/// properties here and turns a would-be panic into a typed error.
-fn validate_tile_request(req: &TileRequest) -> Result<(), EngineError> {
-    let invalid = |reason: &str| {
-        Err(EngineError::InvalidRequest {
-            reason: reason.to_string(),
-        })
-    };
-
-    if !req.t0.is_finite() || !req.t1.is_finite() {
-        return invalid("t0/t1 must be finite");
-    }
-    if !req.f0.is_finite() || !req.f1.is_finite() {
-        return invalid("f0/f1 must be finite");
-    }
-    let params = &req.params;
-    if !(params.window_length.is_finite() && params.window_length > 0.0) {
-        return invalid("params.window_length must be finite and positive");
-    }
-    if !(params.max_frequency.is_finite() && params.max_frequency >= 0.0) {
-        return invalid("params.max_frequency must be finite and non-negative");
-    }
-    if !(params.time_step.is_finite() && params.time_step > 0.0) {
-        return invalid("params.time_step must be finite and positive");
-    }
-    if !(params.frequency_step.is_finite() && params.frequency_step > 0.0) {
-        return invalid("params.frequency_step must be finite and positive");
-    }
-    if let Window::Gaussian {
-        effective_len_factor,
-    } = params.window
-        && !(effective_len_factor.is_finite() && effective_len_factor > 0.0)
-    {
-        return invalid("params.window Gaussian effective_len_factor must be finite and positive");
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3512,7 +3469,9 @@ mod tests {
                 false,
                 false,
             ),
-            Err(EngineError::InvalidRequest { .. })
+            Err(EngineError::Spectrogram(
+                phonia_spectrogram::SpectrogramError::NonFiniteTimeBound { .. }
+            ))
         ));
     }
 

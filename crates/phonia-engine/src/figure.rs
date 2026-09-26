@@ -357,9 +357,9 @@ impl Engine {
                     height_px: req.spectrogram_height_px,
                     params: spec_params,
                 };
-                crate::validate_tile_request(&tile_req)?;
+                tile_req.validate()?;
                 let view = audio.slice_samples(0..frames);
-                let tile = compute_tile(view, &tile_req);
+                let tile = compute_tile(view, &tile_req)?;
                 let expected =
                     req.spectrogram_width_px as usize * req.spectrogram_height_px as usize;
                 if tile.db.len() != expected {

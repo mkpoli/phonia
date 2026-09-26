@@ -341,8 +341,9 @@ const REFERENCE_TEXTGRID: &[u8] =
 /// the mono mix, and embeds the TextGrid's `words` interval tier.
 ///
 /// # Panics
-/// Panics if the bundled fixture WAV or TextGrid fails to decode, which would
-/// mean the fixtures themselves are corrupt.
+/// Panics if the bundled fixture WAV or TextGrid fails to decode, or if the
+/// hardcoded spectrogram tile request is somehow invalid — either would mean
+/// the fixtures or the request built here are corrupt.
 #[must_use]
 pub fn reference_figure() -> Figure {
     use phonia_audio::Audio;
@@ -365,7 +366,8 @@ pub fn reference_figure() -> Figure {
             height_px: 256,
             params: spec_params,
         },
-    );
+    )
+    .expect("reference tile request is valid");
 
     let pitch_params = PitchParams::default();
     let pitch = pitch_track(audio.slice_samples(0..frames), &pitch_params)
