@@ -1364,7 +1364,8 @@ impl Engine {
     ///
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `id` names no live store
-    /// entry, and [`EngineError::InvalidRequest`] when a parameter is not finite.
+    /// entry, [`EngineError::InvalidRequest`] when a parameter is not finite, and
+    /// [`EngineError::Pitch`] when the pitch floor and ceiling are rejected.
     pub fn voicing_intervals(
         &self,
         id: AudioId,

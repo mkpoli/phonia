@@ -288,9 +288,10 @@ impl Engine {
     /// # Errors
     /// Returns [`EngineError::UnknownAudioId`] when `audio` names no live buffer,
     /// [`EngineError::UnknownAnnotationId`] when the tier layer names no live
-    /// document, and [`EngineError::InvalidRequest`] when the window or an
-    /// analysis parameter is unusable (a non-finite bound, a window too short for
-    /// one spectrogram frame).
+    /// document, [`EngineError::InvalidRequest`] when the window is unusable (a
+    /// non-finite bound, a window too short for one spectrogram frame), and the
+    /// analysis's own variant, such as [`EngineError::Pitch`], when a layer's
+    /// parameters are rejected.
     pub fn build_figure(&self, req: &FigureRequest) -> Result<Figure, EngineError> {
         if !(req.t0.is_finite() && req.t1.is_finite()) {
             return Err(EngineError::InvalidRequest {
