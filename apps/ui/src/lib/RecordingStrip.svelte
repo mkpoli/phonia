@@ -118,16 +118,18 @@
 </div>
 
 <style>
+  /* Centred over the content area, clear of the 4.75rem side rail. */
   .strip {
     position: fixed;
-    left: 50%;
+    left: calc(50% + 4.75rem / 2);
     bottom: 1rem;
     transform: translateX(-50%);
     z-index: 15;
     display: flex;
     align-items: center;
     gap: 0.9rem;
-    max-width: calc(100vw - 2rem);
+    width: max-content;
+    max-width: calc(100vw - 4.75rem - 2rem);
     padding: 0.55rem 0.9rem;
     border: 1px solid var(--chrome-strong);
     border-radius: var(--radius-xl);
@@ -167,6 +169,14 @@
     gap: 0.4rem;
     min-width: 0;
     max-width: 30rem;
+  }
+
+  .announce :global(.inline-rename) {
+    min-width: 0;
+  }
+
+  .strip > :not(.announce) {
+    flex: none;
   }
 
   :global(.dest-name) {
@@ -307,5 +317,110 @@
   .actions button:hover {
     filter: brightness(1.04);
     border-color: color-mix(in oklab, var(--accent) 32%, var(--chrome-strong));
+  }
+
+  /* Narrow screens stack the strip into three rows: destination and time,
+     level, then input and actions. */
+  @media (max-width: 1200px) {
+    .strip {
+      width: min(34rem, calc(100vw - 4.75rem - 2rem));
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      grid-template-areas:
+        'pulse dest dest elapsed'
+        'meter meter meter rate'
+        'device device actions actions';
+      gap: 0.55rem 0.6rem;
+      padding: 0.7rem 0.8rem;
+    }
+
+    .pulse {
+      grid-area: pulse;
+    }
+
+    .strip > .label,
+    .announce {
+      grid-area: dest;
+      min-width: 0;
+      max-width: none;
+    }
+
+    .announce .label {
+      flex: none;
+    }
+
+    .elapsed {
+      grid-area: elapsed;
+      min-width: 0;
+    }
+
+    .meter {
+      grid-area: meter;
+      min-width: 0;
+    }
+
+    .meter-track {
+      flex: 1;
+      width: auto;
+    }
+
+    .rate {
+      grid-area: rate;
+      text-align: right;
+    }
+
+    .device {
+      grid-area: device;
+      min-width: 0;
+    }
+
+    .device select {
+      flex: 1;
+      min-width: 0;
+      max-width: none;
+      min-height: 2.25rem;
+    }
+
+    .actions {
+      grid-area: actions;
+      justify-content: flex-end;
+    }
+
+    .actions button {
+      min-height: 2.25rem;
+    }
+  }
+
+  /* On phones the rail becomes a bottom dock; the strip spans the width above it. */
+  @media (max-width: 720px) {
+    .strip {
+      left: calc(0.5rem + var(--safe-left));
+      right: calc(0.5rem + var(--safe-right));
+      bottom: calc(var(--mobile-rail-height) + var(--safe-bottom) + 0.5rem);
+      width: auto;
+      max-width: none;
+      transform: none;
+    }
+
+    .announce {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.1rem;
+    }
+
+    .announce .label {
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .announce :global(.inline-rename) {
+      max-width: 100%;
+    }
+
+    /* Centre the name in its touch-sized hit area. */
+    .announce :global(.inline-rename .display) {
+      align-content: center;
+    }
   }
 </style>
