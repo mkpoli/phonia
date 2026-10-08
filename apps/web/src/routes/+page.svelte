@@ -2001,7 +2001,8 @@
 
 <PwaStatus />
 
-{#if keyBindings.promptDue}
+<!-- Held back while recording: the card sits over the strip's Stop button. -->
+{#if keyBindings.promptDue && !capturing}
   <FirstRunKeyModePrompt
     onChoose={(mode) => keyBindings.answerPrompt(mode)}
     onDismiss={() => keyBindings.dismissPrompt()}
