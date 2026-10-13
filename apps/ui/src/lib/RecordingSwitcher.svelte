@@ -529,6 +529,10 @@
       width: 64px;
     }
 
+    .thumb-box :global(.thumb) {
+      width: 100%;
+    }
+
     .annot {
       display: none;
     }
