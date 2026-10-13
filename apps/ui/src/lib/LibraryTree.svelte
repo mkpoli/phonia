@@ -741,6 +741,10 @@
       width: 72px;
     }
 
+    .thumb-box :global(.thumb) {
+      width: 100%;
+    }
+
     .tag {
       font-size: 0.72rem;
     }
