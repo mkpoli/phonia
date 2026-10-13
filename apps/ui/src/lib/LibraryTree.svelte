@@ -406,7 +406,11 @@
 </div>
 
 <style>
+  /* The row layout follows the tree's own width: below 50rem the metadata
+     columns no longer leave room for the name, so rows collapse to name and
+     actions. */
   .tree {
+    container-type: inline-size;
     width: 100%;
     border: 1px solid var(--chrome-strong);
     border-radius: var(--radius-lg);
@@ -686,7 +690,9 @@
     .tree {
       border-radius: var(--radius-md);
     }
+  }
 
+  @container (max-width: 50rem) {
     .head {
       display: none;
     }
