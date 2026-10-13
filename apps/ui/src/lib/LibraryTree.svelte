@@ -730,6 +730,26 @@
       min-width: 8.55rem;
     }
 
+    /* A mouse still needs the handle: it is the only way to drag a row into
+       or out of a group. */
+    @media (hover: hover) and (pointer: fine) {
+      .row {
+        grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+      }
+
+      .row > .handle {
+        display: inline-flex;
+      }
+
+      .main {
+        grid-column: 2;
+      }
+
+      .c-actions {
+        grid-column: 3;
+      }
+    }
+
     .act {
       width: 2.75rem;
       min-width: 2.75rem;
