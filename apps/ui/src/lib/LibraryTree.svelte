@@ -570,6 +570,14 @@
     flex: none;
   }
 
+  :global(.group-name),
+  :global(.rec-name) {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   :global(.group-name) {
     font-weight: 600;
   }
@@ -598,7 +606,10 @@
 
   :global(.rec-name) {
     font-weight: 500;
-    min-width: 0;
+  }
+
+  .main > .tag {
+    flex: none;
   }
 
   .c-annot {
@@ -706,13 +717,6 @@
       flex: 1 1 auto;
       min-width: 0;
       overflow: hidden;
-    }
-
-    .main :global(.rec-name) {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .c-actions {

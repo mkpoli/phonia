@@ -1048,11 +1048,13 @@
   }
 
   .section-head :global(.section-icon) {
+    flex: none;
     font-size: 0.95rem;
     color: var(--accent-strong);
   }
 
   .count {
+    flex: none;
     font-size: 0.72rem;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
@@ -1088,6 +1090,10 @@
   }
 
   :global(.group-name) {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-weight: 600;
   }
 
