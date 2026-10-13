@@ -171,10 +171,6 @@
     max-width: 30rem;
   }
 
-  .announce :global(.inline-rename) {
-    min-width: 0;
-  }
-
   .strip > :not(.announce) {
     flex: none;
   }
