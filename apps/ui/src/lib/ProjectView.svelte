@@ -516,6 +516,7 @@
     position: relative;
     min-height: 100vh;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     background: var(--chrome);
     color: var(--text);

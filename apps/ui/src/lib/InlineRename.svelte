@@ -234,6 +234,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
+    min-width: 0;
     max-width: 100%;
     position: relative;
   }

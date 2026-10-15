@@ -406,7 +406,11 @@
 </div>
 
 <style>
+  /* The row layout follows the tree's own width: below 50rem the metadata
+     columns no longer leave room for the name, so rows collapse to name and
+     actions. */
   .tree {
+    container-type: inline-size;
     width: 100%;
     border: 1px solid var(--chrome-strong);
     border-radius: var(--radius-lg);
@@ -570,6 +574,14 @@
     flex: none;
   }
 
+  :global(.group-name),
+  :global(.rec-name) {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   :global(.group-name) {
     font-weight: 600;
   }
@@ -598,7 +610,10 @@
 
   :global(.rec-name) {
     font-weight: 500;
-    min-width: 0;
+  }
+
+  .main > .tag {
+    flex: none;
   }
 
   .c-annot {
@@ -675,7 +690,9 @@
     .tree {
       border-radius: var(--radius-md);
     }
+  }
 
+  @container (max-width: 50rem) {
     .head {
       display: none;
     }
@@ -708,16 +725,29 @@
       overflow: hidden;
     }
 
-    .main :global(.rec-name) {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
     .c-actions {
       grid-column: 2;
       min-width: 8.55rem;
+    }
+
+    /* A mouse still needs the handle: it is the only way to drag a row into
+       or out of a group. */
+    @media (hover: hover) and (pointer: fine) {
+      .row {
+        grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+      }
+
+      .row > .handle {
+        display: inline-flex;
+      }
+
+      .main {
+        grid-column: 2;
+      }
+
+      .c-actions {
+        grid-column: 3;
+      }
     }
 
     .act {
@@ -729,6 +759,10 @@
 
     .thumb-box {
       width: 72px;
+    }
+
+    .thumb-box :global(.thumb) {
+      width: 100%;
     }
 
     .tag {

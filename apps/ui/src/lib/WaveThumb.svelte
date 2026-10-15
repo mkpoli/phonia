@@ -70,16 +70,19 @@
   bind:this={canvas}
   class="thumb"
   class:ready
-  style:width={`${width}px`}
-  style:height={`${height}px`}
+  style:--thumb-w={`${width}px`}
+  style:--thumb-h={`${height}px`}
   data-testid="wave-thumb"
   data-painted={ready}
   aria-hidden="true"
 ></canvas>
 
 <style>
+  /* Sized through custom properties so a parent can fit the thumb to its box. */
   .thumb {
     display: block;
+    width: var(--thumb-w);
+    height: var(--thumb-h);
     border-radius: 4px;
     background: var(--canvas);
     opacity: 0;
