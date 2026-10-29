@@ -34,6 +34,7 @@
   } from '@phonia/ui';
   import { WasmCoreClient } from '$lib/core/WasmCoreClient';
   import { WebAudioPlayback } from '$lib/playback/WebAudioPlayback';
+  import SponsorButton from '$lib/sponsor/SponsorButton.svelte';
   import { MicRecorder, canRecord, type RecorderDevice, type RecorderLevel } from '$lib/audio/MicRecorder';
   import {
     AUTOSAVE_DEBOUNCE_MS,
@@ -1714,6 +1715,8 @@
         return;
       }
     }
+    // A modal dialog (the sponsor dialog) owns the keyboard; R must not record behind it.
+    if (document.querySelector('dialog:modal')) return;
     if (!recordingSupported) return;
     if (event.key.toLowerCase() !== 'r' || event.metaKey || event.ctrlKey || event.altKey) return;
     const target = event.target;
@@ -1765,7 +1768,9 @@
   analyzeEnabled={audio !== null}
   plotsEnabled={audio !== null}
   onNavigate={handleModeNavigate}
-/>
+>
+  {#snippet footer()}<SponsorButton />{/snippet}
+</ModeRail>
 
 <div class="app-content">
   {#if route === 'home'}
