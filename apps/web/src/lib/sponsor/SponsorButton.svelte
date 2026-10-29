@@ -192,9 +192,9 @@
     .sponsor {
       width: auto;
       flex: 1 1 0;
-      min-height: var(--mobile-rail-height);
+      height: calc(var(--mobile-rail-height) - 0.7rem);
       justify-content: center;
-      gap: 0.25rem;
+      gap: 0.2rem;
       margin: 0.35rem;
       padding: 0.3rem 0.25rem;
     }
