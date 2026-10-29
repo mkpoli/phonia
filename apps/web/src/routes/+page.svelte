@@ -1715,6 +1715,8 @@
         return;
       }
     }
+    // A modal dialog (the sponsor dialog) owns the keyboard; R must not record behind it.
+    if (document.querySelector('dialog:modal')) return;
     if (!recordingSupported) return;
     if (event.key.toLowerCase() !== 'r' || event.metaKey || event.ctrlKey || event.altKey) return;
     const target = event.target;
