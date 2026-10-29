@@ -2,6 +2,7 @@
   import IconLibrary from '~icons/lucide/library';
   import IconActivity from '~icons/lucide/activity';
   import IconChartSpline from '~icons/lucide/chart-spline';
+  import type { Snippet } from 'svelte';
 
   type ModeId = 'library' | 'analyze' | 'plots';
 
@@ -13,9 +14,11 @@
     /** False disables the Plots button (no recording is open to plot). */
     plotsEnabled: boolean;
     onNavigate: (mode: ModeId) => void;
+    /** Drawn at the foot of the rail (the end of the bar on phones), below the modes. */
+    footer?: Snippet;
   }
 
-  let { active, analyzeEnabled, plotsEnabled, onNavigate }: Props = $props();
+  let { active, analyzeEnabled, plotsEnabled, onNavigate, footer }: Props = $props();
 
   const MODES: { id: ModeId; label: string }[] = [
     { id: 'library', label: 'Library' },
@@ -101,6 +104,10 @@
       </button>
     {/each}
   </div>
+
+  {#if footer}
+    <div class="footer">{@render footer()}</div>
+  {/if}
 </nav>
 
 <style>
@@ -159,6 +166,13 @@
       border-color var(--t-fast);
   }
 
+  .footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0 0.85rem;
+  }
+
   .mode :global(svg) {
     width: 1.15rem;
     height: 1.15rem;
@@ -206,9 +220,17 @@
     }
 
     .modes {
-      width: 100%;
+      flex: 3 1 0;
+      min-width: 0;
       flex-direction: row;
       gap: 0;
+    }
+
+    .footer {
+      flex: 1 1 0;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
     }
 
     .mode {

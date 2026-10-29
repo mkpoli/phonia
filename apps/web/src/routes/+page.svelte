@@ -34,6 +34,7 @@
   } from '@phonia/ui';
   import { WasmCoreClient } from '$lib/core/WasmCoreClient';
   import { WebAudioPlayback } from '$lib/playback/WebAudioPlayback';
+  import SponsorButton from '$lib/sponsor/SponsorButton.svelte';
   import { MicRecorder, canRecord, type RecorderDevice, type RecorderLevel } from '$lib/audio/MicRecorder';
   import {
     AUTOSAVE_DEBOUNCE_MS,
@@ -1765,7 +1766,9 @@
   analyzeEnabled={audio !== null}
   plotsEnabled={audio !== null}
   onNavigate={handleModeNavigate}
-/>
+>
+  {#snippet footer()}<SponsorButton />{/snippet}
+</ModeRail>
 
 <div class="app-content">
   {#if route === 'home'}
