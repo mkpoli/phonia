@@ -121,6 +121,8 @@
     flex-direction: column;
     background: var(--panel);
     border-right: 1px solid var(--chrome-strong);
+    /* A short window would otherwise cut off the footer. */
+    overflow-y: auto;
   }
 
   .brand {
@@ -213,6 +215,7 @@
       border-top: 1px solid var(--chrome-strong);
       border-right: none;
       box-shadow: 0 -4px 16px rgb(0 0 0 / 0.08);
+      overflow: visible;
     }
 
     .brand {
