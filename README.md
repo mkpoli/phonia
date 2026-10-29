@@ -99,6 +99,12 @@ the desktop app runs with `bun run --cwd apps/desktop tauri dev`.
 
 Tests: `cargo test` for the core, `bun run test:e2e` for the end-to-end suite.
 
+## Sponsor
+
+I make Phonia alone, out of love for phonetics. I don't have a job, and my small TA pay doesn't cover rent and food. Even one dollar on [Ko-fi](https://ko-fi.com/mkpoli) helps me eat today. Companies interested in sponsoring can write to mkpoli@mkpo.li.
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/mkpoli)
+
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) or
