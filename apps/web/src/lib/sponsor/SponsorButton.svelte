@@ -6,7 +6,7 @@
   import IconX from '~icons/lucide/x';
 
   // The mode rail's Sponsor button, led by the author's face, and the dialog it opens: her
-  // portrait, why she needs help, then three steps that end at the Ko-fi button.
+  // portrait, what a tip pays for, then three steps that end at the Ko-fi button.
   let open = $state(false);
   let dialog = $state<HTMLDialogElement>();
 
@@ -76,15 +76,15 @@
         <span class="spark s1">✦</span><span class="spark s2">✦</span><span class="spark s3">✦</span>
       </div>
       <p class="lead">
-        I make Phonia on my own, out of love for speech sounds, and I pay for it myself. I don't have
-        a job, and my small TA pay doesn't cover rent and food. Some days I can barely afford to eat.
+        I build Phonia on my own, with no funding behind it. It's free for everyone, and I'd like to
+        keep it that way.
       </p>
-      <p class="ask">Please help me keep going 🥺 Even one dollar helps me eat today.</p>
+      <p class="ask">If Phonia is useful to you, a tip on Ko-fi gives me time to keep improving it.</p>
       <section class="how">
-        <h3>How to help</h3>
+        <h3>How to tip</h3>
         <ol class="steps" role="list">
           <li>Tap Ko-fi below.</li>
-          <li>Pick any amount. Small is fine.</li>
+          <li>Pick any amount, one-time or monthly.</li>
           <li>Pay with PayPal or a card. No sign-up needed.</li>
         </ol>
       </section>
@@ -96,11 +96,10 @@
       <a class="company" href="mailto:mkpoli@mkpo.li?subject=Sponsorship%20on%20phonia.app">
         <IconMail aria-hidden="true" />
         <span class="copy">
-          <strong>Company sponsorship</strong>
-          <small>I'd love to put your ad on this site. Please write to mkpoli@mkpo.li.</small>
+          <small>Companies can sponsor too, with an ad on this site. Write to mkpoli@mkpo.li.</small>
         </span>
       </a>
-      <p class="thanks">Thank you for reading this far. Your help keeps me fed and keeps Phonia growing&nbsp;💗</p>
+      <p class="thanks">Thank you for using Phonia&nbsp;💗</p>
     </div>
   </dialog>
 {/if}
@@ -480,11 +479,6 @@
     width: 16px;
     height: 16px;
     margin-top: 2px;
-  }
-
-  .company .copy strong {
-    font-size: 0.78rem;
-    color: var(--text);
   }
 
   .thanks {
