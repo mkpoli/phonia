@@ -84,7 +84,7 @@
         <h3>How to tip</h3>
         <ol class="steps" role="list">
           <li>Tap Ko-fi below.</li>
-          <li>Pick any amount, one-time or monthly.</li>
+          <li>Pick any amount.</li>
           <li>Pay with PayPal or a card. No sign-up needed.</li>
         </ol>
       </section>
@@ -96,7 +96,7 @@
       <a class="company" href="mailto:mkpoli@mkpo.li?subject=Sponsorship%20on%20phonia.app">
         <IconMail aria-hidden="true" />
         <span class="copy">
-          <small>Companies can sponsor too, with an ad on this site. Write to mkpoli@mkpo.li.</small>
+          <small>Companies can sponsor too. Write to mkpoli@mkpo.li.</small>
         </span>
       </a>
       <p class="thanks">Thank you for using Phonia&nbsp;💗</p>
