@@ -33,6 +33,10 @@
     'M12 21s-8.5-5.1-8.5-11.3A4.7 4.7 0 0 1 12 6.9a4.7 4.7 0 0 1 8.5 2.8C20.5 15.9 12 21 12 21Z';
 </script>
 
+<svelte:head>
+  <script type="module" src="https://supporters.mkpo.li/roll.js"></script>
+</svelte:head>
+
 <button
   type="button"
   class="sponsor"
@@ -99,6 +103,7 @@
           <small>Companies can sponsor too. Write to mkpoli@mkpo.li.</small>
         </span>
       </a>
+      <supporters-roll label="Recent supporters" anonymous="Someone"></supporters-roll>
       <p class="thanks">Thank you for using Phonia&nbsp;💗</p>
     </div>
   </dialog>
@@ -479,6 +484,11 @@
     width: 16px;
     height: 16px;
     margin-top: 2px;
+  }
+
+  supporters-roll {
+    --sp-text: var(--text);
+    --sp-muted: var(--muted);
   }
 
   .thanks {
