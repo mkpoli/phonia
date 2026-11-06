@@ -1,6 +1,5 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import IconCoffee from '~icons/lucide/coffee';
   import IconArrowRight from '~icons/lucide/arrow-right';
   import IconMail from '~icons/lucide/mail';
   import IconX from '~icons/lucide/x';
@@ -96,20 +95,27 @@
         I build Phonia on my own, with no funding behind it. It's free for everyone, and I'd like to
         keep it that way.
       </p>
-      <p class="ask">If Phonia is useful to you, a tip on Ko-fi gives me time to keep improving it.</p>
+      <p class="ask">If Phonia is useful to you, a tip gives me time to keep improving it.</p>
       <section class="how">
         <h3>How to tip</h3>
         <ol class="steps" role="list">
-          <li>Tap Ko-fi below.</li>
-          <li>Pick any amount.</li>
-          <li>Pay with PayPal or a card. No sign-up needed.</li>
+          <li>Tap either button below.</li>
+          <li>Pick an amount.</li>
+          <li>Pay by card. No sign-up needed.</li>
         </ol>
       </section>
-      <a class="kofi" href="https://ko-fi.com/mkpoli" target="_blank" rel="noreferrer">
-        <span class="mark" aria-hidden="true"><IconCoffee /></span>
-        <span class="copy"><strong>Ko-fi</strong><small>One-time or monthly</small></span>
-        <IconArrowRight class="arrow" aria-hidden="true" />
-      </a>
+      <div class="tips">
+        <a class="tip kofi" href="https://ko-fi.com/mkpoli" target="_blank" rel="noreferrer">
+          <img class="mark" src="{base}/brand/kofi-symbol.svg" alt="" width="38" height="30" />
+          <span class="copy"><strong>Ko-fi</strong><small>One-time or monthly</small></span>
+          <IconArrowRight class="arrow" aria-hidden="true" />
+        </a>
+        <a class="tip ofuse" href="https://ofuse.me/mkpoli" target="_blank" rel="noreferrer">
+          <img class="mark" src="{base}/brand/ofuse-icon.svg" alt="" width="28" height="30" />
+          <span class="copy"><strong>OFUSE</strong><small>Tip with a message</small></span>
+          <IconArrowRight class="arrow" aria-hidden="true" />
+        </a>
+      </div>
       <a class="company" href="mailto:mkpoli@mkpo.li?subject=Sponsorship%20on%20phonia.app">
         <IconMail aria-hidden="true" />
         <span class="copy">
@@ -160,7 +166,7 @@
 
   .sponsor:focus-visible,
   .close:focus-visible,
-  .kofi:focus-visible,
+  .tip:focus-visible,
   .company:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -422,34 +428,50 @@
     transform: translateY(-1px);
   }
 
-  .kofi {
+  .tips {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tip {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1.125rem 0.75rem 0.75rem;
     border-radius: 9999px;
-    background: linear-gradient(135deg, #d81b60, #b0124f);
     color: #fff;
     text-decoration: none;
-    box-shadow: 0 6px 16px rgb(216 27 96 / 0.32);
+    box-shadow: 0 6px 16px var(--tip-glow);
   }
 
-  .mark {
-    display: grid;
+  .kofi {
+    --tip-glow: rgb(32 32 32 / 0.28);
+    --tip-glow-hover: rgb(32 32 32 / 0.38);
+    border: 1px solid #202020;
+    background: #202020;
+  }
+
+  :global(:root.dark) .kofi {
+    border-color: rgb(255 255 255 / 0.2);
+  }
+
+  .ofuse {
+    --tip-glow: rgb(38 125 160 / 0.3);
+    --tip-glow-hover: rgb(38 125 160 / 0.42);
+    border: 1px solid #267da0;
+    background: #267da0;
+  }
+
+  .tip .mark {
+    display: block;
     flex: none;
-    place-items: center;
     width: 2.375rem;
-    height: 2.375rem;
-    border-radius: 50%;
-    background: rgb(255 255 255 / 0.22);
+    height: 1.875rem;
+    object-fit: contain;
   }
 
-  .mark :global(svg) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .kofi :global(.arrow) {
+  .tip :global(.arrow) {
     flex: none;
     width: 18px;
     height: 18px;
@@ -473,7 +495,11 @@
     line-height: 1.4;
   }
 
-  .kofi .copy strong {
+  .tip .copy small {
+    color: #fff;
+  }
+
+  .tip .copy strong {
     font-size: 0.94rem;
   }
 
@@ -550,15 +576,15 @@
       animation: arrive 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
 
-    .kofi {
+    .tip {
       transition:
         transform var(--t-fast),
         box-shadow var(--t-fast);
     }
 
-    .kofi:hover {
+    .tip:hover {
       transform: translateY(-1px);
-      box-shadow: 0 8px 22px rgb(216 27 96 / 0.42);
+      box-shadow: 0 8px 22px var(--tip-glow-hover);
     }
   }
 
