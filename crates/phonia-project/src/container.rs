@@ -10,7 +10,7 @@ use std::fmt;
 use std::io::{Cursor, Read, Write};
 use zip::result::ZipError;
 use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, ZipArchive, ZipWriter};
+use zip::{CompressionMethod, System, ZipArchive, ZipWriter};
 
 /// Format tag written into every manifest.
 pub const FORMAT_TAG: &str = "phonix-project";
@@ -90,7 +90,11 @@ pub fn save_bundle(project: &Project, media: &[(MediaId, Vec<u8>)]) -> Vec<u8> {
 
 fn save_inner(project: &Project, media: &[(MediaId, Vec<u8>)]) -> Result<Vec<u8>, ZipError> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
-    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    // The writer would otherwise record DOS on Windows and Unix elsewhere, and the
+    // same project must serialize to the same bytes on every platform.
+    let options = SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .system(System::Unix);
 
     let manifest = Manifest {
         format: FORMAT_TAG.to_string(),

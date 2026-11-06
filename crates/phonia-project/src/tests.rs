@@ -421,6 +421,16 @@ fn bundle_embeds_media_and_container_still_loads() {
 }
 
 #[test]
+fn entries_record_the_same_system_on_every_platform() {
+    let bytes = save(&sample_project_v2());
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("zip reads");
+    for i in 0..archive.len() {
+        let file = archive.by_index(i).expect("entry reads");
+        assert_eq!(file.system(), zip::System::Unix);
+    }
+}
+
+#[test]
 fn references_only_container_embeds_nothing() {
     let project = sample_project_v2();
     // save and save_bundle with no media produce byte-identical references-only
