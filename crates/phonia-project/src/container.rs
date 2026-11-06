@@ -10,7 +10,7 @@ use std::fmt;
 use std::io::{Cursor, Read, Write};
 use zip::result::ZipError;
 use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, ZipArchive, ZipWriter};
+use zip::{CompressionMethod, System, ZipArchive, ZipWriter};
 
 /// Format tag written into every manifest.
 pub const FORMAT_TAG: &str = "phonix-project";
@@ -90,7 +90,11 @@ pub fn save_bundle(project: &Project, media: &[(MediaId, Vec<u8>)]) -> Vec<u8> {
 
 fn save_inner(project: &Project, media: &[(MediaId, Vec<u8>)]) -> Result<Vec<u8>, ZipError> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
-    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    // The writer would otherwise record DOS on Windows and Unix elsewhere, and the
+    // same project must serialize to the same bytes on every platform.
+    let options = SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .system(System::Unix);
 
     let manifest = Manifest {
         format: FORMAT_TAG.to_string(),
@@ -195,8 +199,7 @@ pub fn load_embedded_media(bytes: &[u8]) -> Result<Vec<(MediaId, Vec<u8>)>, Proj
     let mut media = Vec::new();
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(ProjectError::from_zip)?;
-        let name = file.name().to_string();
-        let Some(id) = parse_media_entry(&name) else {
+        let Some(id) = file.name().ok().and_then(|name| parse_media_entry(&name)) else {
             continue;
         };
         let mut buf = Vec::with_capacity(file.size() as usize);

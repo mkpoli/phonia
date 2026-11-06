@@ -107,8 +107,10 @@ fn rewrite_entry(bytes: &[u8], entry: &str, contents: &str) -> Vec<u8> {
     let options = zip::write::SimpleFileOptions::default();
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).expect("entry reads");
-        out.start_file(file.name(), options).expect("entry writes");
-        if file.name() == entry {
+        let name = file.name().expect("entry name").into_owned();
+        out.start_file(name.as_str(), options)
+            .expect("entry writes");
+        if name == entry {
             out.write_all(contents.as_bytes()).expect("entry writes");
         } else {
             let mut buf = Vec::new();
@@ -416,6 +418,16 @@ fn bundle_embeds_media_and_container_still_loads() {
         embedded,
         vec![(MediaId::new(1), wav0), (MediaId::new(2), wav1)]
     );
+}
+
+#[test]
+fn entries_record_the_same_system_on_every_platform() {
+    let bytes = save(&sample_project_v2());
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("zip reads");
+    for i in 0..archive.len() {
+        let file = archive.by_index(i).expect("entry reads");
+        assert_eq!(file.system(), zip::System::Unix);
+    }
 }
 
 #[test]
