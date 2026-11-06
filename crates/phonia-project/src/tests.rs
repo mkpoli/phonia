@@ -107,8 +107,10 @@ fn rewrite_entry(bytes: &[u8], entry: &str, contents: &str) -> Vec<u8> {
     let options = zip::write::SimpleFileOptions::default();
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).expect("entry reads");
-        out.start_file(file.name(), options).expect("entry writes");
-        if file.name() == entry {
+        let name = file.name().expect("entry name").into_owned();
+        out.start_file(name.as_str(), options)
+            .expect("entry writes");
+        if name == entry {
             out.write_all(contents.as_bytes()).expect("entry writes");
         } else {
             let mut buf = Vec::new();

@@ -195,8 +195,7 @@ pub fn load_embedded_media(bytes: &[u8]) -> Result<Vec<(MediaId, Vec<u8>)>, Proj
     let mut media = Vec::new();
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(ProjectError::from_zip)?;
-        let name = file.name().to_string();
-        let Some(id) = parse_media_entry(&name) else {
+        let Some(id) = file.name().ok().and_then(|name| parse_media_entry(&name)) else {
             continue;
         };
         let mut buf = Vec::with_capacity(file.size() as usize);
