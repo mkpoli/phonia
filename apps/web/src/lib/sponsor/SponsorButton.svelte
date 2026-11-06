@@ -20,13 +20,25 @@
     return { destroy: () => node.remove() };
   }
 
-  // A click on the backdrop closes the dialog; one on its own scrollbar also targets the dialog,
-  // so only a click outside its box counts.
-  function outside(event: MouseEvent) {
-    if (!dialog || event.target !== dialog) return;
+  // The backdrop closes the dialog only when the press and the release both land outside its box,
+  // so a text selection dragged out of the box stays open.
+  let pressedOutside = false;
+
+  function isOutside(event: MouseEvent) {
+    if (!dialog || event.target !== dialog) return false;
     const box = dialog.getBoundingClientRect();
     const { clientX: x, clientY: y } = event;
-    if (x < box.left || x > box.right || y < box.top || y > box.bottom) dialog.close();
+    return x < box.left || x > box.right || y < box.top || y > box.bottom;
+  }
+
+  function press(event: MouseEvent) {
+    pressedOutside = isOutside(event);
+  }
+
+  function release(event: MouseEvent) {
+    const closing = pressedOutside && isOutside(event);
+    pressedOutside = false;
+    if (closing) dialog?.close();
   }
 
   const heart =
@@ -53,14 +65,15 @@
 </button>
 
 {#if open}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <dialog
     class="sponsor-dialog"
     bind:this={dialog}
     use:portal
     aria-labelledby="sponsor-title"
     onclose={() => (open = false)}
-    onclick={outside}
+    onmousedown={press}
+    onmouseup={release}
   >
     <header>
       <h2 id="sponsor-title">Sponsor</h2>
